@@ -196,7 +196,7 @@ import ShopPanel from '@/components/ShopPanel.vue'
 import ShopManageDialog from '@/components/ShopManageDialog.vue'
 import StartLivingDialog from '@/components/StartLivingDialog.vue'
 import RedPacketRain from '@/components/RedPacketRain.vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const route = useRoute()
 const router = useRouter()
@@ -526,6 +526,19 @@ function handleIMMessage(msg) {
         giftAnimRef.value?.play(data)
         if (Number(data.senderId) === Number(userStore.userInfo.userId)) {
           userStore.refreshBalance()
+        }
+      } else if (bizCode === 5557) {
+        // 送礼失败（余额不足等，后端MQ消费者异步扣费失败后单独推送）
+        const data = JSON.parse(body.data)
+        const failMsg = data.msg || '送礼失败'
+        if (/余额不足/.test(failMsg)) {
+          ElMessageBox.confirm('金币余额不足，无法送出礼物，是否前往充值？', '余额不足', {
+            confirmButtonText: '去充值',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }).then(() => router.push('/wallet')).catch(() => {})
+        } else {
+          ElMessage.error(failMsg)
         }
       } else if (bizCode === 5558) {
         // PK礼物
