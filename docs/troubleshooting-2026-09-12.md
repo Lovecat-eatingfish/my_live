@@ -112,3 +112,11 @@
 ## 10. 双浏览器标签页测试的 localStorage 串号
 
 同一浏览器多个标签页共享 localStorage：观众 tab 登录会覆盖主播 tab 的 token。主播 tab 后续任何 `fetchUserInfo`（路由跳转/刷新）都会静默变成观众身份，表现为"按钮消失""操作无反应"。测试多角色时要么用两个浏览器（普通+无痕），要么每步操作前重新核对页面身份。
+
+## 11. 容器化覆盖 Nacos 地址：环境变量不生效，必须用启动参数
+
+jar 内 `bootstrap.yaml` 里的 `spring.cloud.nacos.discovery.server-addr` 等配置，会在启动时以 bootstrap 属性源插入环境**头部**，优先级高于 OS 环境变量——所以 `SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR=...` 传进容器后仍连 127.0.0.1。application.yml 里的数据源/Redis/RocketMQ 键没有这个问题，环境变量覆盖有效。
+
+解法：`docker/app.Dockerfile` 的 ENTRYPOINT 支持 `EXTRA_ARGS`，以 Spring 启动参数方式（优先级最高）覆盖 nacos config/discovery 与 dubbo.registry.address，见 `docker-compose-full.yml`。
+
+另一个坑：容器里没有 Nacos 鉴权用户时，config 客户端会报 `403 user not found!`（dataId 不存在导致），与宿主机启动日志一致，属良性告警，不影响启动。

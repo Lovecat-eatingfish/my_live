@@ -1,0 +1,499 @@
+# 旗鱼直播 - 全量容器化一键启动（中间件 + 全部 Java 服务 + 前端）
+#
+# 与 docker-compose.yml（仅中间件）的关系：
+#   - 本机 Windows 开发：继续用 docker-compose.yml + 原生 srs.exe + 本机跑 Java jar
+#     （Docker Desktop UDP 转发丢包，WebRTC 推拉流在容器里不可用，见 troubleshooting §7）
+#   - Linux 服务器/演示环境：用本文件全量容器化
+#       mvn clean package -DskipTests          # 先出全量 jar
+#       bash scripts/build-images.sh dev       # 构建全部服务镜像
+#       cd web_live && npm i && npm run build && docker build -t qiyu-live/web-front:dev .  # 前端镜像
+#       docker compose -f docker-compose-full.yml up -d
+#   - 访问入口: 前端 http://<host>/ （nginx 已代理 /api → 网关、/minio → MinIO、/rtc → SRS）
+#
+# 说明：
+#   - 服务间地址全部用 compose 服务名覆盖（SPRING_DATASOURCE_URL / DUBBO_REGISTRY_ADDRESS 等
+#     环境变量优先级高于 jar 内配置文件，无需改代码）
+#   - provider 的 Dubbo 端口不映射到宿主机：调用方都走容器网络内部直连
+#   - Java 服务 restart: unless-stopped：下游未就绪时自检失败自动重启，直至全链路拉起
+# 你这份 `docker-compose-full.yml` **没有显式写 `networks`，但 docker-compose 会自动创建默认网络！**
+#> Compose 默认行为：只要你不手动定义 networks，启动时自动新建一个 `项目名_default` bridge 网络，**所有 service 默认加入这个网络**。
+#> 所以容器之间可以直接用服务名互相访问（`mysql`、`nacos`、`redis` 这种域名，就是靠这个 compose 内置网络实现），**不需要额外配置**。
+
+services:
+  # ===================== 中间件（与 docker-compose.yml 一致） =====================
+  mysql:
+    image: hotelinking/mysql8.0:latest
+    container_name: qiyu-full-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: "123456"
+      TZ: Asia/Shanghai
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./docker-data/full-mysql:/var/lib/mysql
+      - ./sql:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p123456"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:latest
+    container_name: qiyu-full-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./docker-data/full-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  nacos:
+    image: nacos/nacos-server:v2.2.1
+    container_name: qiyu-full-nacos
+    restart: unless-stopped
+    environment:
+      MODE: standalone
+      NACOS_AUTH_ENABLE: "true"
+      NACOS_AUTH_TOKEN: "SecretKey012345678901234567890123456789012345678901234567890123456789"
+      NACOS_AUTH_IDENTITY_KEY: "qiyu"
+      NACOS_AUTH_IDENTITY_VALUE: "qiyu"
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+    volumes:
+      - ./docker-data/full-nacos:/home/nacos/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8848/nacos/ -o /dev/null || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  rmqnamesrv:
+    image: apache/rocketmq:5.3.2
+    container_name: qiyu-full-rmqnamesrv
+    restart: unless-stopped
+    ports:
+      - "9876:9876"
+    command: sh mqnamesrv
+
+  rmqbroker:
+    image: apache/rocketmq:5.3.2
+    container_name: qiyu-full-rmqbroker
+    restart: unless-stopped
+    depends_on:
+      - rmqnamesrv
+    ports:
+      - "10911:10911"
+      - "10909:10909"
+      - "10912:10912"
+    environment:
+      NAMESRV_ADDR: "rmqnamesrv:9876"
+    volumes:
+      - ./docker/broker.conf:/home/rocketmq/rocketmq-5.3.2/conf/broker.conf
+    command: sh mqbroker -n rmqnamesrv:9876 -c /home/rocketmq/rocketmq-5.3.2/conf/broker.conf
+
+  # ⚠️ Windows 宿主机调试 WebRTC 请继续用原生 srs.exe（见 docker/srs-native.conf）
+  srs:
+    image: ossrs/srs:5
+    container_name: qiyu-full-srs
+    restart: unless-stopped
+    ports:
+      - "1935:1935"
+      - "1985:1985"
+      - "8080:8080"
+      - "8000:8000/tcp"
+      - "8000:8000/udp"
+    environment:
+      CANDIDATE: "127.0.0.1"   # 部署到服务器时改为公网/局域网 IP
+    volumes:
+      - ./docker-data/full-srs:/data
+      - ./docker:/usr/local/srs/conf-qiyu:ro
+    command: objs/srs -c conf-qiyu/srs.conf
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    container_name: qiyu-full-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "39000:9000"
+      - "39001:9001"
+    volumes:
+      - ./docker-data/full-minio:/data
+    command: server /data --console-address ":9001"
+
+  # ===================== 基础层 provider（无 DB 依赖校验） =====================
+  id-generate-provider:
+    image: qiyu-live/qiyu-live-id-generate-provider:dev
+    container_name: qiyu-id-generate-provider
+    restart: unless-stopped
+    depends_on:
+      nacos:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Shanghai
+      EXTRA_ARGS: >-
+        --spring.cloud.nacos.config.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.namespace=ef63e53e-94c8-4b1c-865e-6824177b2893
+        --spring.cloud.nacos.discovery.username=nacos
+        --spring.cloud.nacos.discovery.password=nacos
+        --dubbo.registry.address=nacos://nacos:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=nacos&&password=nacos
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/qiyu_live_common?useUnicode=true&characterEncoding=utf8"
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: "123456"
+
+  im-provider:
+    image: qiyu-live/qiyu-live-im-provider:dev
+    container_name: qiyu-im-provider
+    restart: unless-stopped
+    depends_on:
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Shanghai
+      EXTRA_ARGS: >-
+        --spring.cloud.nacos.config.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.namespace=ef63e53e-94c8-4b1c-865e-6824177b2893
+        --spring.cloud.nacos.discovery.username=nacos
+        --spring.cloud.nacos.discovery.password=nacos
+        --dubbo.registry.address=nacos://nacos:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=nacos&&password=nacos
+      SPRING_DATA_REDIS_HOST: redis
+
+  account-provider:
+    image: qiyu-live/qiyu-live-account-provider:dev
+    container_name: qiyu-account-provider
+    restart: unless-stopped
+    depends_on:
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Shanghai
+      EXTRA_ARGS: >-
+        --spring.cloud.nacos.config.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.namespace=ef63e53e-94c8-4b1c-865e-6824177b2893
+        --spring.cloud.nacos.discovery.username=nacos
+        --spring.cloud.nacos.discovery.password=nacos
+        --dubbo.registry.address=nacos://nacos:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=nacos&&password=nacos
+      SPRING_DATA_REDIS_HOST: redis
+
+  im-router-provider:
+    image: qiyu-live/qiyu-live-im-router-provider:dev
+    container_name: qiyu-im-router-provider
+    restart: unless-stopped
+    depends_on:
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Shanghai
+      EXTRA_ARGS: >-
+        --spring.cloud.nacos.config.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.namespace=ef63e53e-94c8-4b1c-865e-6824177b2893
+        --spring.cloud.nacos.discovery.username=nacos
+        --spring.cloud.nacos.discovery.password=nacos
+        --dubbo.registry.address=nacos://nacos:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=nacos&&password=nacos
+      SPRING_DATA_REDIS_HOST: redis
+      QIYU_RMQ_CONSUMER_NAMESRV: rmqnamesrv:9876
+      QIYU_RMQ_PRODUCER_NAMESRV: rmqnamesrv:9876
+
+  # ===================== 业务 provider =====================
+  user-provider:
+    image: qiyu-live/qiyu-live-user-provider:dev
+    container_name: qiyu-user-provider
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Shanghai
+      EXTRA_ARGS: >-
+        --spring.cloud.nacos.config.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.namespace=ef63e53e-94c8-4b1c-865e-6824177b2893
+        --spring.cloud.nacos.discovery.username=nacos
+        --spring.cloud.nacos.discovery.password=nacos
+        --dubbo.registry.address=nacos://nacos:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=nacos&&password=nacos
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/qiyu_live_user?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false"
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: "123456"
+      SPRING_DATA_REDIS_HOST: redis
+      QIYU_RMQ_CONSUMER_NAMESRV: rmqnamesrv:9876
+      QIYU_RMQ_PRODUCER_NAMESRV: rmqnamesrv:9876
+
+  bank-provider:
+    image: qiyu-live/qiyu-live-bank-provider:dev
+    container_name: qiyu-bank-provider
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Shanghai
+      EXTRA_ARGS: >-
+        --spring.cloud.nacos.config.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.namespace=ef63e53e-94c8-4b1c-865e-6824177b2893
+        --spring.cloud.nacos.discovery.username=nacos
+        --spring.cloud.nacos.discovery.password=nacos
+        --dubbo.registry.address=nacos://nacos:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=nacos&&password=nacos
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/qiyu_live_bank?useUnicode=true&characterEncoding=utf8"
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: "123456"
+      SPRING_DATA_REDIS_HOST: redis
+      QIYU_RMQ_CONSUMER_NAMESRV: rmqnamesrv:9876
+      QIYU_RMQ_PRODUCER_NAMESRV: rmqnamesrv:9876
+
+  living-provider:
+    image: qiyu-live/qiyu-live-living-provider:dev
+    container_name: qiyu-living-provider
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Shanghai
+      EXTRA_ARGS: >-
+        --spring.cloud.nacos.config.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.namespace=ef63e53e-94c8-4b1c-865e-6824177b2893
+        --spring.cloud.nacos.discovery.username=nacos
+        --spring.cloud.nacos.discovery.password=nacos
+        --dubbo.registry.address=nacos://nacos:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=nacos&&password=nacos
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/qiyu_live_living?useUnicode=true&characterEncoding=utf8"
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: "123456"
+      SPRING_DATA_REDIS_HOST: redis
+      QIYU_RMQ_CONSUMER_NAMESRV: rmqnamesrv:9876
+      QIYU_RMQ_PRODUCER_NAMESRV: rmqnamesrv:9876
+
+  msg-provider:
+    image: qiyu-live/qiyu-live-msg-provider:dev
+    container_name: qiyu-msg-provider
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Shanghai
+      EXTRA_ARGS: >-
+        --spring.cloud.nacos.config.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.namespace=ef63e53e-94c8-4b1c-865e-6824177b2893
+        --spring.cloud.nacos.discovery.username=nacos
+        --spring.cloud.nacos.discovery.password=nacos
+        --dubbo.registry.address=nacos://nacos:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=nacos&&password=nacos
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/qiyu-live-msg?useUnicode=true&characterEncoding=utf8"
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: "123456"
+      SPRING_DATA_REDIS_HOST: redis
+      QIYU_RMQ_CONSUMER_NAMESRV: rmqnamesrv:9876
+      QIYU_RMQ_PRODUCER_NAMESRV: rmqnamesrv:9876
+
+  im-core-server:
+    image: qiyu-live/qiyu-live-im-core-server:dev
+    container_name: qiyu-im-core-server
+    restart: unless-stopped
+    depends_on:
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "38085:38085"   # IM TCP
+      - "38086:38086"   # IM WebSocket（浏览器弹幕/礼物/红包通道）
+    environment:
+      TZ: Asia/Shanghai
+      EXTRA_ARGS: >-
+        --spring.cloud.nacos.config.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.namespace=ef63e53e-94c8-4b1c-865e-6824177b2893
+        --spring.cloud.nacos.discovery.username=nacos
+        --spring.cloud.nacos.discovery.password=nacos
+        --dubbo.registry.address=nacos://nacos:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=nacos&&password=nacos
+      SPRING_DATA_REDIS_HOST: redis
+      QIYU_RMQ_CONSUMER_NAMESRV: rmqnamesrv:9876
+      QIYU_RMQ_PRODUCER_NAMESRV: rmqnamesrv:9876
+
+  stream-provider:
+    image: qiyu-live/qiyu-live-stream-provider:dev
+    container_name: qiyu-stream-provider
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Shanghai
+      EXTRA_ARGS: >-
+        --spring.cloud.nacos.config.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.namespace=ef63e53e-94c8-4b1c-865e-6824177b2893
+        --spring.cloud.nacos.discovery.username=nacos
+        --spring.cloud.nacos.discovery.password=nacos
+        --dubbo.registry.address=nacos://nacos:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=nacos&&password=nacos
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/qiyu_live_living?useUnicode=true&characterEncoding=utf8"
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: "123456"
+      SPRING_DATA_REDIS_HOST: redis
+      QIYU_STREAM_SRS_ADDR: srs     # srs HTTP API 地址（键名见模块 application.yml，如有出入按其配置项覆盖）
+
+  gift-provider:
+    image: qiyu-live/qiyu-live-gift-provider:dev
+    container_name: qiyu-gift-provider
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Shanghai
+      EXTRA_ARGS: >-
+        --spring.cloud.nacos.config.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.namespace=ef63e53e-94c8-4b1c-865e-6824177b2893
+        --spring.cloud.nacos.discovery.username=nacos
+        --spring.cloud.nacos.discovery.password=nacos
+        --dubbo.registry.address=nacos://nacos:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=nacos&&password=nacos
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/qiyu_live_gift?useUnicode=true&characterEncoding=utf8"
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: "123456"
+      SPRING_DATA_REDIS_HOST: redis
+      QIYU_RMQ_CONSUMER_NAMESRV: rmqnamesrv:9876
+      QIYU_RMQ_PRODUCER_NAMESRV: rmqnamesrv:9876
+
+  video-provider:
+    image: qiyu-live/qiyu-live-video-provider:dev
+    container_name: qiyu-video-provider
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Shanghai
+      EXTRA_ARGS: >-
+        --spring.cloud.nacos.config.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.namespace=ef63e53e-94c8-4b1c-865e-6824177b2893
+        --spring.cloud.nacos.discovery.username=nacos
+        --spring.cloud.nacos.discovery.password=nacos
+        --dubbo.registry.address=nacos://nacos:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=nacos&&password=nacos
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/qiyu_live_video?useUnicode=true&characterEncoding=utf8"
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: "123456"
+      SPRING_DATA_REDIS_HOST: redis
+
+  # ===================== Web 入口层 =====================
+  bank-api:
+    image: qiyu-live/qiyu-live-bank-api:dev
+    container_name: qiyu-bank-api
+    restart: unless-stopped
+    depends_on:
+      nacos:
+        condition: service_healthy
+    ports:
+      - "38201:38201"   # 模拟支付回调入口（第三方服务角色）
+    environment:
+      TZ: Asia/Shanghai
+      EXTRA_ARGS: >-
+        --spring.cloud.nacos.config.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.namespace=ef63e53e-94c8-4b1c-865e-6824177b2893
+        --spring.cloud.nacos.discovery.username=nacos
+        --spring.cloud.nacos.discovery.password=nacos
+        --dubbo.registry.address=nacos://nacos:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=nacos&&password=nacos
+
+  api:
+    image: qiyu-live/qiyu-live-api:dev
+    container_name: qiyu-api
+    restart: unless-stopped
+    depends_on:
+      nacos:
+        condition: service_healthy
+    ports:
+      - "38100:38100"
+    environment:
+      TZ: Asia/Shanghai
+      EXTRA_ARGS: >-
+        --spring.cloud.nacos.config.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.namespace=ef63e53e-94c8-4b1c-865e-6824177b2893
+        --spring.cloud.nacos.discovery.username=nacos
+        --spring.cloud.nacos.discovery.password=nacos
+        --dubbo.registry.address=nacos://nacos:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=nacos&&password=nacos
+      SPRING_DATA_REDIS_HOST: redis
+      QIYU_RMQ_PRODUCER_NAMESRV: rmqnamesrv:9876
+      QIYU_MINIO_ENDPOINT: "http://minio:9000"
+      QIYU_MINIO_PUBLICENDPOINT: "http://localhost/minio"   # 浏览器侧经前端 nginx 代理访问
+
+  gateway:
+    image: qiyu-live/qiyu-live-gateway:dev
+    container_name: qiyu-gateway
+    restart: unless-stopped
+    depends_on:
+      nacos:
+        condition: service_healthy
+    ports:
+      - "38080:38080"
+    environment:
+      TZ: Asia/Shanghai
+      EXTRA_ARGS: >-
+        --spring.cloud.nacos.config.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.server-addr=nacos:8848
+        --spring.cloud.nacos.discovery.namespace=ef63e53e-94c8-4b1c-865e-6824177b2893
+        --spring.cloud.nacos.discovery.username=nacos
+        --spring.cloud.nacos.discovery.password=nacos
+        --dubbo.registry.address=nacos://nacos:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=nacos&&password=nacos
+
+  # ===================== 前端（nginx SPA + 反向代理） =====================
+  web-front:
+    image: qiyu-live/web-front:dev
+    container_name: qiyu-web-front
+    restart: unless-stopped
+    depends_on:
+      - gateway
+    ports:
+      - "80:80"   # 浏览器访问入口 http://localhost/
