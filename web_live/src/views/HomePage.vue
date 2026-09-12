@@ -4,6 +4,8 @@
     <header class="nav-bar">
       <div class="nav-left">
         <span class="logo">🎬 旗鱼直播</span>
+        <span :class="['nav-tab', { active: $route.path === '/' }]" @click="$router.push('/')">直播</span>
+        <span :class="['nav-tab', { active: $route.path.startsWith('/video') }]" @click="$router.push('/video')">视频</span>
       </div>
       <div class="nav-right">
         <template v-if="userStore.userInfo.loginStatus">
@@ -125,6 +127,12 @@ onMounted(async () => {
   padding: 16px 32px; background: #161625; border-bottom: 1px solid #222;
 }
 .logo { font-size: 20px; font-weight: bold; color: #667eea; }
+.nav-tab {
+  font-size: 15px; color: #888; cursor: pointer; padding: 4px 6px;
+  border-radius: 6px; transition: color 0.2s;
+}
+.nav-tab:hover { color: #ddd; }
+.nav-tab.active { color: #fff; font-weight: bold; }
 .nav-right { display: flex; align-items: center; gap: 12px; }
 .avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
 .nickname { color: #ddd; font-size: 14px; }

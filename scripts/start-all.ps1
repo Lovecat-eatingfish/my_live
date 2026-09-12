@@ -54,6 +54,7 @@ $Waves = @(
   @{ Name="Wave2 IM router";            Mods=@("qiyu-live-im-router-provider") },
   @{ Name="Wave3 living room";          Mods=@("qiyu-live-living-provider") },
   @{ Name="Wave4 msg / gift";           Mods=@("qiyu-live-msg-provider","qiyu-live-gift-provider") },
+  @{ Name="Wave4b video";               Mods=@("qiyu-live-video-provider") },
   @{ Name="Wave5 main API";             Mods=@("qiyu-live-api") }
 )
 $AllModules = $Waves.ForEach{ $_.Mods }

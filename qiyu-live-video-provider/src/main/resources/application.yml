@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: qiyu-live-video-provider
+  datasource:
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 50
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://127.0.0.1:3306/qiyu_live_video?useUnicode=true&characterEncoding=utf8
+    username: root
+    password: 123456
+  main:
+    web-application-type: none
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+
+mybatis-plus:
+  mapper-locations: classpath*:mapper/*.xml
+  global-config:
+    db-config:
+      id-type: auto
+
+dubbo:
+  application:
+    name: ${spring.application.name}
+  registry:
+    address: nacos://127.0.0.1:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=nacos&&password=nacos
+  protocol:
+    name: dubbo
+    port: 30021
+    threads: 200
+  consumer:
+    check: false

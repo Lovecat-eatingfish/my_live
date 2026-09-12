@@ -90,6 +90,23 @@
             <artifactId>qiyu-live-stream-interface</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.idea</groupId>
+            <artifactId>qiyu-live-video-interface</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <!-- 视频文件直传 MinIO（文件大，不走 Dubbo byte[]，api 内置 MinIO 客户端） -->
+        <dependency>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
+            <version>8.5.10</version>
+        </dependency>
         <dependency>
             <groupId>org.idea</groupId>
             <artifactId>qiyu-live-im-interface</artifactId>

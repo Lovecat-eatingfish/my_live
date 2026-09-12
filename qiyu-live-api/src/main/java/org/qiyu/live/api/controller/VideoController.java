@@ -1,0 +1,103 @@
+package org.qiyu.live.api.controller;
+
+import jakarta.annotation.Resource;
+import org.qiyu.live.api.service.IVideoApiService;
+import org.qiyu.live.api.vo.req.VideoPublishReqVO;
+import org.qiyu.live.api.vo.resp.VideoCommentRespVO;
+import org.qiyu.live.api.vo.resp.VideoDetailRespVO;
+import org.qiyu.live.api.vo.resp.VideoItemRespVO;
+import org.qiyu.live.api.vo.resp.VideoTagRespVO;
+import org.qiyu.live.common.interfaces.vo.WebResponseVO;
+import org.qiyu.live.web.starter.context.QiyuRequestContext;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
+
+/**
+ * 视频模块控制器
+ */
+@RestController
+@RequestMapping("/video")
+public class VideoController {
+
+    @Resource
+    private IVideoApiService videoApiService;
+
+    /** 上传视频文件（MP4/WebM/MOV，≤300MB），返回播放 URL */
+    @PostMapping("/uploadVideo")
+    public WebResponseVO uploadVideo(@RequestParam("file") MultipartFile file) {
+        return WebResponseVO.success(videoApiService.uploadVideo(file, QiyuRequestContext.getUserId()));
+    }
+
+    /** 发布视频（元数据落库） */
+    @PostMapping("/publish")
+    public WebResponseVO publish(@RequestBody VideoPublishReqVO reqVO) {
+        Long videoId = videoApiService.publish(reqVO, QiyuRequestContext.getUserId());
+        return WebResponseVO.success(videoId);
+    }
+
+    /** 视频流列表（tagId=0 全部） */
+    @PostMapping("/list")
+    public WebResponseVO list(Integer tagId, Integer page, Integer pageSize) {
+        int p = page == null || page < 1 ? 1 : page;
+        int ps = pageSize == null || pageSize < 1 ? 20 : pageSize;
+        return WebResponseVO.success(videoApiService.listVideos(tagId == null ? 0 : tagId, p, ps));
+    }
+
+    /** 视频详情（播放量+1） */
+    @PostMapping("/detail")
+    public WebResponseVO detail(Long id) {
+        return WebResponseVO.success(videoApiService.detail(id));
+    }
+
+    /** 点赞 / 取消点赞 */
+    @PostMapping("/like")
+    public WebResponseVO like(Long id, Boolean isLike) {
+        return WebResponseVO.success(videoApiService.like(id, isLike == null || isLike));
+    }
+
+    /** 收藏 / 取消收藏 */
+    @PostMapping("/favorite")
+    public WebResponseVO favorite(Long id, Boolean isFavorite) {
+        return WebResponseVO.success(videoApiService.favorite(id, isFavorite == null || isFavorite));
+    }
+
+    /** 分享计数 */
+    @PostMapping("/share")
+    public WebResponseVO share(Long id) {
+        videoApiService.share(id);
+        return WebResponseVO.success();
+    }
+
+    /** 标签列表 */
+    @PostMapping("/tags")
+    public WebResponseVO tags() {
+        return WebResponseVO.success(videoApiService.listTags());
+    }
+
+    /** 评论分页 */
+    @PostMapping("/comment/list")
+    public WebResponseVO listComments(Long id, Integer page, Integer pageSize) {
+        int p = page == null || page < 1 ? 1 : page;
+        int ps = pageSize == null || pageSize < 1 ? 20 : pageSize;
+        List<VideoCommentRespVO> list = videoApiService.listComments(id, p, ps);
+        return WebResponseVO.success(list);
+    }
+
+    /** 发表评论 */
+    @PostMapping("/comment/add")
+    public WebResponseVO addComment(Long id, String content) {
+        return WebResponseVO.success(videoApiService.addComment(id, content));
+    }
+
+    /** 删除本人评论 */
+    @PostMapping("/comment/delete")
+    public WebResponseVO deleteComment(Long commentId) {
+        return WebResponseVO.success(videoApiService.deleteComment(commentId));
+    }
+}

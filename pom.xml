@@ -37,6 +37,8 @@
         <module>qiyu-live-bank-api</module>
         <module>qiyu-live-stream-interface</module>
         <module>qiyu-live-stream-provider</module>
+        <module>qiyu-live-video-interface</module>
+        <module>qiyu-live-video-provider</module>
     </modules>
 
     <properties>

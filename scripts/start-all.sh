@@ -34,6 +34,7 @@ WAVE1=(qiyu-live-user-provider qiyu-live-im-core-server qiyu-live-gateway qiyu-l
 WAVE2=(qiyu-live-im-router-provider)
 WAVE3=(qiyu-live-living-provider)
 WAVE4=(qiyu-live-msg-provider qiyu-live-gift-provider)
+WAVE4B=(qiyu-live-video-provider)
 WAVE5=(qiyu-live-api)
 ALL_MODULES=("${WAVE0[@]}" "${WAVE1[@]}" "${WAVE2[@]}" "${WAVE3[@]}" "${WAVE4[@]}" "${WAVE5[@]}")
 
@@ -103,6 +104,7 @@ start_all() {
   start_wave "Wave2 IM路由"            "${WAVE2[@]}"
   start_wave "Wave3 直播间"            "${WAVE3[@]}"
   start_wave "Wave4 消息/礼物"         "${WAVE4[@]}"
+  start_wave "Wave4b 视频"             "${WAVE4B[@]}"
   start_wave "Wave5 主API入口"         "${WAVE5[@]}"
   echo "✅ 全部启动指令已发出。"
   echo "   查看状态: bash scripts/start-all.sh status"
