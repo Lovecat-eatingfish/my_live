@@ -8,4 +8,12 @@
     </parent>
     <artifactId>qiyu-live-bank-interface</artifactId>
     <description>钱包体系相关interface</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.idea</groupId>
+            <artifactId>qiyu-live-common-interface</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
 </project>

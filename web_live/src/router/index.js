@@ -7,6 +7,7 @@ const routes = [
   { path: '/wallet', name: 'Wallet', component: () => import('@/views/WalletPage.vue') },
   { path: '/video', name: 'VideoSquare', component: () => import('@/views/VideoSquarePage.vue') },
   { path: '/video/:id', name: 'VideoDetail', component: () => import('@/views/VideoDetailPage.vue') },
+  { path: '/recon', name: 'Recon', component: () => import('@/views/ReconPage.vue') },
 ]
 
 export default createRouter({

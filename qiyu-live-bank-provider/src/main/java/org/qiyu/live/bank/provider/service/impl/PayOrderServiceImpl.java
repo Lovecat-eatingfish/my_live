@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.util.Date;
 import java.util.UUID;
 
 /**
@@ -122,6 +123,13 @@ public class PayOrderServiceImpl implements IPayOrderService {
      */
     private void payNotifyHandler(PayOrderPO payOrderPO) {
         this.updateOrderStatus(payOrderPO.getOrderId(), OrderStatusEnum.PAYED.getCode());
+        // 回填支付成功时间，供 T+1 对账按日归集
+        PayOrderPO payTimeUpdate = new PayOrderPO();
+        payTimeUpdate.setOrderId(payOrderPO.getOrderId());
+        payTimeUpdate.setPayTime(new Date());
+        LambdaUpdateWrapper<PayOrderPO> payTimeWrapper = new LambdaUpdateWrapper<>();
+        payTimeWrapper.eq(PayOrderPO::getOrderId, payOrderPO.getOrderId());
+        payOrderMapper.update(payTimeUpdate, payTimeWrapper);
         Integer productId = payOrderPO.getProductId();
         PayProductDTO payProductDTO = payProductService.getByProductId(productId);
         if (payProductDTO != null &&

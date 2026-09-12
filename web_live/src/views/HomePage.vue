@@ -16,6 +16,7 @@
           </span>
           <el-button v-if="userStore.userInfo.showStartLivingBtn" size="small" type="success" @click="startVisible = true">开播</el-button>
           <el-button size="small" @click="$router.push('/wallet')">钱包</el-button>
+          <el-button size="small" @click="$router.push('/recon')">对账</el-button>
           <el-button size="small" type="danger" @click="handleLogout">退出</el-button>
         </template>
         <el-button size="small" type="primary" v-else @click="$router.push('/login')">登录</el-button>

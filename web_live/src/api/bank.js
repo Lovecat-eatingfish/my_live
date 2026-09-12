@@ -9,3 +9,9 @@ export const payProduct = (data) => request.post('/bank/payProduct', null, { par
 
 // 当前登录用户金币余额
 export const getBalance = () => request.post('/bank/account/balance')
+
+// 对账差错明细分页查询（bizDate: yyyy-MM-dd，可为空查全部）
+export const reconList = (params) => request.post('/bank/recon/list', null, { params })
+
+// 手动触发对账（不传日期默认核对昨天）
+export const reconTrigger = (bizDate) => request.post('/bank/recon/trigger', null, { params: { bizDate } })

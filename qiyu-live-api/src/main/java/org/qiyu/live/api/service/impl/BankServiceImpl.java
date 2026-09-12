@@ -15,6 +15,9 @@ import org.qiyu.live.bank.dto.PayProductDTO;
 import org.qiyu.live.bank.interfaces.IPayOrderRpc;
 import org.qiyu.live.bank.interfaces.IPayProductRpc;
 import org.qiyu.live.bank.interfaces.IQiyuCurrencyAccountRpc;
+import org.qiyu.live.bank.interfaces.IReconciliationRpc;
+import org.qiyu.live.bank.dto.ReconciliationDetailDTO;
+import org.qiyu.live.common.interfaces.dto.PageWrapper;
 import org.qiyu.live.bank.constants.PaySourceEnum;
 import org.qiyu.live.web.starter.context.QiyuRequestContext;
 import org.qiyu.live.web.starter.error.BizBaseErrorEnum;
@@ -50,6 +53,8 @@ public class BankServiceImpl implements IBankService {
     private IQiyuCurrencyAccountRpc qiyuCurrencyAccountRpc;
     @DubboReference(check = false)
     private IPayOrderRpc payOrderRpc;
+    @DubboReference(check = false)
+    private IReconciliationRpc reconciliationRpc;
     @Resource
     private RestTemplate restTemplate;
 
@@ -113,5 +118,17 @@ public class BankServiceImpl implements IBankService {
             LOGGER.error("[payProduct] mock pay notify failed, orderId={}, url={}", orderId, mockNotifyUrl, e);
         }
         return payProductRespVO;
+    }
+
+    @Override
+    public PageWrapper<ReconciliationDetailDTO> reconList(String bizDate, Integer page, Integer pageSize) {
+        return reconciliationRpc.listDetails(bizDate, page, pageSize);
+    }
+
+    @Override
+    public int reconTrigger(String bizDate) {
+        String targetDate = (bizDate == null || bizDate.isEmpty())
+                ? java.time.LocalDate.now().minusDays(1).toString() : bizDate;
+        return reconciliationRpc.triggerReconcile(targetDate);
     }
 }

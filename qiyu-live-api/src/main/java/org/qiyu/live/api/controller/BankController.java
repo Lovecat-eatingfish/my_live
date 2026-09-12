@@ -48,4 +48,20 @@ public class BankController {
         return WebResponseVO.success(bankService.getBalance());
     }
 
+    /**
+     * 对账差错明细分页查询（bizDate 为空查全部）
+     */
+    @PostMapping("/recon/list")
+    public WebResponseVO reconList(String bizDate, Integer page, Integer pageSize) {
+        return WebResponseVO.success(bankService.reconList(bizDate, page, pageSize));
+    }
+
+    /**
+     * 手动触发对账（不传日期默认核对昨天；定时任务每天凌晨1点半自动核对）
+     */
+    @PostMapping("/recon/trigger")
+    public WebResponseVO reconTrigger(String bizDate) {
+        return WebResponseVO.success(bankService.reconTrigger(bizDate));
+    }
+
 }
