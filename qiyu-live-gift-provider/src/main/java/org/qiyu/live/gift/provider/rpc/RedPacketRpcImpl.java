@@ -39,8 +39,8 @@ public class RedPacketRpcImpl implements IRedPacketRpc {
     }
 
     @Override
-    public void send(Integer id) {
-        redPacketService.send(id);
+    public boolean send(Integer id) {
+        return redPacketService.send(id);
     }
 
     @Override

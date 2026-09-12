@@ -25,10 +25,10 @@ public interface IRedPacketService {
     void prepare(Integer id);
 
     /**
-     * 发送红包雨（主播点击发送，通过MQ+IM推送给直播间用户）
+     * 发送红包雨（主播点击发送，先扣主播金币，余额不足返回false）
      * @param id 红包配置ID
      */
-    void send(Integer id);
+    boolean send(Integer id);
 
     /**
      * 用户领取红包

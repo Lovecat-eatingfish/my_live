@@ -43,5 +43,14 @@ public interface IQiyuCurrencyAccountRpc {
      */
     AccountTradeRespDTO consumeForSendGift(AccountTradeReqDTO accountTradeReqDTO);
 
+    /**
+     * 红包发送扣费（余额不足返回失败，流水类型记为红包支出）
+     */
+    AccountTradeRespDTO consumeForRedPacket(long userId, int num);
+
+    /**
+     * 红包结算退还剩余金额给主播（流水类型记为红包退还）
+     */
+    void incrForRedPacketRefund(long userId, int num);
 
 }

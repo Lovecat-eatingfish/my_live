@@ -121,6 +121,28 @@ public class RedPacketRainConsumer implements InitializingBean {
         });
         receiveConsumer.start();
 
+        // 消费者3：红包结算（发送时投递的延迟1分钟消息），退还未领完金额给主播
+        DefaultMQPushConsumer settleConsumer = new DefaultMQPushConsumer();
+        settleConsumer.setVipChannelEnabled(false);
+        settleConsumer.setNamesrvAddr(rocketMQConsumerProperties.getNameSrv());
+        settleConsumer.setConsumerGroup(rocketMQConsumerProperties.getGroupName() + "_RedPacketSettle");
+        settleConsumer.setConsumeMessageBatchMaxSize(1);
+        settleConsumer.setConsumeFromWhere(ConsumeFromWhere.CONSUME_FROM_FIRST_OFFSET);
+        settleConsumer.subscribe(GiftProviderTopicNames.RED_PACKET_RAIN_SETTLE, "");
+        settleConsumer.setMessageListener((MessageListenerConcurrently) (msgs, context) -> {
+            for (MessageExt msg : msgs) {
+                try {
+                    RedPacketMqDTO mqDTO = JSON.parseObject(new String(msg.getBody()), RedPacketMqDTO.class);
+                    LOGGER.info("[RedPacketRainConsumer] 红包结算触发, redPacketId={}", mqDTO.getRedPacketId());
+                    redPacketService.settle(mqDTO.getRedPacketId());
+                } catch (Exception e) {
+                    LOGGER.error("[RedPacketRainConsumer] 红包结算失败", e);
+                }
+            }
+            return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
+        });
+        settleConsumer.start();
+
         LOGGER.info("[RedPacketRainConsumer] 红包雨MQ消费者启动成功");
     }
 

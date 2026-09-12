@@ -164,7 +164,9 @@ public class GiftServiceImpl implements IGiftService {
     @Override
     public void sendRedPacket(RedPacketReqVO reqVO) {
         ErrorAssert.isNotNull(reqVO.getRedPacketId(), ApiErrorEnum.PARAM_ERROR);
-        redPacketRpc.send(reqVO.getRedPacketId());
+        //发送红包先扣主播金币，余额不足直接报错给前端
+        ErrorAssert.isTure(redPacketRpc.send(reqVO.getRedPacketId()),
+                ApiErrorEnum.RED_PACKET_BALANCE_NOT_ENOUGH);
     }
 
     @Override

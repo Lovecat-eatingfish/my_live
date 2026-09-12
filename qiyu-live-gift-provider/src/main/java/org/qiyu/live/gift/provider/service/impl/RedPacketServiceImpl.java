@@ -6,6 +6,7 @@ import org.apache.dubbo.config.annotation.DubboReference;
 import org.apache.rocketmq.client.producer.MQProducer;
 import org.apache.rocketmq.common.message.Message;
 import org.idea.qiyu.live.framework.redis.starter.key.GiftProviderCacheKeyBuilder;
+import org.qiyu.live.bank.dto.AccountTradeRespDTO;
 import org.qiyu.live.bank.interfaces.IQiyuCurrencyAccountRpc;
 import org.qiyu.live.common.interfaces.dto.RedPacketMqDTO;
 import org.qiyu.live.common.interfaces.topic.GiftProviderTopicNames;
@@ -134,20 +135,29 @@ public class RedPacketServiceImpl implements IRedPacketService {
     }
 
     @Override
-    public void send(Integer id) {
-        // 1. 更新状态为已发送
+    public boolean send(Integer id) {
+        // 1. 查询红包配置
+        RedPacketConfigPO redPacket = redPacketConfigMapper.selectById(id);
+        if (redPacket == null) {
+            return false;
+        }
+
+        // 2. 扣主播金币（余额不足拦截，流水记红包支出；未领完部分结算时退还）
+        AccountTradeRespDTO consumeResp = qiyuCurrencyAccountRpc.consumeForRedPacket(
+                redPacket.getAnchorId(), redPacket.getTotalPrice());
+        if (consumeResp == null || !consumeResp.isSuccess()) {
+            LOGGER.warn("[RedPacketService] 主播余额不足, anchorId={}, totalPrice={}, resp={}",
+                    redPacket.getAnchorId(), redPacket.getTotalPrice(), consumeResp);
+            return false;
+        }
+
+        // 3. 更新状态为已发送
         RedPacketConfigPO po = new RedPacketConfigPO();
         po.setId(id);
         po.setStatus(3); // 已发送
         redPacketConfigMapper.updateById(po);
 
-        // 2. 查询红包配置
-        RedPacketConfigPO redPacket = redPacketConfigMapper.selectById(id);
-        if (redPacket == null) {
-            return;
-        }
-
-        // 3. 发送MQ消息，通知直播间所有用户红包雨开始
+        // 4. 发送MQ消息，通知直播间所有用户红包雨开始
         RedPacketMqDTO mqDTO = new RedPacketMqDTO();
         mqDTO.setRedPacketId(id);
         mqDTO.setAnchorId(redPacket.getAnchorId());
@@ -167,6 +177,22 @@ public class RedPacketServiceImpl implements IRedPacketService {
         } catch (Exception e) {
             LOGGER.error("[RedPacketService] 发送红包雨MQ失败", e);
         }
+
+        // 5. 延迟1分钟自动结算（前端红包雨10秒，留足领取余量），退还未领完金额给主播
+        RedPacketMqDTO settleDTO = new RedPacketMqDTO();
+        settleDTO.setRedPacketId(id);
+        settleDTO.setType(3); // 3-结算检查
+        Message settleMessage = new Message();
+        settleMessage.setTopic(GiftProviderTopicNames.RED_PACKET_RAIN_SETTLE);
+        settleMessage.setBody(JSON.toJSONString(settleDTO).getBytes());
+        settleMessage.setDelayTimeLevel(5); // 1m
+        try {
+            mqProducer.send(settleMessage);
+            LOGGER.info("[RedPacketService] 已投递延迟结算消息, redPacketId={}", id);
+        } catch (Exception e) {
+            LOGGER.error("[RedPacketService] 投递结算消息失败, redPacketId={}", id, e);
+        }
+        return true;
     }
 
     @Override
@@ -232,9 +258,9 @@ public class RedPacketServiceImpl implements IRedPacketService {
 
     @Override
     public void settle(Integer id) {
-        // 1. 查询红包配置
+        // 1. 查询红包配置（仅已发送状态可结算，防MQ重复投递重复退款）
         RedPacketConfigPO po = redPacketConfigMapper.selectById(id);
-        if (po == null) {
+        if (po == null || po.getStatus() != 3) {
             return;
         }
 
@@ -250,8 +276,8 @@ public class RedPacketServiceImpl implements IRedPacketService {
             return; // 金额已全部领取完
         }
 
-        // 4. 返还剩余金额给主播
-        qiyuCurrencyAccountRpc.incr(po.getAnchorId(), remainingPrice);
+        // 4. 返还剩余金额给主播（流水记红包退还）
+        qiyuCurrencyAccountRpc.incrForRedPacketRefund(po.getAnchorId(), remainingPrice);
 
         // 5. 更新状态为已结算
         RedPacketConfigPO updatePO = new RedPacketConfigPO();

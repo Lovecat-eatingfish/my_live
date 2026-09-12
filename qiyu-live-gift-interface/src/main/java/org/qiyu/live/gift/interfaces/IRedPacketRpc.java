@@ -28,9 +28,9 @@ public interface IRedPacketRpc {
     void prepare(Integer id);
 
     /**
-     * 发送红包雨（主播端触发）
+     * 发送红包雨（主播端触发，先扣主播金币，余额不足返回false）
      */
-    void send(Integer id);
+    boolean send(Integer id);
 
     /**
      * 领取红包雨

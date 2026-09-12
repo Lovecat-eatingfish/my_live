@@ -28,6 +28,11 @@ public class GiftProviderTopicNames {
     public static final String RED_PACKET_RAIN_RECEIVE = "red_packet_rain_receive";
 
     /**
+     * 红包雨结算（延迟消息，红包雨结束后退还剩余金额给主播）
+     */
+    public static final String RED_PACKET_RAIN_SETTLE = "red_packet_rain_settle";
+
+    /**
      * SKU订单超时回滚
      */
     public static final String SKU_ORDER_TIMEOUT = "sku_order_timeout";

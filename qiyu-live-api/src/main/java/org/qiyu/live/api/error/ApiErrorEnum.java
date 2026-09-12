@@ -19,7 +19,8 @@ public enum ApiErrorEnum implements QiyuBaseError {
     PK_ONLINE_BUSY(7,"目前正有人连线，请稍后再试"),
     NOT_SEND_TO_YOURSELF(8,"不允许送礼给自己"),
     LIVING_ROOM_END(9,"直播间已结束"),
-    PARAM_ERROR(10,"参数异常");
+    PARAM_ERROR(10,"参数异常"),
+    RED_PACKET_BALANCE_NOT_ENOUGH(11,"金币余额不足，无法发送红包");
 
     private String errorMsg;
     private int errorCode;

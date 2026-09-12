@@ -80,6 +80,10 @@ public class QiyuCurrencyAccountServiceImpl implements IQiyuCurrencyAccountServi
 
     @Override
     public void decr(long userId, int num) {
+        this.decr(userId, num, TradeTypeEnum.SEND_GIFT_TRADE.getCode());
+    }
+
+    private void decr(long userId, int num, int tradeType) {
         //扣减余额
         String cacheKey = cacheKeyBuilder.buildUserBalance(userId);
         if (redisTemplate.hasKey(cacheKey)) {
@@ -92,7 +96,7 @@ public class QiyuCurrencyAccountServiceImpl implements IQiyuCurrencyAccountServi
             public void run() {
                 //分布式架构下，cap理论，可用性和性能，强一致性，柔弱的一致性处理
                 //在异步线程池中完成数据库层的扣减和流水记录插入操作，带有事务
-                consumeDecrDBHandler(userId, num);
+                consumeDecrDBHandler(userId, num, tradeType);
             }
         });
     }
@@ -118,10 +122,23 @@ public class QiyuCurrencyAccountServiceImpl implements IQiyuCurrencyAccountServi
 
     @Override
     public AccountTradeRespDTO consumeForSendGift(AccountTradeReqDTO accountTradeReqDTO) {
+        return this.consume(accountTradeReqDTO.getUserId(), accountTradeReqDTO.getNum(),
+                TradeTypeEnum.SEND_GIFT_TRADE.getCode());
+    }
+
+    @Override
+    public AccountTradeRespDTO consumeForRedPacket(long userId, int num) {
+        return this.consume(userId, num, TradeTypeEnum.RED_PACKET_SEND.getCode());
+    }
+
+    @Override
+    public void incrForRedPacketRefund(long userId, int num) {
+        this.incr(userId, num, TradeTypeEnum.RED_PACKET_REFUND.getCode());
+    }
+
+    private AccountTradeRespDTO consume(long userId, int num, int tradeType) {
         //余额判断 + 余额扣减 必须保证原子性，否则高并发下同一用户可能双扣/透支
         //分布式锁：同一用户同一时刻只允许一笔扣减在执行，抢不到锁的短暂等待后重试
-        long userId = accountTradeReqDTO.getUserId();
-        int num = accountTradeReqDTO.getNum();
         String lockKey = cacheKeyBuilder.buildUserBalanceLockKey(userId);
         Boolean isLock = redisTemplate.opsForValue().setIfAbsent(lockKey, 1, 2L, TimeUnit.SECONDS);
         if (Boolean.TRUE.equals(isLock)) {
@@ -130,7 +147,7 @@ public class QiyuCurrencyAccountServiceImpl implements IQiyuCurrencyAccountServi
                 if (balance == null || balance < num) {
                     return AccountTradeRespDTO.buildFail(userId, "账户余额不足", 1);
                 }
-                this.decr(userId, num);
+                this.decr(userId, num, tradeType);
             } finally {
                 redisTemplate.delete(lockKey);
             }
@@ -142,7 +159,7 @@ public class QiyuCurrencyAccountServiceImpl implements IQiyuCurrencyAccountServi
                 Thread.currentThread().interrupt();
                 return AccountTradeRespDTO.buildFail(userId, "系统繁忙", 2);
             }
-            return consumeForSendGift(accountTradeReqDTO);
+            return this.consume(userId, num, tradeType);
         }
         return AccountTradeRespDTO.buildSuccess(userId, "扣费成功");
     }
@@ -156,11 +173,11 @@ public class QiyuCurrencyAccountServiceImpl implements IQiyuCurrencyAccountServi
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void consumeDecrDBHandler(long userId, int num) {
+    public void consumeDecrDBHandler(long userId, int num, int tradeType) {
         //更新db，插入db
         qiyuCurrencyAccountMapper.decr(userId, num);
-        //流水记录
-        currencyTradeService.insertOne(userId, num * -1, TradeTypeEnum.SEND_GIFT_TRADE.getCode());
+        //流水记录（负数表示支出）
+        currencyTradeService.insertOne(userId, num * -1, tradeType);
     }
 
 

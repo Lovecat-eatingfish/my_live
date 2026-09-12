@@ -38,4 +38,14 @@ public class QiyuCurrencyAccountRpcImpl implements IQiyuCurrencyAccountRpc {
         return qiyuCurrencyAccountService.consumeForSendGift(accountTradeReqDTO);
     }
 
+    @Override
+    public AccountTradeRespDTO consumeForRedPacket(long userId, int num) {
+        return qiyuCurrencyAccountService.consumeForRedPacket(userId, num);
+    }
+
+    @Override
+    public void incrForRedPacketRefund(long userId, int num) {
+        qiyuCurrencyAccountService.incrForRedPacketRefund(userId, num);
+    }
+
 }
