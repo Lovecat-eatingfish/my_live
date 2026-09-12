@@ -12,7 +12,7 @@
           <span class="balance-chip" @click="$router.push('/wallet')" title="去充值">
             <span class="coin-icon">🪙</span>{{ formatBalance }}
           </span>
-          <el-button v-if="userStore.userInfo.showStartLivingBtn" size="small" type="success" @click="handleStartLiving">开播</el-button>
+          <el-button v-if="userStore.userInfo.showStartLivingBtn" size="small" type="success" @click="startVisible = true">开播</el-button>
           <el-button size="small" @click="$router.push('/wallet')">钱包</el-button>
           <el-button size="small" type="danger" @click="handleLogout">退出</el-button>
         </template>
@@ -45,6 +45,9 @@
       </div>
       <div v-if="rooms.length === 0" class="empty">暂无直播间</div>
     </div>
+
+    <!-- 开播设置弹窗：起名 + 上传封面 -->
+    <StartLivingDialog ref="startDialogRef" v-model="startVisible" @confirm="handleStartLiving" />
   </div>
 </template>
 
@@ -53,6 +56,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { listRoom, startLiving } from '@/api/room'
+import StartLivingDialog from '@/components/StartLivingDialog.vue'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
@@ -87,18 +91,23 @@ const formatBalance = computed(() => {
   return n >= 10000 ? (n / 10000).toFixed(1) + 'w' : String(n)
 })
 
-// 开播：创建直播间并跳转到主播端房间页
-async function handleStartLiving() {
+// 开播：由 StartLivingDialog 收集名称与封面后回调，创建直播间并跳转主播端
+const startVisible = ref(false)
+const startDialogRef = ref(null)
+async function handleStartLiving({ roomName, covertImg }) {
   try {
-    const vo = await startLiving(1)
+    const vo = await startLiving(1, roomName, covertImg)
     const newRoomId = vo.data?.roomId
     if (newRoomId) {
+      startDialogRef.value?.finish()
       router.push(`/room/${newRoomId}`)
     } else {
       ElMessage.error('开播失败')
+      startDialogRef.value?.fail()
     }
   } catch {
     ElMessage.error('开播失败')
+    startDialogRef.value?.fail()
   }
 }
 

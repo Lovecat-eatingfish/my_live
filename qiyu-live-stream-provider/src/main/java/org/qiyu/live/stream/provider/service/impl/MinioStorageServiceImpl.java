@@ -2,6 +2,7 @@ package org.qiyu.live.stream.provider.service.impl;
 
 import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
+import io.minio.PutObjectArgs;
 import io.minio.MinioClient;
 import io.minio.SetBucketPolicyArgs;
 import io.minio.UploadObjectArgs;
@@ -71,6 +72,23 @@ public class MinioStorageServiceImpl implements IMinioStorageService {
                     .build());
         } catch (Exception e) {
             throw new RuntimeException("upload record file to minio failed: " + localFilePath, e);
+        }
+        String base = StringUtils.hasText(minioConfig.getPublicEndpoint())
+                ? minioConfig.getPublicEndpoint() : minioConfig.getEndpoint();
+        return base + "/" + minioConfig.getBucket() + "/" + objectName;
+    }
+
+    @Override
+    public String uploadBytes(byte[] data, String objectName, String contentType) {
+        try (java.io.ByteArrayInputStream in = new java.io.ByteArrayInputStream(data)) {
+            minioClient.putObject(PutObjectArgs.builder()
+                    .bucket(minioConfig.getBucket())
+                    .object(objectName)
+                    .contentType(StringUtils.hasText(contentType) ? contentType : "application/octet-stream")
+                    .stream(in, data.length, -1)
+                    .build());
+        } catch (Exception e) {
+            throw new RuntimeException("upload resource to minio failed: " + objectName, e);
         }
         String base = StringUtils.hasText(minioConfig.getPublicEndpoint())
                 ? minioConfig.getPublicEndpoint() : minioConfig.getEndpoint();

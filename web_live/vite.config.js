@@ -21,6 +21,12 @@ export default defineConfig({
       '/rtc': {
         target: 'http://127.0.0.1:1985',
         changeOrigin: true
+      },
+      // MinIO 对象存储（封面/回放）：Windows 防火墙拦 9000 直连，统一走 vite 代理
+      '/minio': {
+        target: 'http://127.0.0.1:9000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/minio/, '')
       }
     }
   }

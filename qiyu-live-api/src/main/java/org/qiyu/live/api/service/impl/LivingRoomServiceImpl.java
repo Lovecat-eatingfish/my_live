@@ -60,13 +60,16 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     }
 
     @Override
-    public Integer startingLiving(Integer type) {
+    public Integer startingLiving(Integer type, String roomName, String covertImg) {
         Long userId = QiyuRequestContext.getUserId();
         UserDTO userDTO = userRpc.getByUserId(userId);
         LivingRoomReqDTO livingRoomReqDTO = new LivingRoomReqDTO();
         livingRoomReqDTO.setAnchorId(userId);
-        livingRoomReqDTO.setRoomName("主播-" + QiyuRequestContext.getUserId() + "的直播间");
-        livingRoomReqDTO.setCovertImg(userDTO.getAvatar());
+        //主播自定义直播间名称与封面；未填时降级为默认名 / 用户头像
+        livingRoomReqDTO.setRoomName(StringUtils.hasText(roomName)
+                ? roomName : ("主播-" + userId + "的直播间"));
+        livingRoomReqDTO.setCovertImg(StringUtils.hasText(covertImg)
+                ? covertImg : userDTO.getAvatar());
         livingRoomReqDTO.setType(type);
         return livingRoomRpc.startLivingRoom(livingRoomReqDTO);
     }
@@ -120,7 +123,10 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
             respVO.setAnchorId(respDTO.getAnchorId());
             respVO.setAnchor(respDTO.getAnchorId().equals(userId));
         }
-        respVO.setDefaultBgImg("https://picst.sunbangyan.cn/2023/08/29/waxzj0.png");
+        respVO.setRoomName(respDTO.getRoomName());
+        //封面优先用主播自定义上传图，没有再落到外链默认图
+        respVO.setDefaultBgImg(StringUtils.hasText(respDTO.getCovertImg())
+                ? respDTO.getCovertImg() : "https://picst.sunbangyan.cn/2023/08/29/waxzj0.png");
         return respVO;
     }
 

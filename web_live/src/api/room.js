@@ -4,7 +4,8 @@ import request from './request'
 export const listRoom = (params) => request.post('/living/list', null, { params })
 
 // 开播
-export const startLiving = (type) => request.post('/living/startingLiving', null, { params: { type } })
+// 开播（roomName/covertImg 为主播自定义直播间名称与封面 URL，可不传走默认）
+export const startLiving = (type, roomName, covertImg) => request.post('/living/startingLiving', null, { params: { type, roomName, covertImg } })
 
 // 关播
 export const closeLiving = (roomId) => request.post('/living/closeLiving', null, { params: { roomId } })

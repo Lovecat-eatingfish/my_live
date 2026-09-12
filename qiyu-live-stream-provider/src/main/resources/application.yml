@@ -35,6 +35,9 @@ qiyu:
     access-key: minioadmin
     secret-key: minioadmin
     bucket: qiyu-live-records
+    # 局域网内其他设备访问封面/回放使用的地址；留空则用 endpoint(127.0.0.1，仅本机可见)
+    # 走 vite(3000) 的 /minio 代理：Windows 防火墙拦 9000 直连；生产环境用 nginx/gateway 同理
+    public-endpoint: http://192.168.31.252:3000/minio
 
 dubbo:
   application:

@@ -25,7 +25,14 @@ public interface ILivingRoomService {
      *
      * @param type
      */
-    Integer startingLiving(Integer type);
+    /**
+     * 开播（支持主播自定义直播间名称与封面）
+     *
+     * @param type      直播间类型
+     * @param roomName  直播间名称，空则用默认名
+     * @param covertImg 封面图 URL，空则用用户头像
+     */
+    Integer startingLiving(Integer type, String roomName, String covertImg);
 
 
     /**

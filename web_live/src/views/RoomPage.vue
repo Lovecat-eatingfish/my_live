@@ -94,7 +94,7 @@
         <button v-if="roomInfo.anchor" class="action-btn redpacket" @click="rpVisible = true">
           <span class="btn-icon">🧧</span><span class="btn-label">红包</span>
         </button>
-        <button v-if="userStore.userInfo.showStartLivingBtn && !roomInfo.anchor" class="action-btn start" @click="handleStartLiving">
+        <button v-if="userStore.userInfo.showStartLivingBtn && !roomInfo.anchor" class="action-btn start" @click="startVisible = true">
           <span class="btn-icon">📺</span><span class="btn-label">我要开播</span>
         </button>
       </div>
@@ -150,6 +150,9 @@
       @end="rain.redPacketId = null"
     />
 
+    <!-- 开播设置弹窗（观众视角的"我要开播"） -->
+    <StartLivingDialog ref="startDialogRef" v-model="startVisible" @confirm="handleStartLiving" />
+
     <!-- 回放列表弹窗 -->
     <el-dialog v-model="replayVisible" title="直播回放" width="640px">
       <div v-if="replayLoading" class="replay-empty">加载中...</div>
@@ -181,6 +184,7 @@ import GiftAnimation from '@/components/GiftAnimation.vue'
 import LivePlayer from '@/components/LivePlayer.vue'
 import ReplayPlayer from '@/components/ReplayPlayer.vue'
 import ShopPanel from '@/components/ShopPanel.vue'
+import StartLivingDialog from '@/components/StartLivingDialog.vue'
 import RedPacketRain from '@/components/RedPacketRain.vue'
 import { ElMessage } from 'element-plus'
 
@@ -607,14 +611,23 @@ async function handleSendGift(gift) {
   }
 }
 
-// 开播
-async function handleStartLiving() {
+// 开播：由 StartLivingDialog 收集名称与封面后回调
+const startVisible = ref(false)
+const startDialogRef = ref(null)
+async function handleStartLiving({ roomName, covertImg }) {
   try {
-    const vo = await startLiving(roomInfo.value.type || 1)
+    const vo = await startLiving(roomInfo.value.type || 1, roomName, covertImg)
     const newRoomId = vo.data?.roomId
-    if (newRoomId) router.replace(`/room/${newRoomId}`)
+    if (newRoomId) {
+      startDialogRef.value?.finish()
+      router.replace(`/room/${newRoomId}`)
+    } else {
+      ElMessage.error('开播失败')
+      startDialogRef.value?.fail()
+    }
   } catch {
     ElMessage.error('开播失败')
+    startDialogRef.value?.fail()
   }
 }
 
