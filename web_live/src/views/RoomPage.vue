@@ -11,14 +11,19 @@
         </div>
       </div>
       <div class="top-actions">
+        <span class="balance-chip" @click="$router.push('/wallet')" title="去充值">
+          <span class="coin-icon">🪙</span>{{ userStore.balance }}
+        </span>
         <el-button v-if="roomInfo.anchor" type="danger" size="small" @click="handleCloseLiving">
           结束直播
         </el-button>
       </div>
     </header>
 
-    <!-- 直播画面区 -->
-    <div class="video-area">
+    <!-- 三区主体：左直播画面 / 右聊天栏 -->
+    <div class="main-area">
+      <!-- 直播画面区 -->
+      <div class="video-area">
       <!-- 主播端：浏览器摄像头预览 / OBS 推流地址面板 / 推流中 HLS 预览 -->
         <template v-if="roomInfo.anchor">
           <video v-show="browserPushing" ref="browserVideoRef" class="browser-preview" autoplay muted playsinline></video>
@@ -65,37 +70,38 @@
       <div v-if="!roomInfo.anchor && !playUrl" class="replay-entry">
         <el-button size="small" @click="openReplayList">📼 回放列表</el-button>
       </div>
+      </div>
+
+      <!-- 右侧聊天栏 -->
+      <aside class="chat-sidebar">
+        <div class="chat-title">💬 互动区</div>
+        <ChatList :messages="chatMessages" class="chat-section" />
+        <div class="chat-input-wrap">
+          <ChatInput placeholder="说点什么..." @send="handleSendChat" />
+        </div>
+      </aside>
     </div>
 
-    <!-- 聊天+功能区 -->
-    <div class="bottom-area">
-      <!-- 消息列表 -->
-      <ChatList :messages="chatMessages" class="chat-section" />
-
-      <!-- 底部操作栏 -->
-      <div class="action-row">
-        <ChatInput placeholder="说点什么..." @send="handleSendChat" />
-        <div class="action-btns">
-          <el-button size="small" @click="showGift = true">🎁 礼物</el-button>
-          <el-button size="small" type="warning" plain @click="shopVisible = true">🛍 带货</el-button>
-          <el-button v-if="roomInfo.anchor" size="small" type="danger" plain @click="rpVisible = true">🧧 红包</el-button>
-          <el-button v-if="userStore.userInfo.showStartLivingBtn && !roomInfo.anchor" size="small" type="success" @click="handleStartLiving">
-            开播
-          </el-button>
-        </div>
+    <!-- 底部功能条 -->
+    <div class="action-bar">
+      <div class="action-btns">
+        <button class="action-btn gift" @click="showGift = true">
+          <span class="btn-icon">🎁</span><span class="btn-label">礼物</span>
+        </button>
+        <button class="action-btn shop" @click="shopVisible = true">
+          <span class="btn-icon">🛍</span><span class="btn-label">带货</span>
+        </button>
+        <button v-if="roomInfo.anchor" class="action-btn redpacket" @click="rpVisible = true">
+          <span class="btn-icon">🧧</span><span class="btn-label">红包</span>
+        </button>
+        <button v-if="userStore.userInfo.showStartLivingBtn && !roomInfo.anchor" class="action-btn start" @click="handleStartLiving">
+          <span class="btn-icon">📺</span><span class="btn-label">我要开播</span>
+        </button>
       </div>
     </div>
 
-    <!-- 礼物特效动画 -->
-    <Transition name="gift">
-      <div v-if="giftAnimation.show" class="gift-animation">
-        <img :src="giftAnimation.img" class="gift-anim-img" />
-        <div class="gift-anim-text">
-          <span class="gift-sender">{{ giftAnimation.sender }}</span>
-          送出 <strong>{{ giftAnimation.name }}</strong>
-        </div>
-      </div>
-    </Transition>
+    <!-- 礼物特效动画（5556 广播驱动，大礼物全屏/小礼物漂浮） -->
+    <GiftAnimation ref="giftAnimRef" />
 
     <!-- PK 进度条 -->
     <div v-if="pkStatus.show" class="pk-bar">
@@ -166,11 +172,12 @@ import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { anchorConfig, startLiving, closeLiving, getImConfig } from '@/api/room'
 import { createPushUrl, getStreamStatus, getPlayUrl, getRecordList } from '@/api/stream'
-import { sendGift, createRedPacket, prepareRedPacket, sendRedPacket } from '@/api/gift'
+import { sendGift, listGift, createRedPacket, prepareRedPacket, sendRedPacket } from '@/api/gift'
 import { IMConnection } from '@/utils/im/connection'
 import ChatList from '@/components/ChatList.vue'
 import ChatInput from '@/components/ChatInput.vue'
 import GiftPanel from '@/components/GiftPanel.vue'
+import GiftAnimation from '@/components/GiftAnimation.vue'
 import LivePlayer from '@/components/LivePlayer.vue'
 import ReplayPlayer from '@/components/ReplayPlayer.vue'
 import ShopPanel from '@/components/ShopPanel.vue'
@@ -185,7 +192,7 @@ const roomId = computed(() => Number(route.params.id))
 const roomInfo = ref({})
 const showGift = ref(false)
 const chatMessages = ref([])
-const giftAnimation = reactive({ show: false, img: '', name: '', sender: '' })
+const giftAnimRef = ref(null)
 const pkStatus = reactive({ show: false, leftName: '', rightName: '', leftPercent: 50, rightPercent: 50 })
 
 const defaultAvatar = 'https://via.placeholder.com/48/667eea/fff?text=A'
@@ -499,9 +506,12 @@ function handleIMMessage(msg) {
         })
         if (chatMessages.value.length > 100) chatMessages.value.shift()
       } else if (bizCode === 5556) {
-        // 送礼成功
+        // 送礼成功：播放礼物特效；送礼人自己顺带刷新余额（扣费后）
         const data = JSON.parse(body.data)
-        showGiftAnim(data)
+        giftAnimRef.value?.play(data)
+        if (Number(data.senderId) === Number(userStore.userInfo.userId)) {
+          userStore.refreshBalance()
+        }
       } else if (bizCode === 5558) {
         // PK礼物
         const data = JSON.parse(body.data)
@@ -515,6 +525,7 @@ function handleIMMessage(msg) {
       } else if (bizCode === 5561) {
         // 红包领取成功（后端单独推给领取人）
         ElMessage.success('🧧 红包领取成功！')
+        userStore.refreshBalance()
       } else if (bizCode === 5563) {
         // 推流状态变更（后端 IM 广播，前端无需再等轮询）
         const data = JSON.parse(body.data)
@@ -545,27 +556,7 @@ function handleIMMessage(msg) {
   }
 }
 
-// 礼物动画
-let giftAnimTimer = null
-function showGiftAnim(data) {
-  if (giftAnimTimer) clearTimeout(giftAnimTimer)
-  // 后端5556仅推送 {url}（礼物svga/图片地址），展示时回退到本地礼物列表的封面
-  const knownGift = (data.url && giftCoverByUrl(data.url)) || null
-  giftAnimation.img = knownGift || data.giftInfo?.coverImgUrl || data.url || ''
-  giftAnimation.name = knownGift?.giftName || data.giftInfo?.giftName || '礼物'
-  giftAnimation.sender = data.senderName || '某用户'
-  giftAnimation.show = true
-  giftAnimTimer = setTimeout(() => { giftAnimation.show = false }, 3000)
-}
-
-// 根据后端推送的礼物url匹配本地礼物封面信息
-function giftCoverByUrl(url) {
-  const giftList = window.__qiyuGiftList || []
-  const hit = giftList.find(g => g.svgaUrl === url || g.coverImgUrl === url)
-  if (hit) return { coverImgUrl: hit.coverImgUrl, giftName: hit.giftName }
-  if (url) return { coverImgUrl: url, giftName: '' }
-  return null
-}
+// 礼物动画：由 GiftAnimation 组件负责（play 由 5556 处理器调用）
 
 // PK进度更新
 function updatePKProgress(data) {
@@ -648,6 +639,9 @@ onMounted(async () => {
     window.__mountError = (e && (e.msg || e.message)) || String(e)
     console.error('[RoomPage] 初始化失败', e)
   }
+  userStore.refreshBalance()
+  // 进房即拉礼物列表（GiftAnimation 按 giftId/url 匹配礼物信息用）
+  listGift().then(vo => { window.__qiyuGiftList = vo.data || [] }).catch(() => {})
   // 视频流轮询必须最先启动，不能被 IM 连接阻塞（IM 挂起会导致观众永远看不到画面）
   startStreamLoop()
   // IM 异步连接，失败/挂起只影响弹幕不影响视频
@@ -659,7 +653,6 @@ watch(() => route.params.id, async (newId) => {
   if (!newId) return
   imConn?.disconnect()
   chatMessages.value = []
-  giftAnimation.show = false
   pkStatus.show = false
   roomInfo.value = {}
   stopStreamLoop()
@@ -702,15 +695,85 @@ onUnmounted(() => {
 .anchor-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
 .room-name { font-size: 15px; font-weight: bold; }
 .anchor-name { font-size: 12px; color: #888; }
-.top-actions { display: flex; gap: 8px; }
-
-.video-area {
-  height: 45vh;
-  background: #1a1a2e;
-  position: relative;
-  flex-shrink: 0;
-  overflow: hidden;
+.top-actions { display: flex; gap: 10px; align-items: center; }
+.balance-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: linear-gradient(135deg, #3a2c00, #4a3a00);
+  border: 1px solid #7a5c00; color: #ffd700;
+  font-size: 13px; font-weight: bold;
+  padding: 4px 12px; border-radius: 16px; cursor: pointer;
+  transition: all 0.2s;
 }
+.balance-chip:hover { border-color: #ffd700; }
+.coin-icon { font-size: 13px; }
+
+/* 三区主体：左视频 / 右聊天 */
+.main-area {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+.video-area {
+  flex: 1;
+  background: #000;
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.video-area :deep(video),
+.video-area :deep(.flv-player),
+.video-area .browser-preview { max-width: 100%; max-height: 100%; }
+.chat-sidebar {
+  width: 320px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: rgba(22, 22, 37, 0.92);
+  border-left: 1px solid #222;
+  min-height: 0;
+}
+.chat-title {
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #8a8aa0;
+  border-bottom: 1px solid #222;
+  flex-shrink: 0;
+}
+.chat-section { flex: 1; overflow: hidden; min-height: 0; }
+.chat-input-wrap { padding: 10px; border-top: 1px solid #222; flex-shrink: 0; }
+.chat-input-wrap :deep(.chat-input-row) { border-top: none; background: transparent; padding: 0; }
+
+/* 底部功能条 */
+.action-bar {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  background: #161625;
+  border-top: 1px solid #222;
+  flex-shrink: 0;
+}
+.action-btns { display: flex; gap: 14px; }
+.action-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: #1e1e2e;
+  border: 1px solid #2c2c44;
+  color: #ddd;
+  font-size: 13px;
+  padding: 7px 18px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.action-btn:hover { border-color: #667eea; color: #fff; }
+.action-btn.gift:hover { border-color: #ff7a45; }
+.action-btn.redpacket:hover { border-color: #f5222d; }
+.action-btn.start { border-color: #2ba471; color: #6ee7b7; }
+.btn-icon { font-size: 15px; }
+.btn-label { font-size: 13px; }
+
 .room-cover { width: 100%; height: 100%; object-fit: cover; display: block; }
 .cover-overlay {
   position: absolute; inset: 0;
@@ -808,48 +871,6 @@ onUnmounted(() => {
   line-height: 1.6;
   padding: 0 4px;
 }
-
-.bottom-area {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-height: 0;
-}
-.chat-section { flex: 1; overflow: hidden; }
-
-.action-row {
-  display: flex;
-  gap: 8px;
-  padding: 8px 12px;
-  border-top: 1px solid #222;
-  background: #161625;
-  align-items: center;
-}
-.action-btns { display: flex; gap: 6px; flex-shrink: 0; }
-
-/* 礼物动画 */
-.gift-animation {
-  position: fixed;
-  bottom: 200px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  pointer-events: none;
-  z-index: 100;
-}
-.gift-anim-img { width: 80px; height: 80px; object-fit: contain; animation: giftBounce 0.5s ease-out; }
-.gift-anim-text { color: #ffd700; font-size: 16px; margin-top: 8px; text-align: center; }
-.gift-sender { color: #667eea; margin-right: 4px; }
-@keyframes giftBounce {
-  0% { transform: scale(0.5); opacity: 0; }
-  60% { transform: scale(1.1); }
-  100% { transform: scale(1); opacity: 1; }
-}
-.gift-enter-active, .gift-leave-active { transition: opacity 0.3s; }
-.gift-enter-from, .gift-leave-to { opacity: 0; }
 
 /* PK 进度条 */
 .pk-bar {

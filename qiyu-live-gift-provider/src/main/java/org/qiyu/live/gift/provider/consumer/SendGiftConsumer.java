@@ -77,6 +77,8 @@ public class SendGiftConsumer implements InitializingBean {
     private ILivingRoomRpc livingRoomRpc;
     @DubboReference(check = false)
     private ImRouterRpc routerRpc;
+    @DubboReference(check = false)
+    private org.qiyu.live.user.interfaces.IUserRpc userRpc;
 
     @Override
     public void afterPropertiesSet() throws Exception {
@@ -109,8 +111,13 @@ public class SendGiftConsumer implements InitializingBean {
                 if (tradeRespDTO.isSuccess()) {
                     Long receiverId = sendGiftMq.getReceiverId();
                     if (SendGiftTypeEnum.DEFAULT_SEND_GIFT.getCode().equals(sendGiftType)) {
-                        //触发礼物特效推送功能
+                        //触发礼物特效推送功能（携带完整上下文，前端据此展示"XX 送出了 YY"与大小礼物动效）
                         jsonObject.put("url", sendGiftMq.getUrl());
+                        jsonObject.put("senderId", sendGiftMq.getUserId());
+                        jsonObject.put("giftId", sendGiftMq.getGiftId());
+                        jsonObject.put("price", sendGiftMq.getPrice());
+                        org.qiyu.live.user.dto.UserDTO senderDTO = userRpc.getByUserId(sendGiftMq.getUserId());
+                        jsonObject.put("senderName", senderDTO != null ? senderDTO.getNickName() : ("用户" + sendGiftMq.getUserId()));
                         LivingRoomReqDTO reqDTO = new LivingRoomReqDTO();
                         reqDTO.setAppId(AppIdEnum.QIYU_LIVE_BIZ.getCode());
                         reqDTO.setRoomId(sendGiftMq.getRoomId());

@@ -85,6 +85,12 @@
         </dependency>
         <dependency>
             <groupId>org.idea</groupId>
+            <artifactId>qiyu-live-user-interface</artifactId>
+            <version>1.0-SNAPSHOT</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.idea</groupId>
             <artifactId>qiyu-live-framework-bootstrap-starter</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>

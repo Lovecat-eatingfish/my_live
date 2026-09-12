@@ -40,4 +40,12 @@ public class BankController {
         return WebResponseVO.success(bankService.payProduct(payProductReqVO));
     }
 
+    /**
+     * 查询当前登录用户的金币余额
+     */
+    @PostMapping("/account/balance")
+    public WebResponseVO balance() {
+        return WebResponseVO.success(bankService.getBalance());
+    }
+
 }

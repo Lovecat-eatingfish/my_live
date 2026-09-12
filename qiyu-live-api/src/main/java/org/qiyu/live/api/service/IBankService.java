@@ -26,4 +26,9 @@ public interface IBankService {
      * @return
      */
     PayProductRespVO payProduct(PayProductReqVO payProductReqVO);
+
+    /**
+     * 查询当前登录用户的金币余额
+     */
+    Integer getBalance();
 }

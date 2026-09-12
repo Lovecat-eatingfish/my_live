@@ -10,7 +10,7 @@
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <!-- 日志输出的格式  -->
         <layout class="ch.qos.logback.classic.PatternLayout">
-            <pattern>${LOG_PATTERN}</pattern>
+            <pattern>%highlight(%d{HH:mm:ss.SSS} %5p) [%15.15t] %cyan(%-40.40logger{39}) : %msg%n</pattern>
         </layout>
     </appender>
 

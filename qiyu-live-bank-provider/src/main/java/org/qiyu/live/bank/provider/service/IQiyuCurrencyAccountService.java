@@ -27,6 +27,14 @@ public interface IQiyuCurrencyAccountService {
     void incr(long userId,int num);
 
     /**
+     * 充值入账（流水类型记为直播间充值，与送礼流水区分，供对账使用）
+     *
+     * @param userId
+     * @param num
+     */
+    void incrForRecharge(long userId,int num);
+
+    /**
      * 扣减虚拟币
      *
      * @param userId

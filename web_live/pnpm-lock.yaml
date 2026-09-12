@@ -17,6 +17,9 @@ importers:
       flv.js:
         specifier: ^1.6.2
         version: 1.6.2
+      lottie-web:
+        specifier: ^5.13.0
+        version: 5.13.0
       pinia:
         specifier: ^2.1.7
         version: 2.3.1(vue@3.5.42)
@@ -602,6 +605,9 @@ packages:
 
   lodash@4.18.1:
     resolution: {integrity: sha512-dMInicTPVE8d1e5otfwmmjlxkZoUpiVLwyeTdUsi/Caj/gfzzblBcCE5sRHV/AsjuCmxWrte2TNGSYuCeCq+0Q==}
+
+  lottie-web@5.13.0:
+    resolution: {integrity: sha512-+gfBXl6sxXMPe8tKQm7qzLnUy5DUPJPKIyRHwtpCpyUEYjHYRJC/5gjUvdkuO2c3JllrPtHXH5UJJK8LRYl5yQ==}
 
   m3u8-parser@7.2.0:
     resolution: {integrity: sha512-CRatFqpjVtMiMaKXxNvuI3I++vUumIXVVT/JpCpdU/FynV/ceVw1qpPyyBNindL+JlPMSesx+WX1QJaZEJSaMQ==}
@@ -1246,6 +1252,8 @@ snapshots:
       lodash-es: 4.18.1
 
   lodash@4.18.1: {}
+
+  lottie-web@5.13.0: {}
 
   m3u8-parser@7.2.0:
     dependencies:

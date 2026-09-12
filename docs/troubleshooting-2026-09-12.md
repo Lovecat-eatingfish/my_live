@@ -94,3 +94,21 @@
 
 - 验证脚本 `scripts/stream_push_test.mjs` 全链路绿灯：登录 → 开播 → 签发推流地址 → FFmpeg 推流 → SRS 收流 → on_publish 回调 → FLV/HLS 播放 → 关播踢流清理 → DVR 落盘。
 - 完整设计与部署文档：`docs/srs-integration-design.md`（含"附2 实测记录"）。
+
+## 9. 充值中心打不通的 5 个根因（2026-09-12 体验迭代）
+
+现象：充值页下单成功但金币永远不到账。逐层排查发现是**五个独立问题叠加**，任何一个修掉都不够：
+
+1. **`t_pay_topic` 表为空**：`payNotify` 先按 bizCode(10001) 查回调主题配置，查不到直接返回 false。修复：插入 `qiyu-pay-notify-topic` 配置（见 `sql/recharge_seed.sql`）。
+2. **`t_pay_product.extra` 全为空**：入账代码 `JSON.parseObject(extra).getInteger("coin")` 对空串解析返回 null → NPE。修复：补齐 `{"coin":N}`。
+3. **商品 `type=1` 不被认领**：入账只认 `PayProductTypeEnum.QIYU_COIN(0)`，库里商品却是 type=1，就算回调通了也不加币。修复：统一改 type=0。
+4. **模拟回调地址端口错误**：api 层写死 `localhost:8201`，而 bank-api 实际跑在 38201，回调永远打不通。修复：改为可配置 `qiyu.pay.mock-notify-url`，默认 38201。
+5. **RestTemplate 双重编码**：用 `{param}` URI 模板传 JSON 时，值里的花括号先干扰模板解析；改成手动 URLEncoder 后，RestTemplate 又对已编码的 `%` 二次编码，bank-api 收到 `%7B%22...` 原始转义串反序列化失败。修复：用 `URI.create(url)` 对象传参绕过自动编码。
+
+附加修正：充值入账的流水类型由「送礼物(0)」改为「直播间充值(1)」（`incrForRecharge`），否则后续 T+1 对账无法按类型区分资金流向。
+
+经验：**这类"配置数据 + 转换链路"的复合故障，必须先查数据再查代码**——四个数据/配置问题都藏在 DB 里，代码逻辑本身（除端口和编码外）是对的。
+
+## 10. 双浏览器标签页测试的 localStorage 串号
+
+同一浏览器多个标签页共享 localStorage：观众 tab 登录会覆盖主播 tab 的 token。主播 tab 后续任何 `fetchUserInfo`（路由跳转/刷新）都会静默变成观众身份，表现为"按钮消失""操作无反应"。测试多角色时要么用两个浏览器（普通+无痕），要么每步操作前重新核对页面身份。

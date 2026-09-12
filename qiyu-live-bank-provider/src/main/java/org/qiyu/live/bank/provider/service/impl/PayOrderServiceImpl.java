@@ -129,7 +129,8 @@ public class PayOrderServiceImpl implements IPayOrderService {
             Long userId = payOrderPO.getUserId();
             JSONObject jsonObject = JSON.parseObject(payProductDTO.getExtra());
             Integer num = jsonObject.getInteger("coin");
-            qiyuCurrencyAccountService.incr(userId,num);
+            //充值入账：流水类型记为直播间充值，与送礼流水区分开（对账依赖该类型）
+            qiyuCurrencyAccountService.incrForRecharge(userId, num);
         }
     }
 }

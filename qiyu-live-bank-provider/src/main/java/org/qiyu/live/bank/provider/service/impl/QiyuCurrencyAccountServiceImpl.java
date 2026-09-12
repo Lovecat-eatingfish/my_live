@@ -53,6 +53,15 @@ public class QiyuCurrencyAccountServiceImpl implements IQiyuCurrencyAccountServi
 
     @Override
     public void incr(long userId, int num) {
+        this.incr(userId, num, TradeTypeEnum.SEND_GIFT_TRADE.getCode());
+    }
+
+    @Override
+    public void incrForRecharge(long userId, int num) {
+        this.incr(userId, num, TradeTypeEnum.LIVING_RECHARGE.getCode());
+    }
+
+    private void incr(long userId, int num, int tradeType) {
         String cacheKey = cacheKeyBuilder.buildUserBalance(userId);
         if (redisTemplate.hasKey(cacheKey)) {
             redisTemplate.opsForValue().increment(cacheKey, num);
@@ -63,7 +72,7 @@ public class QiyuCurrencyAccountServiceImpl implements IQiyuCurrencyAccountServi
             public void run() {
                 //分布式架构下，cap理论，可用性和性能，强一致性，柔弱的一致性处理
                 //在异步线程池中完成数据库层的扣减和流水记录插入操作，带有事务
-                consumeIncrDBHandler(userId, num);
+                consumeIncrDBHandler(userId, num, tradeType);
             }
         });
 
@@ -139,11 +148,11 @@ public class QiyuCurrencyAccountServiceImpl implements IQiyuCurrencyAccountServi
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void consumeIncrDBHandler(long userId, int num) {
+    public void consumeIncrDBHandler(long userId, int num, int tradeType) {
         //更新db，插入db
         qiyuCurrencyAccountMapper.incr(userId, num);
         //流水记录
-        currencyTradeService.insertOne(userId, num, TradeTypeEnum.SEND_GIFT_TRADE.getCode());
+        currencyTradeService.insertOne(userId, num, tradeType);
     }
 
     @Transactional(rollbackFor = Exception.class)

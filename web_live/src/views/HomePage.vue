@@ -9,6 +9,9 @@
         <template v-if="userStore.userInfo.loginStatus">
           <img :src="userStore.userInfo.avatar || defaultAvatar" class="avatar" />
           <span class="nickname">{{ userStore.userInfo.nickName }}</span>
+          <span class="balance-chip" @click="$router.push('/wallet')" title="去充值">
+            <span class="coin-icon">🪙</span>{{ formatBalance }}
+          </span>
           <el-button v-if="userStore.userInfo.showStartLivingBtn" size="small" type="success" @click="handleStartLiving">开播</el-button>
           <el-button size="small" @click="$router.push('/wallet')">钱包</el-button>
           <el-button size="small" type="danger" @click="handleLogout">退出</el-button>
@@ -46,7 +49,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { listRoom, startLiving } from '@/api/room'
@@ -79,6 +82,11 @@ async function handleLogout() {
   router.push('/')
 }
 
+const formatBalance = computed(() => {
+  const n = Number(userStore.balance) || 0
+  return n >= 10000 ? (n / 10000).toFixed(1) + 'w' : String(n)
+})
+
 // 开播：创建直播间并跳转到主播端房间页
 async function handleStartLiving() {
   try {
@@ -96,6 +104,7 @@ async function handleStartLiving() {
 
 onMounted(async () => {
   await userStore.fetchUserInfo()
+  userStore.refreshBalance()
   await fetchRooms()
 })
 </script>
@@ -110,6 +119,16 @@ onMounted(async () => {
 .nav-right { display: flex; align-items: center; gap: 12px; }
 .avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
 .nickname { color: #ddd; font-size: 14px; }
+.balance-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: linear-gradient(135deg, #3a2c00, #4a3a00);
+  border: 1px solid #7a5c00; color: #ffd700;
+  font-size: 13px; font-weight: bold;
+  padding: 4px 12px; border-radius: 16px; cursor: pointer;
+  transition: all 0.2s;
+}
+.balance-chip:hover { border-color: #ffd700; }
+.coin-icon { font-size: 13px; }
 .filter-bar { display: flex; gap: 16px; padding: 20px 32px; }
 .type-tag {
   padding: 6px 18px; border-radius: 20px; cursor: pointer; font-size: 14px;
