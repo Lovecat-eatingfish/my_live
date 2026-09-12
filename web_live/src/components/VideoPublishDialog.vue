@@ -81,6 +81,11 @@ const progress = ref(0)
 
 const canPublish = computed(() => videoUrl.value && title.value.trim() && tagId.value > 0 && !videoUploading.value)
 
+const formatDuration = (s) => {
+  const m = Math.floor(s / 60), r = s % 60
+  return `${m}:${String(r).padStart(2, '0')}`
+}
+
 watch(visible, async (val) => {
   if (val) {
     title.value = ''
