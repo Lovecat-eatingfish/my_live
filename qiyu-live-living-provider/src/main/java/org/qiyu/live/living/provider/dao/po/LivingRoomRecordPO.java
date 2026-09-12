@@ -10,7 +10,7 @@ import java.util.Date;
  * @Author linhao
  * @Date created in 9:07 下午 2023/1/2
  */
-@TableName("t_living_room_record")
+@TableName("qiyu_living_room_record")
 public class LivingRoomRecordPO {
 
     @TableId(type = IdType.AUTO)

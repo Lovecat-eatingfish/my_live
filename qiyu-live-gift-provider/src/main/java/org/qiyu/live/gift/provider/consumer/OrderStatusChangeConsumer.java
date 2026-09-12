@@ -32,7 +32,7 @@ public class OrderStatusChangeConsumer implements InitializingBean {
 
     @Resource
     private RocketMQConsumerProperties rocketMQConsumerProperties;
-    @DubboReference
+    @DubboReference(check = false)
     private ImRouterRpc routerRpc;
 
     @Override

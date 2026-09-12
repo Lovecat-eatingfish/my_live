@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 @Service
 public class ImRouterServiceImpl implements ImRouterService {
 
-    @DubboReference
+    @DubboReference(check = false)
     private IRouterHandlerRpc routerHandlerRpc;
     @Resource
     private StringRedisTemplate stringRedisTemplate;

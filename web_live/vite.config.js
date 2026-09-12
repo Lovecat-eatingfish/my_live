@@ -13,9 +13,14 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:38080',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
+        rewrite: (path) => path.replace(/^\/api/, '/live/api')
+      },
+      // WebRTC 推流信令：转发到 SRS HTTP API（宿主机 31985 映射容器 1985）
+      '/rtc': {
+        target: 'http://127.0.0.1:1985',
+        changeOrigin: true
       }
     }
   }

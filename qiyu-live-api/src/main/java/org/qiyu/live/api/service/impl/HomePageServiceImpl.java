@@ -17,9 +17,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class HomePageServiceImpl implements IHomePageService {
 
-    @DubboReference
+    @DubboReference(check = false)
     private IUserRpc userRpc;
-    @DubboReference
+    @DubboReference(check = false)
     private IUserTagRpc userTagRpc;
 
     @Override

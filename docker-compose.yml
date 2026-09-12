@@ -1,0 +1,110 @@
+# 旗鱼直播 - 本地开发基础设施
+# 端口与各模块 application.yml 中的配置一致：MySQL 3306 / Redis 6379 / Nacos 8848 / RocketMQ 9876
+# SRS 保留 30000+ 段（后端 stream-provider 配置使用 31935），MinIO 39000/39001
+# 镜像全部使用本地已下载的版本，compose up 不会再拉取
+# 启动: docker compose up -d   （或一键: scripts\start-all.ps1 infra）
+# 停止: docker compose down
+# 数据持久化目录: ./docker-data/
+
+services:
+  mysql:
+    image: hotelinking/mysql8.0:latest      # 本地已有
+    container_name: qiyu-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: "123456"
+      TZ: Asia/Shanghai
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./docker-data/mysql:/var/lib/mysql
+      - ./sql:/docker-entrypoint-initdb.d   # 自动执行 sql 目录下的建表脚本
+
+  redis:
+    image: redis:latest                       # 本地已有
+    container_name: qiyu-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./docker-data/redis:/data
+    # 无密码
+
+  nacos:
+    image: nacos/nacos-server:v2.2.1          # 本地已有
+    container_name: qiyu-nacos
+    restart: unless-stopped
+    environment:
+      MODE: standalone
+      NACOS_AUTH_ENABLE: "true"
+      # 鉴权开启时以下三项必填（token 为官方文档示例值，本地开发用）
+      NACOS_AUTH_TOKEN: "SecretKey012345678901234567890123456789012345678901234567890123456789"
+      NACOS_AUTH_IDENTITY_KEY: "qiyu"
+      NACOS_AUTH_IDENTITY_VALUE: "qiyu"
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+    volumes:
+      - ./docker-data/nacos:/home/nacos/data
+
+  rmqnamesrv:
+    image: apache/rocketmq:5.3.2              # 本地已有
+    container_name: qiyu-rmqnamesrv
+    restart: unless-stopped
+    ports:
+      - "9876:9876"
+    command: sh mqnamesrv
+
+  rmqbroker:
+    image: apache/rocketmq:5.3.2              # 本地已有
+    container_name: qiyu-rmqbroker
+    restart: unless-stopped
+    depends_on:
+      - rmqnamesrv
+    ports:
+      - "10911:10911"
+      - "10909:10909"
+      - "10912:10912"
+    environment:
+      NAMESRV_ADDR: "rmqnamesrv:9876"
+    volumes:
+      # brokerIP1 必须是宿主机可达地址，否则客户端拿到容器内网 IP 连不上
+      - ./docker/broker.conf:/home/rocketmq/rocketmq-5.3.2/conf/broker.conf
+    command: sh mqbroker -n rmqnamesrv:9876 -c /home/rocketmq/rocketmq-5.3.2/conf/broker.conf
+
+  srs:
+    image: ossrs/srs:5    # 本地已有
+    container_name: qiyu-srs
+    restart: unless-stopped
+    # ⚠️ 本机 Windows 开发环境默认不用本服务：Docker Desktop 的 UDP 端口转发丢包严重，
+    #    浏览器 WebRTC 推拉流会握手超时；host 网络模式对 Windows 侧又不可达（实测无效）。
+    #    本机开发请用原生 srs.exe + docker/srs-native.conf（真实 UDP 套接字），见该文件头部说明。
+    # 本服务保留给 Linux 服务器部署：端口映射模式，RTMP/HTTP-FLV/HLS 均正常。
+    # 注意不能用 network_mode: host —— 绑定在 docker-desktop VM 内，Windows 侧访问不到。
+    ports:
+      - "1935:1935"        # RTMP 推流
+      - "1985:1985"        # HTTP API / WebRTC 信令
+      - "8080:8080"        # HTTP-FLV / HLS
+      - "8000:8000/tcp"    # WebRTC 媒体 (TCP)
+      - "8000:8000/udp"    # WebRTC 媒体 (UDP)
+    environment:
+      CANDIDATE: "192.168.31.252"   # 本机局域网 IP（换机器必改）
+    volumes:
+      - ./docker-data/srs:/data
+      - ./docker:/usr/local/srs/conf-qiyu:ro   # 目录挂载，修改 srs.conf 后重启容器即生效
+    command: objs/srs -c conf-qiyu/srs.conf
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z   # 本地已有
+    container_name: qiyu-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "39000:9000"
+      - "39001:9001"
+    volumes:
+      - ./docker-data/minio:/data
+    command: server /data --console-address ":9001"

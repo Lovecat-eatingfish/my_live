@@ -51,7 +51,7 @@ public class SkuOrderServiceImpl implements ISkuOrderService {
     private GiftProviderCacheKeyBuilder cacheKeyBuilder;
     @Resource
     private MQProducer mqProducer;
-    @DubboReference
+    @DubboReference(check = false)
     private IQiyuCurrencyAccountRpc qiyuCurrencyAccountRpc;
 
     @Override

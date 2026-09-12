@@ -1,0 +1,50 @@
+spring:
+  application:
+    name: qiyu-live-user-provider
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://127.0.0.1:3306/qiyu_live_user?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
+    username: root
+    password: 123456
+    hikari:
+      pool-name: qiyu-user-pool
+      minimum-idle: 10
+      maximum-pool-size: 100
+      idle-timeout: 60000
+      connection-timeout: 30000
+      max-lifetime: 60000
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      database: 0
+      lettuce:
+        pool:
+          min-idle: 10
+          max-active: 100
+          max-idle: 10
+
+qiyu:
+  rmq:
+    consumer:
+      nameSrv: 127.0.0.1:9876
+      groupName: qiyuLiveMqApplication
+    producer:
+      nameSrv: 127.0.0.1:9876
+      groupName: ${spring.application.name}
+      applicationName: ${spring.application.name}
+      sendMsgTimeout: 3000
+      retryTimes: 2
+
+dubbo:
+  application:
+    name: ${spring.application.name}
+  registry:
+    address: nacos://127.0.0.1:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=nacos&&password=nacos
+  protocol:
+    name: dubbo
+    port: 30006
+    threadpool: fixed
+    dispatcher: execution
+    threads: 500
+    accepts: 500

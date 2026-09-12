@@ -105,7 +105,7 @@ public class LogoutMsgHandler implements SimplyHandler {
         imOfflineDTO.setLoginTime(System.currentTimeMillis());
         Message message = new Message();
         message.setTopic(ImCoreServerProviderTopicNames.IM_OFFLINE_TOPIC);
-        message.setBody(JSON.toJSONString(imOfflineDTO).getBytes());
+        message.setBody(JSON.toJSONString(imOfflineDTO).getBytes(java.nio.charset.StandardCharsets.UTF_8));
         try {
             SendResult sendResult = mqProducer.send(message);
             LOGGER.error("[sendLogoutMQ] result is {}", sendResult);

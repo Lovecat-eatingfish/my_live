@@ -37,7 +37,7 @@ public class WsSharkHandler extends ChannelInboundHandlerAdapter {
     private int port;
     @Value("${spring.cloud.nacos.discovery.ip}")
     private String serverIp;
-    @DubboReference
+    @DubboReference(check = false)
     private ImTokenRpc imTokenRpc;
     @Resource
     private LoginMsgHandler loginMsgHandler;

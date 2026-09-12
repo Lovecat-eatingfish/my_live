@@ -27,6 +27,13 @@ public interface ISrsApiService {
      */
     int getViewerCount(String streamKey);
 
+    /**
+     * 断开指定流的推流客户端（关播踢流用，best-effort）
+     * @param streamKey 流标识
+     * @return 踢掉的推流客户端数量（-1 表示 SRS 不可达或调用失败）
+     */
+    int kickPublishClients(String streamKey);
+
     /** 获取 SRS 配置 */
     SrsConfig getSrsConfig();
 }

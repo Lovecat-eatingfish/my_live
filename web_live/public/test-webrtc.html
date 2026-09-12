@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>WebRTC TCP candidate 测试</title></head>
+<body style="font-family: monospace; background:#111; color:#eee">
+<h3>WebRTC over TCP 测试（无需摄像头）</h3>
+<button onclick="runTest()">开始测试</button>
+<pre id="log" style="white-space: pre-wrap"></pre>
+<script>
+const SRS_API = '/rtc/v1/publish/';
+const qs = new URLSearchParams(location.search);
+const STREAM_URL = qs.get('streamurl') || ('webrtc://127.0.0.1:8000/live/browser_tcp_test_' + Date.now() % 10000);
+const AUTO = qs.get('auto') === '1';
+
+function log(s) { document.getElementById('log').textContent += s + '\n'; }
+
+async function runTest() {
+  document.getElementById('log').textContent = '';
+  try {
+    // canvas 假视频源，无需摄像头权限
+    const canvas = document.createElement('canvas');
+    canvas.width = 320; canvas.height = 240;
+    const ctx = canvas.getContext('2d');
+    let t = 0;
+    const timer = setInterval(() => {
+      ctx.fillStyle = '#333'; ctx.fillRect(0, 0, 320, 240);
+      ctx.fillStyle = '#7c4'; ctx.fillRect((t++ * 4) % 320, 100, 40, 40);
+    }, 100);
+    const videoStream = canvas.captureStream(15);
+    // 补一条静音音轨（SRS 的 HLS 需要 AAC 音频，纯视频流不会生成 HLS）
+    try {
+      const ac = new AudioContext();
+      const dest = ac.createMediaStreamDestination();
+      const osc = ac.createOscillator();
+      const gain = ac.createGain();
+      gain.gain.value = 0.001;
+      osc.connect(gain); gain.connect(dest); osc.start();
+      videoStream.addTrack(dest.stream.getAudioTracks()[0]);
+    } catch (e) { log('[1] 音轨添加失败(忽略): ' + e.message); }
+    log('[1] 采集源就绪: 视频 ' + videoStream.getVideoTracks().length + ' / 音频 ' + videoStream.getAudioTracks().length);
+
+    const pc = new RTCPeerConnection();
+    videoStream.getTracks().forEach(track => pc.addTransceiver(track, { direction: 'sendonly' }));
+    pc.onicecandidate = e => { if (e.candidate) log('[ICE] local: ' + e.candidate.candidate); };
+    pc.onconnectionstatechange = () => log('[state] ' + pc.connectionState);
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    log('[2] offer 就绪，向 SRS 交换 SDP: ' + STREAM_URL);
+
+    const res = await fetch(SRS_API, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ api: location.origin + SRS_API, streamurl: STREAM_URL, sdp: offer.sdp })
+    });
+    const vo = await res.json();
+    if (vo.code !== 0) throw new Error('SRS 信令失败 code=' + vo.code);
+    log('[3] answer 收到，candidate 行:');
+    vo.sdp.replace(/\\r\\n/g, '\n').split('\n').forEach(l => {
+      if (l.toLowerCase().includes('candidate')) log('    ' + l);
+    });
+    await pc.setRemoteDescription({ type: 'answer', sdp: vo.sdp });
+
+    const ok = await new Promise((resolve) => {
+      const t2 = setTimeout(() => resolve(false), 15000);
+      const check = () => {
+        if (pc.connectionState === 'connected') { clearTimeout(t2); resolve(true); }
+        else if (pc.connectionState === 'failed' || pc.connectionState === 'closed') { clearTimeout(t2); resolve(false); }
+      };
+      pc.onconnectionstatechange = check; check();
+    });
+    clearInterval(timer);
+    log(ok ? '=== 结果: 连接成功！持续推流中... ===' : '=== 结果: 连接失败（超时）===');
+    if (!qs.get('keep')) pc.close();
+  } catch (e) {
+    log('测试出错: ' + e.message);
+  }
+}
+</script>
+</body>
+</html>

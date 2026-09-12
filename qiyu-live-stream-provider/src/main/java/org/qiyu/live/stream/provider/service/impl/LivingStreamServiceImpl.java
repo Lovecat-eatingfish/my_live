@@ -1,10 +1,10 @@
 package org.qiyu.live.stream.provider.service.impl;
 
+import com.alibaba.fastjson.JSONObject;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -15,12 +15,15 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
+import org.qiyu.live.im.router.interfaces.constants.ImMsgBizCodeEnum;
 import org.qiyu.live.stream.interfaces.dto.LivingStreamPushUrlDTO;
 import org.qiyu.live.stream.interfaces.dto.StreamStatusDTO;
 import org.qiyu.live.stream.provider.config.SrsConfig;
 import org.qiyu.live.stream.provider.config.StreamProviderCacheKeyBuilder;
 import org.qiyu.live.stream.provider.dao.mapper.LivingRoomMapper;
 import org.qiyu.live.stream.provider.dao.po.LivingRoomPO;
+import org.qiyu.live.stream.provider.service.IImBroadcastService;
+import org.qiyu.live.stream.provider.service.ILivingRecordService;
 import org.qiyu.live.stream.provider.service.ILivingStreamService;
 import org.qiyu.live.stream.provider.service.ISrsApiService;
 
@@ -35,6 +38,11 @@ public class LivingStreamServiceImpl implements ILivingStreamService {
     private static final int STREAM_STATUS_NOT_START = 0;
     private static final int STREAM_STATUS_LIVING = 1;
     private static final int STREAM_STATUS_ERROR = 2;
+    /** 开播宽限期：SRS 注册流（WebRTC 握手/桥接）需要数秒，期间不做断流误判 */
+    private static final long GRACE_PERIOD_MS = 30_000L;
+
+    /** 推流地址缓存时长，与 streamKey 有效期一致 */
+    private static final long STREAM_KEY_EXPIRE_HOURS = 24;
 
     @Resource
     private LivingRoomMapper livingRoomMapper;
@@ -43,9 +51,13 @@ public class LivingStreamServiceImpl implements ILivingStreamService {
     @Resource
     private StreamProviderCacheKeyBuilder cacheKeyBuilder;
     @Resource
-    private RedisTemplate<String, Object> redisTemplate;
+    private StringRedisTemplate stringRedisTemplate;
     @Resource
     private ISrsApiService srsApiService;
+    @Resource
+    private ILivingRecordService livingRecordService;
+    @Resource
+    private IImBroadcastService imBroadcastService;
 
     @Override
     public LivingStreamPushUrlDTO createPushUrl(Integer roomId, Long anchorId) {
@@ -57,15 +69,20 @@ public class LivingStreamServiceImpl implements ILivingStreamService {
         // 3. 存储 streamKey 到数据库
         livingRoomMapper.updateStreamKey(roomId, streamKey, pushUrl);
 
-        // 4. 缓存到 Redis（用于回调时快速校验归属）
-        String cacheKey = cacheKeyBuilder.buildStreamKey(roomId);
-        redisTemplate.opsForValue().set(cacheKey, streamKey, 24, TimeUnit.HOURS);
+        // 4. 缓存到 Redis（正向: roomId->streamKey，反向: streamKey->roomId 供 SRS 回调反查）
+        stringRedisTemplate.opsForValue().set(cacheKeyBuilder.buildStreamKey(roomId),
+                streamKey, STREAM_KEY_EXPIRE_HOURS, TimeUnit.HOURS);
+        stringRedisTemplate.opsForValue().set(cacheKeyBuilder.buildStreamKeyReverse(streamKey),
+                String.valueOf(roomId), STREAM_KEY_EXPIRE_HOURS, TimeUnit.HOURS);
 
         // 5. 返回结果
         LivingStreamPushUrlDTO dto = new LivingStreamPushUrlDTO();
         dto.setPushUrl(pushUrl);
         dto.setStreamKey(streamKey);
-        dto.setExpireTime(System.currentTimeMillis() + 24 * 3600 * 1000L);
+        dto.setExpireTime(System.currentTimeMillis() + STREAM_KEY_EXPIRE_HOURS * 3600 * 1000L);
+        // WebRTC 浏览器开播地址
+        dto.setRtcPublishApi(srsConfig.getRtcPublishApiUrl());
+        dto.setRtcStreamUrl(srsConfig.getRtcStreamBaseUrl() + "/" + streamKey);
         LOGGER.info("[createPushUrl] roomId={}, anchorId={}, pushUrl={}", roomId, anchorId, pushUrl);
         return dto;
     }
@@ -83,18 +100,27 @@ public class LivingStreamServiceImpl implements ILivingStreamService {
         }
 
         Integer dbStatus = room.getStreamStatus();
-        dto.setStatus(dbStatus != null ? dbStatus : STREAM_STATUS_NOT_START);
+        int status = dbStatus != null ? dbStatus : STREAM_STATUS_NOT_START;
+        dto.setStatus(status);
 
-        // 2. 如果是开播状态，去 SRS 校验真实情况
-        if (STREAM_STATUS_LIVING.equals(dbStatus)) {
+        // 2. 如果是推流中，去 SRS 校验真实情况，发现流已断则修正
+        if (STREAM_STATUS_LIVING == status) {
             String streamKey = room.getStreamKey();
             if (StringUtils.hasText(streamKey)) {
                 boolean online = srsApiService.isStreamOnline(streamKey);
                 if (!online) {
-                    // SRS 已无流，修正状态并写回数据库
+                    // 刚开播的宽限期内 SRS 还没注册流（WebRTC 握手/rtc→rtmp 桥接需要数秒），
+                    // 不能误判为断流，否则主播页面的状态轮询会把 DB 状态打成"异常"卡死
+                    Date start = room.getStreamStartTime();
+                    boolean inGracePeriod = start != null
+                            && System.currentTimeMillis() - start.getTime() < GRACE_PERIOD_MS;
+                    if (inGracePeriod) {
+                        dto.setViewerCount(0);
+                        return dto;
+                    }
                     dto.setStatus(STREAM_STATUS_ERROR);
                     dto.setViewerCount(0);
-                    fixStreamStatusAsync(roomId, streamKey, STREAM_STATUS_ERROR);
+                    fixStreamStatus(roomId, STREAM_STATUS_ERROR);
                     return dto;
                 }
                 dto.setViewerCount(srsApiService.getViewerCount(streamKey));
@@ -112,11 +138,30 @@ public class LivingStreamServiceImpl implements ILivingStreamService {
             return false;
         }
         String streamKey = room.getStreamKey();
+        // 关播清理前暂存录制上下文，供稍后到达的 on_dvr 回调使用
+        livingRecordService.captureStreamContext(roomId, streamKey);
+        // 主动关播时把还在推流的客户端踢掉，防止关播后流还在
+        if (StringUtils.hasText(streamKey)) {
+            try {
+                int kicked = srsApiService.kickPublishClients(streamKey);
+                LOGGER.info("[stopStream] kick publish clients, roomId={}, kicked={}", roomId, kicked);
+            } catch (Exception e) {
+                LOGGER.warn("[stopStream] kick publish clients failed, roomId={}", roomId, e);
+            }
+        }
         // 重置数据库流状态
         livingRoomMapper.resetStream(roomId);
         // 清除 Redis 缓存
-        redisTemplate.delete(cacheKeyBuilder.buildStreamKey(roomId));
-        redisTemplate.delete(cacheKeyBuilder.buildStreamStatus(roomId));
+        stringRedisTemplate.delete(cacheKeyBuilder.buildStreamKey(roomId));
+        stringRedisTemplate.delete(cacheKeyBuilder.buildStreamStatus(roomId));
+        if (StringUtils.hasText(streamKey)) {
+            stringRedisTemplate.delete(cacheKeyBuilder.buildStreamKeyReverse(streamKey));
+        }
+        // IM 5563: 通知房间观众推流已结束
+        JSONObject notify = new JSONObject();
+        notify.put("roomId", roomId);
+        notify.put("status", STREAM_STATUS_NOT_START);
+        imBroadcastService.broadcastToRoom(roomId, ImMsgBizCodeEnum.LIVING_STREAM_STATUS_CHANGE, notify);
         LOGGER.info("[stopStream] roomId={}, streamKey={}", roomId, streamKey);
         return true;
     }
@@ -125,14 +170,14 @@ public class LivingStreamServiceImpl implements ILivingStreamService {
     @Transactional(rollbackFor = Exception.class)
     public void onPublish(String streamKey, String clientId, String ip) {
         LOGGER.info("[onPublish] streamKey={}, clientId={}, ip={}", streamKey, clientId, ip);
-        // 1. 从 streamKey 解析出 roomId
+        // 1. 从 streamKey 反查出 roomId
         Integer roomId = parseRoomIdFromStreamKey(streamKey);
         if (roomId == null) {
-            LOGGER.warn("[onPublish] cannot parse roomId from streamKey={}", streamKey);
+            LOGGER.warn("[onPublish] cannot resolve roomId from streamKey={}", streamKey);
             return;
         }
         // 2. 校验 streamKey 归属（防止伪造推流）
-        String cachedKey = (String) redisTemplate.opsForValue().get(cacheKeyBuilder.buildStreamKey(roomId));
+        String cachedKey = stringRedisTemplate.opsForValue().get(cacheKeyBuilder.buildStreamKey(roomId));
         if (!streamKey.equals(cachedKey)) {
             LOGGER.warn("[onPublish] streamKey mismatch, roomId={}, expected={}, got={}",
                     roomId, cachedKey, streamKey);
@@ -140,9 +185,16 @@ public class LivingStreamServiceImpl implements ILivingStreamService {
         }
         // 3. 更新数据库流状态
         livingRoomMapper.updateStreamStatus(roomId, STREAM_STATUS_LIVING, new Date());
-        // 4. 缓存状态到 Redis
-        String cacheKey = cacheKeyBuilder.buildStreamStatus(roomId);
-        redisTemplate.opsForValue().set(cacheKey, STREAM_STATUS_LIVING, 24, TimeUnit.HOURS);
+        // 4. 暂存录制上下文（本段直播的起始时间等），on_dvr 回调上传 MinIO 时使用
+        livingRecordService.captureStreamContext(roomId, streamKey);
+        // 5. 缓存状态到 Redis
+        stringRedisTemplate.opsForValue().set(cacheKeyBuilder.buildStreamStatus(roomId),
+                String.valueOf(STREAM_STATUS_LIVING), STREAM_KEY_EXPIRE_HOURS, TimeUnit.HOURS);
+        // 6. IM 5563: 通知房间观众推流已开始（观众端可自动起播）
+        JSONObject notify = new JSONObject();
+        notify.put("roomId", roomId);
+        notify.put("status", STREAM_STATUS_LIVING);
+        imBroadcastService.broadcastToRoom(roomId, ImMsgBizCodeEnum.LIVING_STREAM_STATUS_CHANGE, notify);
     }
 
     @Override
@@ -154,7 +206,12 @@ public class LivingStreamServiceImpl implements ILivingStreamService {
             return;
         }
         livingRoomMapper.updateStreamStatus(roomId, STREAM_STATUS_NOT_START, null);
-        redisTemplate.delete(cacheKeyBuilder.buildStreamStatus(roomId));
+        stringRedisTemplate.delete(cacheKeyBuilder.buildStreamStatus(roomId));
+        // IM 5563: 主播直接停 OBS 未点关播时，也通知观众推流已结束
+        JSONObject notify = new JSONObject();
+        notify.put("roomId", roomId);
+        notify.put("status", STREAM_STATUS_NOT_START);
+        imBroadcastService.broadcastToRoom(roomId, ImMsgBizCodeEnum.LIVING_STREAM_STATUS_CHANGE, notify);
     }
 
     /**
@@ -163,76 +220,44 @@ public class LivingStreamServiceImpl implements ILivingStreamService {
      */
     private String buildStreamKey(Integer roomId, Long anchorId) {
         String raw = roomId + "_" + anchorId + "_" + srsConfig.getSecret();
-        String md5 = md5(raw);
-        return "live_" + md5;
+        return "live_" + md5(raw);
     }
 
     /**
      * 从 streamKey 解析 roomId
-     * 由于 streamKey 已改为 md5 格式，无法逆向解析，通过查询 Redis 缓存获取
+     * 优先走 Redis 反向映射（createPushUrl 时写入），未命中再查 DB 中的 stream_key 字段
      */
     private Integer parseRoomIdFromStreamKey(String streamKey) {
         if (!StringUtils.hasText(streamKey)) {
             return null;
         }
-        // streamKey 格式: live_{md5}，遍历所有房间查缓存匹配（规模小可用）
-        // 更好的方案：streamKey = roomId + "_" + md5(anchorId_secret)，此处简化处理
-        return extractRoomIdFromStreamKey(streamKey);
+        // 1. Redis 反向映射
+        String cachedRoomId = stringRedisTemplate.opsForValue().get(cacheKeyBuilder.buildStreamKeyReverse(streamKey));
+        if (cachedRoomId != null) {
+            try {
+                return Integer.parseInt(cachedRoomId);
+            } catch (NumberFormatException e) {
+                LOGGER.warn("[parseRoomIdFromStreamKey] invalid roomId cache: {}", cachedRoomId);
+            }
+        }
+        // 2. DB 兜底（Redis 缓存过期但推流地址仍有效期内）
+        LivingRoomPO room = livingRoomMapper.selectOne(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<LivingRoomPO>()
+                        .eq(LivingRoomPO::getStreamKey, streamKey)
+                        .last("limit 1"));
+        return room != null ? room.getId() : null;
     }
 
     /**
-     * 兼容旧格式 live_{roomId}_{anchorId}，也支持新格式 live_{md5}
+     * 修正流状态到数据库（单条更新，同步执行即可）
      */
-    private Integer extractRoomIdFromStreamKey(String streamKey) {
-        if (streamKey == null || streamKey.isEmpty()) {
-            return null;
-        }
-        if (streamKey.startsWith("live_")) {
-            String rest = streamKey.substring(5);
-            // 尝试解析新格式 md5 (32字符) 或旧格式 live_{roomId}_{anchorId}
-            if (rest.length() == 32) {
-                // 新格式: 遍历缓存查找对应 roomId（轻量实现）
-                return findRoomIdByStreamKey(streamKey);
-            }
-            // 旧格式兼容
-            String[] parts = rest.split("_");
-            if (parts.length >= 2) {
-                try {
-                    return Integer.parseInt(parts[0]);
-                } catch (NumberFormatException e) {
-                    LOGGER.error("parse roomId failed, streamKey={}", streamKey, e);
-                }
-            }
-        }
-        return null;
-    }
-
-    /**
-     * 根据 streamKey 查找对应的 roomId（通过 Redis 缓存）
-     */
-    private Integer findRoomIdByStreamKey(String streamKey) {
-        // 实际生产中建议用 Redis SCAN 遍历，或在 Redis 中反向存一份 streamKey->roomId 的映射
-        // 此处简化：直接查询数据库（假设房间数量有限）
-        var rooms = livingRoomMapper.selectList(null);
-        for (LivingRoomPO room : rooms) {
-            String cached = (String) redisTemplate.opsForValue().get(cacheKeyBuilder.buildStreamKey(room.getId()));
-            if (streamKey.equals(cached)) {
-                return room.getId();
-            }
-        }
-        return null;
-    }
-
-    /**
-     * 异步修正流状态到数据库
-     */
-    @Async
-    public void fixStreamStatusAsync(Integer roomId, String streamKey, int status) {
+    private void fixStreamStatus(Integer roomId, int status) {
         try {
             livingRoomMapper.updateStreamStatus(roomId, status, null);
-            LOGGER.info("[fixStreamStatusAsync] roomId={}, status={}", roomId, status);
+            stringRedisTemplate.delete(cacheKeyBuilder.buildStreamStatus(roomId));
+            LOGGER.info("[fixStreamStatus] roomId={}, status={}", roomId, status);
         } catch (Exception e) {
-            LOGGER.error("[fixStreamStatusAsync] failed, roomId={}", roomId, e);
+            LOGGER.error("[fixStreamStatus] failed, roomId={}", roomId, e);
         }
     }
 

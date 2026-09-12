@@ -1,11 +1,14 @@
 package org.qiyu.live.stream.interfaces.dto;
 
+import lombok.Data;
+
 import java.io.Serial;
 import java.io.Serializable;
 
 /**
  * 推流地址响应DTO
  */
+@Data
 public class LivingStreamPushUrlDTO implements Serializable {
 
     @Serial
@@ -20,27 +23,9 @@ public class LivingStreamPushUrlDTO implements Serializable {
     /** 地址过期时间（预留） */
     private Long expireTime;
 
-    public String getPushUrl() {
-        return pushUrl;
-    }
+    /** WebRTC 推流信令接口（浏览器一键开播，SDP 交换用） */
+    private String rtcPublishApi;
 
-    public void setPushUrl(String pushUrl) {
-        this.pushUrl = pushUrl;
-    }
-
-    public String getStreamKey() {
-        return streamKey;
-    }
-
-    public void setStreamKey(String streamKey) {
-        this.streamKey = streamKey;
-    }
-
-    public Long getExpireTime() {
-        return expireTime;
-    }
-
-    public void setExpireTime(Long expireTime) {
-        this.expireTime = expireTime;
-    }
+    /** WebRTC 流地址 webrtc://host:port/live/streamKey */
+    private String rtcStreamUrl;
 }

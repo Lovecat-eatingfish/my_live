@@ -25,9 +25,9 @@ import java.util.stream.Collectors;
 @Component
 public class SingleMessageHandlerImpl implements MessageHandler {
 
-    @DubboReference
+    @DubboReference(check = false)
     private ImRouterRpc routerRpc;
-    @DubboReference
+    @DubboReference(check = false)
     private ILivingRoomRpc livingRoomRpc;
 
 

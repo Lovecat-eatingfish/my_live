@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: qiyu-live-stream-provider
+  datasource:
+    hikari:
+      minimum-idle: 10
+      maximum-pool-size: 200
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://cloud.db:8808/qiyu_live_living?useUnicode=true&characterEncoding=utf8
+    username: qiyu
+    password: qiyu
+  data:
+    redis:
+      port: 8801
+      host: cloud.db
+      password: qiyu
+
+qiyu:
+  srs:
+    host: 127.0.0.1
+    rtmp-port: 1935
+    api-port: 1985
+    rtc-udp-port: 8000   # WebRTC UDP 端口（与容器同名映射）
+    hls-port: 8080
+    secret: your_secret_key_here
+    callback-secret: ''
+    dvr-container-prefix: D:/softwarepackage/development/srs_v5/SRS/objs/dvr
+    dvr-local-dir: D:/softwarepackage/development/srs_v5/SRS/objs/dvr
+  minio:
+    endpoint: http://127.0.0.1:9000
+    access-key: minioadmin
+    secret-key: minioadmin
+    bucket: qiyu-live-records
+
+# HTTP 端口：SRS 的 on_publish / on_unpublish 回调打到这个端口
+server:
+  port: 38101
+
+dubbo:
+  application:
+    name: ${spring.application.name}
+  registry:
+    address: nacos://qiyu.nacos.com:8848?namespace=qiyu-live-test&&username=qiyu&&password=qiyu
+  protocol:
+    name: dubbo
+    port: 9092

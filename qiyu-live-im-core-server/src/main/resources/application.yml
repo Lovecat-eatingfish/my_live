@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: qiyu-live-im-core-server
+  data:
+    redis:
+      port: 6379
+      host: 127.0.0.1
+      lettuce:
+        pool:
+          min-idle: 10
+          max-active: 100
+          max-idle: 10
+
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+        # 注册到 nacos 的 IP，api 服务会基于该 IP + qiyu.im.*.port 拼出 IM 服务器地址下发给前端
+        ip: 127.0.0.1
+        namespace: ef63e53e-94c8-4b1c-865e-6824177b2893
+        username: nacos
+        password: nacos
+qiyu:
+  im:
+    tcp:
+      port: 38085
+    ws:
+      port: 38086
+  rmq:
+    producer:
+      nameSrv: 127.0.0.1:9876
+      groupName: ${spring.application.name}
+      applicationName: ${spring.application.name}
+      sendMsgTimeout: 3000
+      retryTimes: 2
+
+dubbo:
+  application:
+    name: ${spring.application.name}
+    qos-enable: false
+  registry:
+    address: nacos://127.0.0.1:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=nacos&&password=nacos
+  protocol:
+    port: 30007
+
+

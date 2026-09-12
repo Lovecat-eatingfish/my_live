@@ -40,6 +40,13 @@ public interface IRedPacketService {
     Integer receive(Integer id, Long userId, Integer roomId);
 
     /**
+     * 领取统计异步同步到DB（由MQ消费者调用，DB中的统计供结算使用）
+     * @param id 红包配置ID
+     * @param receivePrice 本次领取金额
+     */
+    void syncReceiveStat(Integer id, int receivePrice);
+
+    /**
      * 根据配置码查询
      */
     RedPacketConfigDTO getByConfigCode(String configCode);

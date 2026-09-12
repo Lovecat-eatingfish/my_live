@@ -47,9 +47,12 @@ public class LivingPlayBackServiceImpl implements ILivingPlayBackService {
         }
 
         dto.setIsLiving(true);
-        // HLS 地址: http://host:8080/live/{streamKey}.m3u8
+        // HLS 地址: http://host:8080/live/{streamKey}.m3u8（兜底播放）
         String hlsUrl = srsConfig.getHlsBaseUrl() + "/" + room.getStreamKey() + ".m3u8";
         dto.setHlsUrl(hlsUrl);
+        // WebRTC 播放地址（低延迟主通道，与推流共用 streamKey）
+        dto.setRtcPlayApi(srsConfig.getRtcPlayApiUrl());
+        dto.setRtcStreamUrl(srsConfig.getRtcStreamBaseUrl() + "/" + room.getStreamKey());
 
         LOGGER.info("[getPlayUrl] roomId={}, hlsUrl={}", roomId, hlsUrl);
         return dto;

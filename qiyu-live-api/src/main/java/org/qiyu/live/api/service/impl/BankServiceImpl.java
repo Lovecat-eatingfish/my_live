@@ -33,11 +33,11 @@ import java.util.*;
 @Service
 public class BankServiceImpl implements IBankService {
 
-    @DubboReference
+    @DubboReference(check = false)
     private IPayProductRpc payProductRpc;
-    @DubboReference
+    @DubboReference(check = false)
     private IQiyuCurrencyAccountRpc qiyuCurrencyAccountRpc;
-    @DubboReference
+    @DubboReference(check = false)
     private IPayOrderRpc payOrderRpc;
     @Resource
     private RestTemplate restTemplate;

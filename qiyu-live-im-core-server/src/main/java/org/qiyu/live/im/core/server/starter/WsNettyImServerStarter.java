@@ -6,6 +6,7 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import org.apache.dubbo.common.utils.NetUtils;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.stream.ChunkedWriteHandler;
@@ -80,10 +81,17 @@ public class WsNettyImServerStarter implements InitializingBean {
             workerGroup.shutdownGracefully();
         }));
         //获取im的服务注册ip和暴露端口
+        //bind 地址会写入 redis 供 im-router 集群寻址，必须与 IRouterHandlerRpc 的 Dubbo 注册地址(ip:port)一致
         String registryIp = environment.getProperty("DUBBO_IP_TO_REGISTRY");
+        if (StringUtils.isEmpty(registryIp) || registryIp.startsWith("127.")) {
+            registryIp = NetUtils.getLocalHost();
+        }
         String registryPort = environment.getProperty("DUBBO_PORT_TO_REGISTRY");
+        if (StringUtils.isEmpty(registryPort)) {
+            registryPort = environment.getProperty("dubbo.protocol.port");
+        }
         if (StringUtils.isEmpty(registryPort) || StringUtils.isEmpty(registryIp)) {
-            throw new IllegalArgumentException("启动参数中的注册端口和注册ip不能为空");
+            throw new IllegalArgumentException("无法确定IM服务注册ip和端口，请检查dubbo.protocol.port配置");
         }
         ChannelHandlerContextCache.setServerIpAddress(registryIp + ":" + registryPort);
         ChannelFuture channelFuture = bootstrap.bind(port).sync();

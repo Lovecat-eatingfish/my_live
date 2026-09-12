@@ -6,7 +6,6 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloopen.rest.sdk.BodyType;
 import com.cloopen.rest.sdk.CCPRestSmsSDK;
 import jakarta.annotation.Resource;
-import org.apache.commons.lang3.RandomUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.ibatis.binding.MapperProxy;
 import org.idea.qiyu.live.framework.redis.starter.key.MsgProviderCacheKeyBuilder;
@@ -64,14 +63,12 @@ public class SmsServiceImpl implements ISmsService {
             logger.warn("该手机号短信发送过于频繁，phone is {}", phone);
             return MsgSendResultEnum.SEND_FAIL;
         }
-        int code = RandomUtils.nextInt(1000, 9999);
+        //测试阶段验证码固定为123456，不真实发送短信，避免产生短信费用
+        int code = 123456;
         redisTemplate.opsForValue().set(codeCacheKey, code, 60, TimeUnit.SECONDS);
-        //发送验证码
+        logger.info("[测试模式] 未真实发送短信，手机号 {} 的固定验证码为 {}", phone, code);
         ThreadPoolManager.commonAsyncPool.execute(() -> {
-            boolean sendStatus = sendSmsToCCP(phone, code);
-            if (sendStatus) {
-                insertOne(phone, code);
-            }
+            insertOne(phone, code);
         });
         //插入验证码发送记录
         return MsgSendResultEnum.SEND_SUCCESS;

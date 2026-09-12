@@ -71,11 +71,11 @@ public class SendGiftConsumer implements InitializingBean {
     private RedisTemplate<String, Object> redisTemplate;
     @Resource
     private GiftProviderCacheKeyBuilder cacheKeyBuilder;
-    @DubboReference
+    @DubboReference(check = false)
     private IQiyuCurrencyAccountRpc qiyuCurrencyAccountRpc;
-    @DubboReference
+    @DubboReference(check = false)
     private ILivingRoomRpc livingRoomRpc;
-    @DubboReference
+    @DubboReference(check = false)
     private ImRouterRpc routerRpc;
 
     @Override

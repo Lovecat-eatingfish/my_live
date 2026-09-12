@@ -17,4 +17,10 @@ public interface RedPacketConfigMapper extends BaseMapper<RedPacketConfigPO> {
      */
     @Update("UPDATE t_red_packet_config SET total_get = total_get + 1, total_get_price = total_get_price + #{price} WHERE id = #{id} AND total_count > total_get")
     int decrementStock(@Param("id") Integer id, @Param("price") Integer price);
+
+    /**
+     * 领取统计异步同步（红包池领取后由MQ消费者调用）
+     */
+    @Update("UPDATE t_red_packet_config SET total_get = total_get + 1, total_get_price = total_get_price + #{price} WHERE id = #{id}")
+    int incrReceiveStat(@Param("id") Integer id, @Param("price") int price);
 }

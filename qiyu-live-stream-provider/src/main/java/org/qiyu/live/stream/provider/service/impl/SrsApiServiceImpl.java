@@ -1,7 +1,6 @@
 package org.qiyu.live.stream.provider.service.impl;
 
 import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -42,7 +41,7 @@ public class SrsApiServiceImpl implements ISrsApiService {
 
     @Override
     public String queryStreams() {
-        String url = srsConfig.getApiUrl() + "/api/v1/streams";
+        String url = srsConfig.getApiUrl() + "/api/v1/streams/";
         try {
             Request request = new Request.Builder().url(url).get().build();
             try (okhttp3.Response response = httpClient.newCall(request).execute()) {
@@ -54,51 +53,113 @@ public class SrsApiServiceImpl implements ISrsApiService {
         }
     }
 
-    @Override
-    public boolean isStreamOnline(String streamKey) {
-        // 使用单流查询 API，同时可获取观看人数
-        String url = srsConfig.getApiUrl() + "/api/v1/streams/" + streamKey;
+    /**
+     * 从 /api/v1/streams/ 列表中查找指定 streamKey 的流
+     * 注意：SRS 的 /api/v1/streams/{id} 只支持数字 id，按 streamKey 名字查会返回 code=2048
+     */
+    private JSONObject findStream(String streamKey) {
+        String body = queryStreams();
+        if (!StringUtils.hasText(body)) {
+            return null;
+        }
         try {
-            Request request = new Request.Builder().url(url).get().build();
-            try (okhttp3.Response response = httpClient.newCall(request).execute()) {
-                String body = response.body() != null ? response.body().string() : "";
-                if (!StringUtils.hasText(body)) {
-                    return false;
+            JSONObject json = JSON.parseObject(body);
+            if (json.getIntValue("code") != 0) {
+                return null;
+            }
+            com.alibaba.fastjson.JSONArray streams = json.getJSONArray("streams");
+            if (streams == null) {
+                return null;
+            }
+            for (int i = 0; i < streams.size(); i++) {
+                JSONObject stream = streams.getJSONObject(i);
+                if (!streamKey.equals(stream.getString("name"))) {
+                    continue;
                 }
-                JSONObject json = JSON.parseObject(body);
-                int code = json.getIntValue("code");
-                return code == 0;
+                // 在线标记在嵌套字段 publish.active（推流端存在即在线）
+                JSONObject publish = stream.getJSONObject("publish");
+                if (publish != null && publish.getBooleanValue("active")) {
+                    return stream;
+                }
             }
         } catch (Exception e) {
-            LOGGER.error("isStreamOnline error, streamKey={}", streamKey, e);
-            return false;
+            LOGGER.error("findStream error, streamKey={}", streamKey, e);
         }
+        return null;
+    }
+
+    @Override
+    public boolean isStreamOnline(String streamKey) {
+        return findStream(streamKey) != null;
     }
 
     @Override
     public int getViewerCount(String streamKey) {
-        // 复用单流查询 API 获取 clients 数量，避免遍历全量流列表
-        String url = srsConfig.getApiUrl() + "/api/v1/streams/" + streamKey;
+        JSONObject stream = findStream(streamKey);
+        if (stream == null) {
+            return 0;
+        }
+        // clients 包含推流端自身，减 1 得到观看人数
+        return Math.max(0, stream.getIntValue("clients") - 1);
+    }
+
+    @Override
+    public int kickPublishClients(String streamKey) {
+        String listUrl = srsConfig.getApiUrl() + "/api/v1/clients?page=1&per_page=100";
+        int kicked = 0;
         try {
-            Request request = new Request.Builder().url(url).get().build();
+            Request request = new Request.Builder().url(listUrl).get().build();
             try (okhttp3.Response response = httpClient.newCall(request).execute()) {
                 String body = response.body() != null ? response.body().string() : "";
                 if (!StringUtils.hasText(body)) {
-                    return 0;
+                    LOGGER.warn("[kickPublishClients] empty response body, url={}", listUrl);
+                    return -1;
                 }
                 JSONObject json = JSON.parseObject(body);
                 if (json.getIntValue("code") != 0) {
+                    LOGGER.warn("[kickPublishClients] srs api code={}, body={}", json.getIntValue("code"), body);
+                    return -1;
+                }
+                com.alibaba.fastjson.JSONArray clients = json.getJSONArray("clients");
+                if (clients == null) {
+                    LOGGER.warn("[kickPublishClients] no clients array in response: {}", body);
                     return 0;
                 }
-                JSONObject data = json.getJSONObject("data");
-                if (data != null) {
-                    return data.getIntValue("clients");
+                for (int i = 0; i < clients.size(); i++) {
+                    JSONObject client = clients.getJSONObject(i);
+                    // 注意：clients API 的 stream 字段是 SRS 内部流ID(vid-xxx)，流名在 name 字段
+                    String clientName = client.getString("name");
+                    String type = client.getString("type");
+                    if (streamKey.equals(clientName) && type != null && type.contains("publish")) {
+                        if (deleteClient(client.getString("id"))) {
+                            kicked++;
+                        }
+                    }
                 }
             }
         } catch (Exception e) {
-            LOGGER.error("getViewerCount error, streamKey={}", streamKey, e);
+            LOGGER.error("kickPublishClients error, streamKey={}", streamKey, e);
+            return -1;
         }
-        return 0;
+        LOGGER.info("[kickPublishClients] streamKey={}, kicked={}", streamKey, kicked);
+        return kicked;
+    }
+
+    private boolean deleteClient(String clientId) {
+        if (!StringUtils.hasText(clientId)) {
+            return false;
+        }
+        String url = srsConfig.getApiUrl() + "/api/v1/clients/" + clientId;
+        try {
+            Request request = new Request.Builder().url(url).delete().build();
+            try (okhttp3.Response response = httpClient.newCall(request).execute()) {
+                String body = response.body() != null ? response.body().string() : "";
+                return StringUtils.hasText(body) && JSON.parseObject(body).getIntValue("code") == 0;
+            }
+        } catch (Exception e) {
+            LOGGER.error("deleteClient error, clientId={}", clientId, e);
+            return false;
+        }
     }
 
     @Override

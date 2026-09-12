@@ -14,8 +14,10 @@
         <qiyu-live-stream-interface.version>1.0-SNAPSHOT</qiyu-live-stream-interface.version>
         <qiyu-live-living-interface.version>1.0-SNAPSHOT</qiyu-live-living-interface.version>
         <qiyu-live-common-interface.version>1.0-SNAPSHOT</qiyu-live-common-interface.version>
+        <qiyu-live-im-interface.version>1.0-SNAPSHOT</qiyu-live-im-interface.version>
         <mybatis-plus.version>3.5.3</mybatis-plus.version>
         <okhttp.version>4.12.0</okhttp.version>
+        <minio.version>8.5.10</minio.version>
     </properties>
 
     <dependencies>
@@ -38,6 +40,21 @@
             <groupId>org.idea</groupId>
             <artifactId>qiyu-live-stream-interface</artifactId>
             <version>${qiyu-live-stream-interface.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.idea</groupId>
+            <artifactId>qiyu-live-im-interface</artifactId>
+            <version>${qiyu-live-im-interface.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.idea</groupId>
+            <artifactId>qiyu-live-im-router-interface</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
+            <version>${minio.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.dubbo</groupId>
@@ -72,5 +89,31 @@
             <artifactId>okhttp</artifactId>
             <version>${okhttp.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>fastjson</artifactId>
+            <version>2.0.53</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.idea</groupId>
+            <artifactId>qiyu-live-framework-bootstrap-starter</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <!-- 打包为可执行 Spring Boot jar（本地 java -jar 启动必需） -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 </project>

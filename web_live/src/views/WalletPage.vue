@@ -71,11 +71,11 @@ const orderId = ref('')
 
 const channels = [
   { label: '微信支付', value: 1, icon: '💰' },
-  { label: '支付宝', value: 2, icon: '💳' },
+  { label: '支付宝', value: 0, icon: '💳' },
 ]
 
 async function fetchProducts() {
-  const vo = await getProducts(2) // 2 = 个人中心来源
+  const vo = await getProducts(0) // 0 = 旗鱼直播间产品类型
   const list = vo.data?.payProductItemVOList || []
   products.value = list
   balance.value = vo.data?.currentBalance || 0

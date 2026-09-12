@@ -10,6 +10,7 @@ public class RedPacketConfigDTO implements Serializable {
 
     private Integer id;
     private Long anchorId;
+    private Integer roomId;
     private Date startTime;
     private Integer totalGet;
     private Integer totalGetPrice;
@@ -36,6 +37,14 @@ public class RedPacketConfigDTO implements Serializable {
 
     public void setAnchorId(Long anchorId) {
         this.anchorId = anchorId;
+    }
+
+    public Integer getRoomId() {
+        return roomId;
+    }
+
+    public void setRoomId(Integer roomId) {
+        this.roomId = roomId;
     }
 
     public Date getStartTime() {

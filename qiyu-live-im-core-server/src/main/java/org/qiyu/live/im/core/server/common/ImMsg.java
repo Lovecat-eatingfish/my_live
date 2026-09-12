@@ -64,7 +64,7 @@ public class ImMsg implements Serializable {
         ImMsg imMsg = new ImMsg();
         imMsg.setMagic(ImConstants.DEFAULT_MAGIC);
         imMsg.setCode(code);
-        imMsg.setBody(data.getBytes());
+        imMsg.setBody(data.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         imMsg.setLen(imMsg.getBody().length);
         return imMsg;
     }

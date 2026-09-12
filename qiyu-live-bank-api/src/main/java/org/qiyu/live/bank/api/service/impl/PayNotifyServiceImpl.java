@@ -16,7 +16,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class PayNotifyServiceImpl implements IPayNotifyService {
 
-    @DubboReference
+    @DubboReference(check = false)
     private IPayOrderRpc payOrderRpc;
 
     @Override

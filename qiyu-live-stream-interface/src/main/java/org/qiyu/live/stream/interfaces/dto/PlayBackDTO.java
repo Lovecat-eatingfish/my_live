@@ -1,11 +1,14 @@
 package org.qiyu.live.stream.interfaces.dto;
 
+import lombok.Data;
+
 import java.io.Serial;
 import java.io.Serializable;
 
 /**
  * 播放地址响应DTO
  */
+@Data
 public class PlayBackDTO implements Serializable {
 
     @Serial
@@ -20,27 +23,13 @@ public class PlayBackDTO implements Serializable {
     /** 是否在直播 */
     private Boolean isLiving;
 
-    public String getHlsUrl() {
-        return hlsUrl;
-    }
+    private Integer roomId;
 
-    public void setHlsUrl(String hlsUrl) {
-        this.hlsUrl = hlsUrl;
-    }
+    /** WebRTC 播放信令接口（同源相对路径，经代理转发到 SRS） */
+    private String rtcPlayApi;
 
-    public String getHttpFlvUrl() {
-        return httpFlvUrl;
-    }
+    /** WebRTC 流地址 webrtc://host:port/live/streamKey */
+    private String rtcStreamUrl;
 
-    public void setHttpFlvUrl(String httpFlvUrl) {
-        this.httpFlvUrl = httpFlvUrl;
-    }
 
-    public Boolean getIsLiving() {
-        return isLiving;
-    }
-
-    public void setIsLiving(Boolean isLiving) {
-        this.isLiving = isLiving;
-    }
 }

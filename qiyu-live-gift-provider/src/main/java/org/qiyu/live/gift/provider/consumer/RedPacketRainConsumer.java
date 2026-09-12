@@ -42,9 +42,9 @@ public class RedPacketRainConsumer implements InitializingBean {
     private RocketMQConsumerProperties rocketMQConsumerProperties;
     @Resource
     private IRedPacketService redPacketService;
-    @DubboReference
+    @DubboReference(check = false)
     private ImRouterRpc routerRpc;
-    @DubboReference
+    @DubboReference(check = false)
     private ILivingRoomRpc livingRoomRpc;
     @Resource
     private RedisTemplate<String, Object> redisTemplate;
@@ -107,6 +107,9 @@ public class RedPacketRainConsumer implements InitializingBean {
                     JSONObject jsonObject = new JSONObject();
                     jsonObject.put("redPacketId", mqDTO.getRedPacketId());
                     jsonObject.put("configCode", mqDTO.getConfigCode());
+
+                    // 领取统计异步同步到DB（total_get/total_get_price），供结算使用
+                    redPacketService.syncReceiveStat(mqDTO.getRedPacketId(), mqDTO.getReceivePrice());
 
                     // 单独发送给领取用户
                     sendImMsgSingleton(mqDTO.getUserId(), ImMsgBizCodeEnum.RED_PACKET_RECEIVE_SUCCESS, jsonObject);

@@ -28,7 +28,12 @@ hs_err_pid*
 # Local files
 note/
 svga
-insert_gift_sql
-docs/
-nacos-config/
-sql/
+sql/insert_gift_sql
+logs/
+docker-data/
+gui-test-screenshots/
+
+# 前端依赖与构建产物
+web_live/node_modules/
+web_live/dist/
+node_modules/

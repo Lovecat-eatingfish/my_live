@@ -14,6 +14,8 @@ public class BankProviderCacheKeyBuilder extends RedisKeyBuilder {
 
     private static String BALANCE_CACHE = "balance_cache";
 
+    private static String BALANCE_LOCK_CACHE = "balance_lock_cache";
+
     private static String PAY_PRODUCT_CACHE = "pay_product_cache";
 
     private static String PAY_PRODUCT_ITEM_CACHE = "pay_product_item_cache";
@@ -40,6 +42,13 @@ public class BankProviderCacheKeyBuilder extends RedisKeyBuilder {
      */
     public String buildUserBalance(Long userId) {
         return super.getPrefix() + BALANCE_CACHE + super.getSplitItem() + userId;
+    }
+
+    /**
+     * 构建用户余额扣减的分布式锁key，保证余额判断和扣减的原子性
+     */
+    public String buildUserBalanceLockKey(Long userId) {
+        return super.getPrefix() + BALANCE_LOCK_CACHE + super.getSplitItem() + userId;
     }
 
 }

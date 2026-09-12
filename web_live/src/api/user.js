@@ -1,7 +1,7 @@
 import request from './request'
 
-// 发送验证码
-export const sendLoginCode = (phone) => request.post('/userLogin/sendLoginCode', { phone })
+// 发送验证码（后端为表单/查询参数绑定，须走query）
+export const sendLoginCode = (phone) => request.post('/userLogin/sendLoginCode', null, { params: { phone } })
 
 // 登录
 export const login = (phone, code) => request.post('/userLogin/login', null, { params: { phone, code } })

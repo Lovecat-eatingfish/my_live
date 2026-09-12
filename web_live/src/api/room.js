@@ -1,7 +1,7 @@
 import request from './request'
 
-// 直播间列表
-export const listRoom = (params) => request.post('/living/list', params)
+// 直播间列表（后端LivingRoomReqVO为查询参数绑定，须走query）
+export const listRoom = (params) => request.post('/living/list', null, { params })
 
 // 开播
 export const startLiving = (type) => request.post('/living/startingLiving', null, { params: { type } })

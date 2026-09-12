@@ -58,7 +58,7 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     private LivingProviderCacheKeyBuilder cacheKeyBuilder;
     @Resource
     private ILivingRoomTxService livingRoomTxService;
-    @DubboReference
+    @DubboReference(check = false)
     private ImRouterRpc imRouterRpc;
 
     @Override

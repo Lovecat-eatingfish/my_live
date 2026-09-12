@@ -1,0 +1,27 @@
+spring:
+  main:
+    allow-bean-definition-overriding: true
+  application:
+    name: qiyu-live-im-provider
+  data:
+    redis:
+      port: 6379
+      host: 127.0.0.1
+      lettuce:
+        pool:
+          min-idle: 10
+          max-active: 100
+          max-idle: 10
+
+dubbo:
+  application:
+    name: ${spring.application.name}
+  registry:
+    address: nacos://127.0.0.1:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=nacos&&password=nacos
+  protocol:
+    name: dubbo
+    port: 30004
+    threadpool: fixed
+    dispatcher: execution
+    threads: 500
+    accepts: 500

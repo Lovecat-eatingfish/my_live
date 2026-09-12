@@ -1,7 +1,6 @@
 package org.qiyu.live.gift.provider.service.impl;
 
 import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.apache.dubbo.config.annotation.DubboReference;
 import org.apache.rocketmq.client.producer.MQProducer;
@@ -14,17 +13,15 @@ import org.qiyu.live.gift.dto.RedPacketConfigDTO;
 import org.qiyu.live.gift.provider.dao.mapper.RedPacketConfigMapper;
 import org.qiyu.live.gift.provider.dao.po.RedPacketConfigPO;
 import org.qiyu.live.gift.provider.service.IRedPacketService;
-import org.qiyu.live.im.constants.AppIdEnum;
-import org.qiyu.live.im.dto.ImMsgBody;
-import org.qiyu.live.im.router.interfaces.constants.ImMsgBizCodeEnum;
 import org.qiyu.live.im.router.interfaces.rpc.ImRouterRpc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.Resource;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -44,9 +41,9 @@ public class RedPacketServiceImpl implements IRedPacketService {
     private GiftProviderCacheKeyBuilder cacheKeyBuilder;
     @Resource
     private MQProducer mqProducer;
-    @DubboReference
+    @DubboReference(check = false)
     private IQiyuCurrencyAccountRpc qiyuCurrencyAccountRpc;
-    @DubboReference
+    @DubboReference(check = false)
     private ImRouterRpc routerRpc;
 
     @Override
@@ -61,7 +58,10 @@ public class RedPacketServiceImpl implements IRedPacketService {
 
     @Override
     public void create(RedPacketConfigDTO redPacketConfigDTO) {
-        RedPacketConfigPO po = convert(redPacketConfigDTO);
+        RedPacketConfigPO po = convertToPO(redPacketConfigDTO);
+        if (po.getConfigCode() == null || po.getConfigCode().isEmpty()) {
+            po.setConfigCode(java.util.UUID.randomUUID().toString().replace("-", ""));
+        }
         po.setStatus(1); // 待预热
         po.setTotalGet(0);
         po.setTotalGetPrice(0);
@@ -70,10 +70,67 @@ public class RedPacketServiceImpl implements IRedPacketService {
 
     @Override
     public void prepare(Integer id) {
-        RedPacketConfigPO po = new RedPacketConfigPO();
-        po.setId(id);
-        po.setStatus(2); // 已预热，待发送
-        redPacketConfigMapper.updateById(po);
+        RedPacketConfigPO po = redPacketConfigMapper.selectById(id);
+        if (po == null) {
+            return;
+        }
+        //分布式锁防止主播重复点击导致红包重复生成
+        String lockKey = cacheKeyBuilder.buildRedPacketPrepareLockKey(po.getConfigCode());
+        Boolean isLock = redisTemplate.opsForValue().setIfAbsent(lockKey, 1, 3L, TimeUnit.SECONDS);
+        if (!Boolean.TRUE.equals(isLock)) {
+            return;
+        }
+        try {
+            //已准备过直接返回（Redis标记，防止未准备就开始红包雨）
+            String preparedFlagKey = cacheKeyBuilder.buildRedPacketPreparedFlagKey(po.getConfigCode());
+            if (Boolean.TRUE.equals(redisTemplate.hasKey(preparedFlagKey))) {
+                return;
+            }
+            //两倍随机法分割红包金额，保证随机均匀且总额恒等于配置总金额
+            List<Integer> priceList = this.createRedPacketPriceList(po.getTotalPrice(), po.getTotalCount());
+            //红包池以configCode为key（而非主播id/红包id），避免上一场未领完的红包混入下一场
+            String listKey = cacheKeyBuilder.buildRedPacketListKey(po.getConfigCode());
+            //分批插入，避免一次大命令阻塞Redis单线程
+            //显式构造List<Object>以匹配rightPushAll(key, Collection)重载，否则会把整个List当单个元素push
+            for (int i = 0; i < priceList.size(); i += 100) {
+                List<Object> batch = new ArrayList<>(priceList.subList(i, Math.min(i + 100, priceList.size())));
+                redisTemplate.opsForList().rightPushAll(listKey, batch);
+            }
+            redisTemplate.expire(listKey, 1, TimeUnit.DAYS);
+            //更新DB状态为已准备
+            RedPacketConfigPO updatePO = new RedPacketConfigPO();
+            updatePO.setId(id);
+            updatePO.setStatus(2); // 已准备，待发送
+            redPacketConfigMapper.updateById(updatePO);
+            redisTemplate.opsForValue().set(preparedFlagKey, 1, 1, TimeUnit.DAYS);
+            LOGGER.info("[RedPacketService] 红包池准备完成, redPacketId={}, count={}, totalPrice={}", id, priceList.size(), po.getTotalPrice());
+        } finally {
+            redisTemplate.delete(lockKey);
+        }
+    }
+
+    /**
+     * 两倍随机法分割红包金额：每次随机上限为剩余均值的2倍，最后一个红包拿剩余全部
+     */
+    private List<Integer> createRedPacketPriceList(int totalPrice, int totalCount) {
+        List<Integer> priceList = new ArrayList<>(totalCount);
+        int remainPrice = Math.max(totalPrice, totalCount);
+        int remainCount = totalCount;
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        for (int i = 0; i < totalCount; i++) {
+            if (remainCount <= 1) {
+                priceList.add(remainPrice);
+                break;
+            }
+            int max = Math.max(1, remainPrice / remainCount * 2 - 1);
+            int price = random.nextInt(1, max + 1);
+            //保证剩余金额足够剩下的红包每人至少1
+            price = Math.min(price, remainPrice - (remainCount - 1));
+            priceList.add(price);
+            remainPrice -= price;
+            remainCount--;
+        }
+        return priceList;
     }
 
     @Override
@@ -120,38 +177,47 @@ public class RedPacketServiceImpl implements IRedPacketService {
             return 0; // 红包不存在或未发送
         }
 
-        // 2. 检查是否还有库存
-        if (po.getTotalGet() >= po.getTotalCount()) {
-            return 0; // 红包已领完
+        // 2. 红包池必须已准备（防止跳过准备直接领取）
+        if (!Boolean.TRUE.equals(redisTemplate.hasKey(cacheKeyBuilder.buildRedPacketPreparedFlagKey(po.getConfigCode())))) {
+            return 0;
         }
 
         // 3. 检查用户是否已领取过（用Redis Set记录）
         String receiveKey = cacheKeyBuilder.buildRedPacketReceiveKey(id);
-        Boolean isMember = redisTemplate.opsForSet().isMember(receiveKey, userId);
-        if (Boolean.TRUE.equals(isMember)) {
+        if (Boolean.TRUE.equals(redisTemplate.opsForSet().isMember(receiveKey, userId))) {
             return 0; // 已领取过
         }
 
-        // 4. 扣减库存（乐观锁）
-        int result = redPacketConfigMapper.decrementStock(id, 1);
-        if (result <= 0) {
-            return 0; // 库存不足
+        // 4. 从红包池原子弹出一个金额：rightPop线程安全，红包个数由池子大小天然控制，不会超发
+        String listKey = cacheKeyBuilder.buildRedPacketListKey(po.getConfigCode());
+        Object priceObj = redisTemplate.opsForList().rightPop(listKey);
+        if (priceObj == null) {
+            return 0; // 红包已领完
         }
+        int receivePrice = ((Number) priceObj).intValue();
 
-        // 5. 随机金额
-        int receivePrice = ThreadLocalRandom.current().nextInt(1, po.getMaxGetPrice() + 1);
-
-        // 6. 记录用户领取（防止重复领取）
+        // 5. 记录用户领取（防止重复领取）
         redisTemplate.opsForSet().add(receiveKey, userId);
         redisTemplate.expire(receiveKey, 24, TimeUnit.HOURS);
+
+        // 6. 实时统计领取个数和金额（hash自增），由MQ消费者异步同步到DB
+        String statKey = cacheKeyBuilder.buildRedPacketStatKey(id);
+        redisTemplate.opsForHash().increment(statKey, "totalGet", 1);
+        redisTemplate.opsForHash().increment(statKey, "totalGetPrice", receivePrice);
+        redisTemplate.expire(statKey, 1, TimeUnit.DAYS);
 
         // 7. 给用户增加余额
         qiyuCurrencyAccountRpc.incr(userId, receivePrice);
 
-        // 8. 发送MQ消息通知用户领取成功（通过IM推送）
+        // 8. 发送MQ消息通知用户领取成功（通过IM推送）+ 异步同步DB统计
         sendReceiveMq(id, userId, roomId, po.getAnchorId(), receivePrice, po.getConfigCode());
 
         return receivePrice;
+    }
+
+    @Override
+    public void syncReceiveStat(Integer id, int receivePrice) {
+        redPacketConfigMapper.incrReceiveStat(id, receivePrice);
     }
 
     @Override
@@ -227,6 +293,7 @@ public class RedPacketServiceImpl implements IRedPacketService {
         RedPacketConfigDTO dto = new RedPacketConfigDTO();
         dto.setId(po.getId());
         dto.setAnchorId(po.getAnchorId());
+        dto.setRoomId(po.getRoomId());
         dto.setStartTime(po.getStartTime());
         dto.setTotalGet(po.getTotalGet());
         dto.setTotalGetPrice(po.getTotalGetPrice());
@@ -239,5 +306,25 @@ public class RedPacketServiceImpl implements IRedPacketService {
         dto.setCreateTime(po.getCreateTime());
         dto.setUpdateTime(po.getUpdateTime());
         return dto;
+    }
+
+    private RedPacketConfigPO convertToPO(RedPacketConfigDTO dto) {
+        if (dto == null) {
+            return null;
+        }
+        RedPacketConfigPO po = new RedPacketConfigPO();
+        po.setId(dto.getId());
+        po.setAnchorId(dto.getAnchorId());
+        po.setRoomId(dto.getRoomId());
+        po.setStartTime(dto.getStartTime());
+        po.setTotalGet(dto.getTotalGet());
+        po.setTotalGetPrice(dto.getTotalGetPrice());
+        po.setMaxGetPrice(dto.getMaxGetPrice());
+        po.setStatus(dto.getStatus());
+        po.setTotalPrice(dto.getTotalPrice());
+        po.setTotalCount(dto.getTotalCount());
+        po.setConfigCode(dto.getConfigCode());
+        po.setRemark(dto.getRemark());
+        return po;
     }
 }

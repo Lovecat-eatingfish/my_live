@@ -75,7 +75,7 @@ public class WsImServerCoreHandler extends SimpleChannelInboundHandler {
             imMsg.setMagic(jsonObject.getShort("magic"));
             imMsg.setCode(jsonObject.getInteger("code"));
             imMsg.setLen(jsonObject.getInteger("len"));
-            imMsg.setBody(jsonObject.getString("body").getBytes());
+            imMsg.setBody(jsonObject.getString("body").getBytes(java.nio.charset.StandardCharsets.UTF_8));
             imHandlerFactory.doMsgHandler(ctx, imMsg);
         } catch (Exception e) {
             LOGGER.error("[WebsocketCoreHandler] wsMsgHandler error is:", e);

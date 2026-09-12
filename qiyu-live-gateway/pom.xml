@@ -78,16 +78,6 @@
                 <groupId>com.spotify</groupId>
                 <artifactId>docker-maven-plugin</artifactId>
                 <version>1.2.0</version>
-                <executions>
-                    <!-- 当mvn执行install操作的时候，执行docker的build -->
-                    <execution>
-                        <id>build</id>
-                        <phase>install</phase>
-                        <goals>
-                            <goal>build</goal>
-                        </goals>
-                    </execution>
-                </executions>
                 <configuration>
                     <imageTags>
                         <imageTag>${project.version}</imageTag>

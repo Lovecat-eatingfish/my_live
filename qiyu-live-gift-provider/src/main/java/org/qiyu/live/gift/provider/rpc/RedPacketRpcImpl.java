@@ -27,4 +27,29 @@ public class RedPacketRpcImpl implements IRedPacketRpc {
     public RedPacketConfigDTO getByConfigCode(String configCode) {
         return redPacketService.getByConfigCode(configCode);
     }
+
+    @Override
+    public void create(RedPacketConfigDTO redPacketConfigDTO) {
+        redPacketService.create(redPacketConfigDTO);
+    }
+
+    @Override
+    public void prepare(Integer id) {
+        redPacketService.prepare(id);
+    }
+
+    @Override
+    public void send(Integer id) {
+        redPacketService.send(id);
+    }
+
+    @Override
+    public Integer receive(Integer id, Long userId, Integer roomId) {
+        return redPacketService.receive(id, userId, roomId);
+    }
+
+    @Override
+    public void settle(Integer id) {
+        redPacketService.settle(id);
+    }
 }

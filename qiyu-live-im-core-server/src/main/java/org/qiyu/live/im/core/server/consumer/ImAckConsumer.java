@@ -46,7 +46,7 @@ public class ImAckConsumer implements InitializingBean {
         mqPushConsumer.setConsumeFromWhere(ConsumeFromWhere.CONSUME_FROM_FIRST_OFFSET);
         mqPushConsumer.subscribe(ImCoreServerProviderTopicNames.QIYU_LIVE_IM_ACK_MSG_TOPIC, "");
         mqPushConsumer.setMessageListener((MessageListenerConcurrently) (msgs, context) -> {
-            String json = new String(msgs.get(0).getBody());
+            String json = new String(msgs.get(0).getBody(), java.nio.charset.StandardCharsets.UTF_8);
             ImMsgBody imMsgBody = JSON.parseObject(json, ImMsgBody.class);
             int retryTimes = msgAckCheckService.getMsgAckTimes(imMsgBody.getMsgId(), imMsgBody.getUserId(), imMsgBody.getAppId());
             LOGGER.info("retryTimes is {},msgId is {}", retryTimes, imMsgBody.getMsgId());

@@ -32,7 +32,7 @@ import java.util.*;
 @Service
 public class ImClientHandler implements InitializingBean {
 
-    @DubboReference
+    @DubboReference(check = false)
     private ImTokenRpc imTokenRpc;
 
     @Override

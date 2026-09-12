@@ -51,6 +51,8 @@ async function fetchGifts() {
   try {
     const vo = await listGift()
     giftList.value = vo.data || []
+    // 缓存到全局，供RoomPage礼物动画根据5556推送的url匹配礼物信息
+    window.__qiyuGiftList = giftList.value
   } catch {
     ElMessage.error('获取礼物列表失败')
   }

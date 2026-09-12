@@ -9,6 +9,7 @@
     <artifactId>qiyu-live-framework</artifactId>
     <packaging>pom</packaging>
     <modules>
+        <module>qiyu-live-framework-bootstrap-starter</module>
         <module>qiyu-live-framework-datasource-starter</module>
         <module>qiyu-live-framework-redis-starter</module>
         <module>qiyu-live-framework-web-starter</module>

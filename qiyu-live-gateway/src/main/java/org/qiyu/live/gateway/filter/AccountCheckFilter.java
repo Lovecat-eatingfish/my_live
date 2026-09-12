@@ -21,6 +21,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static io.netty.handler.codec.http.cookie.CookieHeaderNames.MAX_AGE;
@@ -36,7 +37,7 @@ public class AccountCheckFilter implements GlobalFilter, Ordered {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AccountCheckFilter.class);
 
-    @DubboReference
+    @DubboReference(check = false)
     private IAccountTokenRPC accountTokenRPC;
     @Resource
     private GatewayApplicationProperties gatewayApplicationProperties;
@@ -67,28 +68,41 @@ public class AccountCheckFilter implements GlobalFilter, Ordered {
                 return chain.filter(exchange);
             }
         }
-        //如果不存在url白名单，那么就需要提取cookie，并且对cookie做基本的格式校验
+        //如果不存在url白名单，那么需要先尝试从请求头提取token（web前端），再回退到cookie校验
         List<HttpCookie> httpCookieList = request.getCookies().get("qytk");
-        if (CollectionUtils.isEmpty(httpCookieList)) {
-            LOGGER.error("请求没有检索到qytk的cookie，被拦截");
-            return Mono.empty();
+        String qiyuTokenValue = null;
+        if (!CollectionUtils.isEmpty(httpCookieList)) {
+            qiyuTokenValue = httpCookieList.get(0).getValue();
         }
-        String qiyuTokenCookieValue = httpCookieList.get(0).getValue();
-        if (StringUtils.isEmpty(qiyuTokenCookieValue) || StringUtils.isEmpty(qiyuTokenCookieValue.trim())) {
-            LOGGER.error("请求的cookie中的qytk是空，被拦截");
-            return Mono.empty();
+        if (StringUtils.isEmpty(qiyuTokenValue) || StringUtils.isEmpty(qiyuTokenValue.trim())) {
+            //cookie中没有token时，回退读取请求头中的token
+            qiyuTokenValue = request.getHeaders().getFirst("token");
+        }
+        if (StringUtils.isEmpty(qiyuTokenValue) || StringUtils.isEmpty(qiyuTokenValue.trim())) {
+            LOGGER.error("请求没有检索到qytk的cookie或token请求头，被拦截");
+            return writeUnauthorized(response);
         }
         //token获取到之后，调用rpc判断token是否合法，如果合法则吧token换取到的userId传递给到下游
-        Long userId = accountTokenRPC.getUserIdByToken(qiyuTokenCookieValue);
+        Long userId = accountTokenRPC.getUserIdByToken(qiyuTokenValue);
         //如果token不合法，则拦截请求，日志记录token失效
         if (userId == null) {
             LOGGER.error("请求的token失效了，被拦截");
-            return Mono.empty();
+            return writeUnauthorized(response);
         }
         // gateway --(header)--> springboot-web(interceptor-->get header)
         ServerHttpRequest.Builder builder = request.mutate();
         builder.header(GatewayHeaderEnum.USER_LOGIN_ID.getName(), String.valueOf(userId));
         return chain.filter(exchange.mutate().request(builder.build()).build());
+    }
+
+    /**
+     * 未登录/ token失效时返回401和JSON报文，便于前端统一处理
+     */
+    private Mono<Void> writeUnauthorized(ServerHttpResponse response) {
+        response.setStatusCode(HttpStatus.UNAUTHORIZED);
+        response.getHeaders().add(HttpHeaders.CONTENT_TYPE, "application/json;charset=UTF-8");
+        byte[] body = "{\"code\":401,\"msg\":\"token invalid\"}".getBytes(StandardCharsets.UTF_8);
+        return response.writeWith(Mono.just(response.bufferFactory().wrap(body)));
     }
 
     @Override

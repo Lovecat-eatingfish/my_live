@@ -42,7 +42,7 @@ public class LoginMsgHandler implements SimplyHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LoginMsgHandler.class);
 
-    @DubboReference
+    @DubboReference(check = false)
     private ImTokenRpc imTokenRpc;
     @Resource
     private StringRedisTemplate stringRedisTemplate;
@@ -61,7 +61,7 @@ public class LoginMsgHandler implements SimplyHandler {
             LOGGER.error("body error,imMsg is {}", imMsg);
             throw new IllegalArgumentException("body error");
         }
-        ImMsgBody imMsgBody = JSON.parseObject(new String(body), ImMsgBody.class);
+        ImMsgBody imMsgBody = JSON.parseObject(new String(body, java.nio.charset.StandardCharsets.UTF_8), ImMsgBody.class);
         Long userIdFromMsg = imMsgBody.getUserId();
         Integer appId = imMsgBody.getAppId();
         String token = imMsgBody.getToken();
@@ -95,7 +95,7 @@ public class LoginMsgHandler implements SimplyHandler {
         imOnlineDTO.setLoginTime(System.currentTimeMillis());
         Message message = new Message();
         message.setTopic(ImCoreServerProviderTopicNames.IM_ONLINE_TOPIC);
-        message.setBody(JSON.toJSONString(imOnlineDTO).getBytes());
+        message.setBody(JSON.toJSONString(imOnlineDTO).getBytes(java.nio.charset.StandardCharsets.UTF_8));
         try {
             SendResult sendResult = mqProducer.send(message);
             LOGGER.info("[sendLoginMQ] sendResult is {}", sendResult);

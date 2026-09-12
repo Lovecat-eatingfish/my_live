@@ -33,11 +33,11 @@ public class UserLoginServiceImpl implements IUserLoginService {
     private static String PHONE_REG = "^(13[0-9]|14[01456879]|15[0-35-9]|16[2567]|17[0-8]|18[0-9]|19[0-35-9])\\d{8}$";
     private static final Logger LOGGER = LoggerFactory.getLogger(UserLoginServiceImpl.class);
 
-    @DubboReference
+    @DubboReference(check = false)
     private ISmsRpc smsRpc;
-    @DubboReference
+    @DubboReference(check = false)
     private IUserPhoneRPC userPhoneRPC;
-    @DubboReference
+    @DubboReference(check = false)
     private IAccountTokenRPC accountTokenRPC;
 
     @Override
@@ -75,6 +75,9 @@ public class UserLoginServiceImpl implements IUserLoginService {
         cookie.setMaxAge(30 * 24 * 3600);
         //加上它，不然web浏览器不会将cookie自动记录下
         response.addCookie(cookie);
-        return WebResponseVO.success(ConvertBeanUtils.convert(userLoginDTO, UserLoginVO.class));
+        UserLoginVO userLoginVO = ConvertBeanUtils.convert(userLoginDTO, UserLoginVO.class);
+        //web端需要拿到token自行保存（cookie域名为qiyu.live.com，本地/其他域名的浏览器不会写入）
+        userLoginVO.setToken(token);
+        return WebResponseVO.success(userLoginVO);
     }
 }

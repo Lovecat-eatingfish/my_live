@@ -17,6 +17,7 @@ import org.qiyu.live.living.interfaces.dto.LivingPkRespDTO;
 import org.qiyu.live.living.interfaces.dto.LivingRoomReqDTO;
 import org.qiyu.live.living.interfaces.dto.LivingRoomRespDTO;
 import org.qiyu.live.living.interfaces.rpc.ILivingRoomRpc;
+import org.qiyu.live.stream.interfaces.rpc.ILivingStreamRpc;
 import org.qiyu.live.user.dto.UserDTO;
 import org.qiyu.live.user.interfaces.IUserRpc;
 import org.qiyu.live.web.starter.context.QiyuRequestContext;
@@ -39,10 +40,15 @@ import java.util.stream.Collectors;
 @Service
 public class LivingRoomServiceImpl implements ILivingRoomService {
 
-    @DubboReference
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(LivingRoomServiceImpl.class);
+
+    @DubboReference(check = false)
     private IUserRpc userRpc;
-    @DubboReference
+    @DubboReference(check = false)
     private ILivingRoomRpc livingRoomRpc;
+    // stream-provider 未启动时降级，不阻塞 api 启动
+    @DubboReference(check = false)
+    private ILivingStreamRpc livingStreamRpc;
 
     @Override
     public LivingRoomPageRespVO list(LivingRoomReqVO livingRoomReqVO) {
@@ -80,7 +86,16 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
         LivingRoomReqDTO livingRoomReqDTO = new LivingRoomReqDTO();
         livingRoomReqDTO.setRoomId(roomId);
         livingRoomReqDTO.setAnchorId(QiyuRequestContext.getUserId());
-        return livingRoomRpc.closeLiving(livingRoomReqDTO);
+        boolean closeStatus = livingRoomRpc.closeLiving(livingRoomReqDTO);
+        if (closeStatus) {
+            // 关播成功后联动停止推流（踢掉 SRS 推流客户端、重置流状态），失败不影响关播结果
+            try {
+                livingStreamRpc.stopStream(roomId);
+            } catch (Exception e) {
+                LOGGER.warn("[closeLiving] stopStream failed, roomId={}", roomId, e);
+            }
+        }
+        return closeStatus;
     }
 
     @Override

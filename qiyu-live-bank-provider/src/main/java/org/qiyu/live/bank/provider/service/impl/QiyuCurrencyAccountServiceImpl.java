@@ -15,6 +15,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -108,15 +109,33 @@ public class QiyuCurrencyAccountServiceImpl implements IQiyuCurrencyAccountServi
 
     @Override
     public AccountTradeRespDTO consumeForSendGift(AccountTradeReqDTO accountTradeReqDTO) {
-        //余额判断
+        //余额判断 + 余额扣减 必须保证原子性，否则高并发下同一用户可能双扣/透支
+        //分布式锁：同一用户同一时刻只允许一笔扣减在执行，抢不到锁的短暂等待后重试
         long userId = accountTradeReqDTO.getUserId();
         int num = accountTradeReqDTO.getNum();
-        Integer balance = this.getBalance(userId);
-        if (balance == null || balance < num) {
-            return AccountTradeRespDTO.buildFail(userId, "账户余额不足", 1);
+        String lockKey = cacheKeyBuilder.buildUserBalanceLockKey(userId);
+        Boolean isLock = redisTemplate.opsForValue().setIfAbsent(lockKey, 1, 2L, TimeUnit.SECONDS);
+        if (Boolean.TRUE.equals(isLock)) {
+            try {
+                Integer balance = this.getBalance(userId);
+                if (balance == null || balance < num) {
+                    return AccountTradeRespDTO.buildFail(userId, "账户余额不足", 1);
+                }
+                this.decr(userId, num);
+            } finally {
+                redisTemplate.delete(lockKey);
+            }
+        } else {
+            try {
+                //等待0.5~1秒后重试，避免高并发送礼时请求直接失败
+                Thread.sleep(ThreadLocalRandom.current().nextLong(500, 1000));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return AccountTradeRespDTO.buildFail(userId, "系统繁忙", 2);
+            }
+            return consumeForSendGift(accountTradeReqDTO);
         }
-        this.decr(userId, num);
-        return AccountTradeRespDTO.buildSuccess(userId, "消费成功");
+        return AccountTradeRespDTO.buildSuccess(userId, "扣费成功");
     }
 
     @Transactional(rollbackFor = Exception.class)

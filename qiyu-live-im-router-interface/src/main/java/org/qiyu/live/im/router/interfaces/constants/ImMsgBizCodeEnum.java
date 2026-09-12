@@ -14,7 +14,10 @@ public enum ImMsgBizCodeEnum {
     LIVING_ROOM_PK_ONLINE(5559,"pk连线"),
     RED_PACKET_RAIN_SEND(5560,"红包雨发送"),
     RED_PACKET_RECEIVE_SUCCESS(5561,"红包领取成功"),
-    ORDER_STATUS_CHANGE(5562,"订单状态变更");
+    ORDER_STATUS_CHANGE(5562,"订单状态变更"),
+    LIVING_STREAM_STATUS_CHANGE(5563,"推流状态变更"),
+    LIVING_RECORD_DONE(5564,"直播回放生成"),
+    LIVING_ROOM_CLOSE(5565,"直播间关闭");
 
     int code;
     String desc;

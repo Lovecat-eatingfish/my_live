@@ -44,7 +44,7 @@ public class UserPhoneServiceImpl implements IUserPhoneService {
     private UserProviderCacheKeyBuilder cacheKeyBuilder;
     @Resource
     private IUserService userService;
-    @DubboReference
+    @DubboReference(check = false)
     private IdGenerateRpc idGenerateRpc;
 
     @Override
