@@ -1,26 +1,54 @@
 import request from './request'
 import { ElMessage } from 'element-plus'
 
-// 大文件 multipart 上传统一走 fetch（axios+FormData 在部分环境下请求完成后 promise 不决）
-async function uploadFormData(url, formData) {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'token': localStorage.getItem('qiyu_token') || '' },
-    body: formData
+// 大文件 multipart 上传统一走 XHR：
+// 1. axios+FormData 在部分环境下请求完成后 promise 不决（见历史问题）
+// 2. fetch 的 res.json() 依赖响应体流读取，被浏览器扩展（如视频下载类）劫持响应流时会永远挂起，
+//    表现为"请求 200 已到但前端一直转圈"；XHR 的 load 事件在传输结束时必触发，不依赖 body 流
+// 同时支持进度回调与中止（xhrRef 存放当前请求，供取消上传用）
+export function uploadFormData(url, formData, { onProgress, xhrRef } = {}) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    if (xhrRef) xhrRef.value = xhr
+    xhr.open('POST', url)
+    xhr.setRequestHeader('token', localStorage.getItem('qiyu_token') || '')
+    // 15 分钟超时兜底：正常链路几秒~几分钟，超时说明链路挂了，不能让用户干等
+    xhr.timeout = 15 * 60 * 1000
+    if (onProgress) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100))
+      }
+    }
+    xhr.onload = () => {
+      let vo
+      try {
+        vo = JSON.parse(xhr.responseText)
+      } catch {
+        reject({ msg: `响应异常(${xhr.status})` })
+        return
+      }
+      if (xhr.status === 200 && vo.code === 200) {
+        resolve(vo)
+      } else {
+        ElMessage.error(vo.msg || `上传失败(${xhr.status})`)
+        reject(vo)
+      }
+    }
+    xhr.onerror = () => reject({ msg: '网络异常，上传失败' })
+    xhr.ontimeout = () => {
+      ElMessage.error('上传超时，请检查网络或换个小文件试试')
+      reject({ msg: '上传超时' })
+    }
+    xhr.onabort = () => reject({ msg: '已取消上传', aborted: true })
+    xhr.send(formData)
   })
-  const vo = await res.json()
-  if (vo.code !== 200) {
-    ElMessage.error(vo.msg || '上传失败')
-    throw vo
-  }
-  return vo
 }
 
 // 上传视频文件（MP4/WebM/MOV），返回播放 URL
-export const uploadVideo = (file) => {
+export const uploadVideo = (file, opts = {}) => {
   const formData = new FormData()
   formData.append('file', file)
-  return uploadFormData('/api/video/uploadVideo', formData)
+  return uploadFormData('/api/video/uploadVideo', formData, opts)
 }
 
 // 发布视频（videoUrl/coverUrl 为已上传地址）
