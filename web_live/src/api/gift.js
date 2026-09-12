@@ -28,6 +28,15 @@ export const queryRedPacket = (data) => request.post('/gift/redpacket/query', da
 // 小黄车商品列表
 export const listShop = (roomId) => request.post('/gift/shop/list', null, { params: { roomId } })
 
+// 全部在架商品（主播商品管理）
+export const listAllSkus = () => request.post('/gift/sku/list')
+
+// 我（主播）已上架的商品
+export const listMyShop = () => request.post('/gift/shop/myList')
+
+// 主播上架/下架商品（status: 1上架 0下架）
+export const updateShopStatus = (data) => request.post('/gift/shop/updateStatus', null, { params: data })
+
 // 创建商品订单
 export const createOrder = (data) => request.post('/gift/order/create', data)
 

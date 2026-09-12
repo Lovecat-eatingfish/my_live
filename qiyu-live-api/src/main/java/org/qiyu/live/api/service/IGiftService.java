@@ -79,4 +79,19 @@ public interface IGiftService {
      * 查询直播间的带货商品列表（小黄车）
      */
     List<ShopSkuVO> listShopByRoom(Integer roomId);
+
+    /**
+     * 全部在架商品（主播商品管理列表）
+     */
+    List<ShopSkuVO> listAllSkus();
+
+    /**
+     * 我（主播）已上架的商品
+     */
+    List<ShopSkuVO> listMyShop();
+
+    /**
+     * 主播上架/下架商品（status: 1上架 0下架）
+     */
+    boolean updateShopStatus(Integer skuId, Integer status);
 }

@@ -25,6 +25,17 @@
       />
       <div class="name-count">{{ roomName.length }}/30</div>
 
+      <!-- 直播间类型 -->
+      <div class="name-label">直播类型</div>
+      <div class="type-options">
+        <span
+          v-for="t in livingTypes"
+          :key="t.value"
+          :class="['type-option', { active: livingType === t.value }]"
+          @click="livingType = t.value"
+        >{{ t.label }}</span>
+      </div>
+
       <div class="form-hint">观众会在直播列表看到你的封面和名称，认真填更容易被看到哦</div>
     </div>
     <template #footer>
@@ -56,6 +67,14 @@ const coverUrl = ref('')
 const uploading = ref(false)
 const submitting = ref(false)
 const fileInputRef = ref(null)
+const livingType = ref(1)
+// 与首页筛选 tab 对齐的类型编码：1娱乐(推荐) 2游戏 3赛事 4带货
+const livingTypes = [
+  { label: '娱乐', value: 1 },
+  { label: '游戏', value: 2 },
+  { label: '赛事', value: 3 },
+  { label: '带货', value: 4 },
+]
 
 const canSubmit = computed(() => roomName.value.trim().length > 0 && coverUrl.value && !uploading.value)
 
@@ -64,6 +83,7 @@ watch(visible, (val) => {
   if (val) {
     roomName.value = ''
     coverUrl.value = ''
+    livingType.value = 1
   }
 })
 
@@ -102,7 +122,7 @@ function handleConfirm() {
   }
   if (submitting.value) return
   submitting.value = true
-  emit('confirm', { roomName: roomName.value.trim(), covertImg: coverUrl.value })
+  emit('confirm', { roomName: roomName.value.trim(), covertImg: coverUrl.value, type: livingType.value })
 }
 
 // 父组件开播成功后调用，关闭弹窗并复位
@@ -162,5 +182,18 @@ defineExpose({ finish, fail })
 .name-input:focus { border-color: #667eea; }
 .name-input::placeholder { color: #555; }
 .name-count { text-align: right; font-size: 12px; color: #555; margin-top: 4px; }
+.type-options { display: flex; gap: 10px; margin-bottom: 6px; }
+.type-option {
+  padding: 7px 18px;
+  border: 1px solid #333;
+  border-radius: 18px;
+  font-size: 13px;
+  color: #999;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+.type-option:hover { border-color: #667eea; color: #ccc; }
+.type-option.active { background: linear-gradient(135deg, #667eea, #764ba2); border-color: #667eea; color: #fff; }
 .form-hint { font-size: 12px; color: #666; margin-top: 14px; line-height: 1.6; }
 </style>

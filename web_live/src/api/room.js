@@ -10,6 +10,9 @@ export const startLiving = (type, roomName, covertImg) => request.post('/living/
 // 关播
 export const closeLiving = (roomId) => request.post('/living/closeLiving', null, { params: { roomId } })
 
+// 在线观众数
+export const onlineCount = (roomId) => request.post('/living/onlineCount', null, { params: { roomId } })
+
 // 获取IM配置
 export const getImConfig = () => request.post('/im/getImConfig')
 

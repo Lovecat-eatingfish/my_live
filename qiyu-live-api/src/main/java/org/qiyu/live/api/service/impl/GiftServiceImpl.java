@@ -113,6 +113,38 @@ public class GiftServiceImpl implements IGiftService {
     // ==================== 红包雨接口实现 ====================
 
     @Override
+    public List<ShopSkuVO> listAllSkus() {
+        return ConvertBeanUtils.convertList(skuRpc.listByCategoryId(null), ShopSkuVO.class);
+    }
+
+    @Override
+    public List<ShopSkuVO> listMyShop() {
+        Long userId = QiyuRequestContext.getUserId();
+        List<Integer> skuIds = anchorShopRpc.listByAnchorId(userId).stream()
+                .map(AnchorShopInfoDTO::getSkuId).distinct().toList();
+        List<ShopSkuVO> voList = new ArrayList<>();
+        for (Integer skuId : skuIds) {
+            SkuInfoDTO sku = skuRpc.getBySkuId(skuId);
+            if (sku == null) continue;
+            ShopSkuVO vo = new ShopSkuVO();
+            vo.setSkuId(sku.getSkuId());
+            vo.setName(sku.getName());
+            vo.setIconUrl(sku.getIconUrl());
+            vo.setSkuPrice(sku.getSkuPrice());
+            vo.setRemark(sku.getRemark());
+            voList.add(vo);
+        }
+        return voList;
+    }
+
+    @Override
+    public boolean updateShopStatus(Integer skuId, Integer status) {
+        ErrorAssert.isNotNull(skuId, ApiErrorEnum.PARAM_ERROR);
+        ErrorAssert.isNotNull(status, ApiErrorEnum.PARAM_ERROR);
+        return anchorShopRpc.updateShopStatus(QiyuRequestContext.getUserId(), skuId, status);
+    }
+
+    @Override
     public RedPacketRespVO createRedPacket(RedPacketReqVO reqVO) {
         RedPacketConfigDTO dto = new RedPacketConfigDTO();
         dto.setAnchorId(QiyuRequestContext.getUserId());

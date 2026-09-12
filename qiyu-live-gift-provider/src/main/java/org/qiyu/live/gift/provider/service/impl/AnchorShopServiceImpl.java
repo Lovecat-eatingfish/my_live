@@ -42,4 +42,31 @@ public class AnchorShopServiceImpl implements IAnchorShopService {
         po.setStatus(status);
         anchorShopInfoMapper.updateById(po);
     }
+
+    @Override
+    public boolean updateShopStatus(Long anchorId, Integer skuId, Integer status) {
+        LambdaQueryWrapper<AnchorShopInfoPO> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(AnchorShopInfoPO::getAnchorId, anchorId)
+               .eq(AnchorShopInfoPO::getSkuId, skuId);
+        List<AnchorShopInfoPO> existList = anchorShopInfoMapper.selectList(wrapper);
+        if (existList.isEmpty()) {
+            if (status != null && status == 1) {
+                AnchorShopInfoPO po = new AnchorShopInfoPO();
+                po.setAnchorId(anchorId);
+                po.setSkuId(skuId);
+                po.setStatus(1);
+                anchorShopInfoMapper.insert(po);
+                return true;
+            }
+            // 本来就没上架，下架无操作
+            return true;
+        }
+        AnchorShopInfoPO update = new AnchorShopInfoPO();
+        update.setStatus(status);
+        LambdaQueryWrapper<AnchorShopInfoPO> updateWrapper = new LambdaQueryWrapper<>();
+        updateWrapper.eq(AnchorShopInfoPO::getAnchorId, anchorId)
+                     .eq(AnchorShopInfoPO::getSkuId, skuId);
+        anchorShopInfoMapper.update(update, updateWrapper);
+        return true;
+    }
 }

@@ -52,6 +52,14 @@ public interface ILivingRoomService {
     boolean closeLiving(Integer roomId);
 
     /**
+     * 查询直播间在线观众数（Redis 房间用户 set 计数）
+     *
+     * @param roomId
+     * @return
+     */
+    Integer onlineCount(Integer roomId);
+
+    /**
      * 根据用户id返回当前直播间相关信息
      *
      * @param userId

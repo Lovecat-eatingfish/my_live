@@ -23,4 +23,9 @@ public class AnchorShopRpcImpl implements IAnchorShopRpc {
     public List<AnchorShopInfoDTO> listByAnchorId(Long anchorId) {
         return anchorShopService.listByAnchorId(anchorId);
     }
+
+    @Override
+    public boolean updateShopStatus(Long anchorId, Integer skuId, Integer status) {
+        return anchorShopService.updateShopStatus(anchorId, skuId, status);
+    }
 }

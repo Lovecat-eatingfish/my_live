@@ -9,7 +9,7 @@
       </div>
       <div class="nav-right">
         <template v-if="userStore.userInfo.loginStatus">
-          <img :src="userStore.userInfo.avatar || defaultAvatar" class="avatar" />
+          <img :src="userStore.userInfo.avatar || defaultAvatar" class="avatar" title="个人设置" @click="profileVisible = true" />
           <span class="nickname">{{ userStore.userInfo.nickName }}</span>
           <span class="balance-chip" @click="$router.push('/wallet')" title="去充值">
             <span class="coin-icon">🪙</span>{{ formatBalance }}
@@ -51,6 +51,7 @@
 
     <!-- 开播设置弹窗：起名 + 上传封面 -->
     <StartLivingDialog ref="startDialogRef" v-model="startVisible" @confirm="handleStartLiving" />
+    <UserProfileDialog v-model="profileVisible" />
   </div>
 </template>
 
@@ -60,6 +61,7 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { listRoom, startLiving } from '@/api/room'
 import StartLivingDialog from '@/components/StartLivingDialog.vue'
+import UserProfileDialog from '@/components/UserProfileDialog.vue'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
@@ -67,10 +69,10 @@ const userStore = useUserStore()
 const rooms = ref([])
 const currentType = ref(1)
 const roomTypes = [
-  { label: '推荐', value: 1 },
+  { label: '娱乐', value: 1 },
   { label: '游戏', value: 2 },
-  { label: '娱乐', value: 3 },
-  { label: '赛事', value: 4 },
+  { label: '赛事', value: 3 },
+  { label: '带货', value: 4 },
 ]
 
 const defaultAvatar = 'https://via.placeholder.com/40/667eea/fff?text=U'
@@ -96,10 +98,11 @@ const formatBalance = computed(() => {
 
 // 开播：由 StartLivingDialog 收集名称与封面后回调，创建直播间并跳转主播端
 const startVisible = ref(false)
+const profileVisible = ref(false)
 const startDialogRef = ref(null)
-async function handleStartLiving({ roomName, covertImg }) {
+async function handleStartLiving({ roomName, covertImg, type }) {
   try {
-    const vo = await startLiving(1, roomName, covertImg)
+    const vo = await startLiving(type || 1, roomName, covertImg)
     const newRoomId = vo.data?.roomId
     if (newRoomId) {
       startDialogRef.value?.finish()

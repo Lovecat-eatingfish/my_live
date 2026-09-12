@@ -9,5 +9,8 @@ export const login = (phone, code) => request.post('/userLogin/login', null, { p
 // 首页初始化
 export const initPage = () => request.post('/home/initPage')
 
+// 修改昵称/头像（不传的字段保持不变）
+export const updateProfile = (data) => request.post('/user/updateProfile', null, { params: data })
+
 // 退出登录
 export const logout = () => Promise.resolve(localStorage.removeItem('qiyu_token'))

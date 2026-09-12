@@ -63,6 +63,14 @@ public class LivingRoomController {
     }
 
     /**
+     * 查询直播间在线观众数
+     */
+    @PostMapping("/onlineCount")
+    public WebResponseVO onlineCount(Integer roomId) {
+        return WebResponseVO.success(livingRoomService.onlineCount(roomId));
+    }
+
+    /**
      * 获取主播相关配置信息（只有主播才会有权限）
      *
      * @return

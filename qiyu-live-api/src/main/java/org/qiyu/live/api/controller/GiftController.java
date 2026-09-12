@@ -127,4 +127,28 @@ public class GiftController {
     public WebResponseVO shopList(Integer roomId) {
         return WebResponseVO.success(giftService.listShopByRoom(roomId));
     }
+
+    /**
+     * 全部在架商品（主播商品管理列表）
+     */
+    @PostMapping("/sku/list")
+    public WebResponseVO skuList() {
+        return WebResponseVO.success(giftService.listAllSkus());
+    }
+
+    /**
+     * 我（主播）已上架的商品
+     */
+    @PostMapping("/shop/myList")
+    public WebResponseVO myShopList() {
+        return WebResponseVO.success(giftService.listMyShop());
+    }
+
+    /**
+     * 主播上架/下架商品（status: 1上架 0下架）
+     */
+    @PostMapping("/shop/updateStatus")
+    public WebResponseVO updateShopStatus(Integer skuId, Integer status) {
+        return WebResponseVO.success(giftService.updateShopStatus(skuId, status));
+    }
 }

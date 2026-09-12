@@ -31,8 +31,11 @@ public class SkuServiceImpl implements ISkuService {
     @Override
     public List<SkuInfoDTO> listByCategoryId(Integer categoryId) {
         LambdaQueryWrapper<SkuInfoPO> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(SkuInfoPO::getCategoryId, categoryId)
-               .eq(SkuInfoPO::getStatus, 1)
+        // categoryId 为空时不筛选分类，返回全部在架商品（主播商品管理用）
+        if (categoryId != null) {
+            wrapper.eq(SkuInfoPO::getCategoryId, categoryId);
+        }
+        wrapper.eq(SkuInfoPO::getStatus, 1)
                .orderByDesc(SkuInfoPO::getId);
         List<SkuInfoPO> poList = skuInfoMapper.selectList(wrapper);
         return ConvertBeanUtils.convertList(poList, SkuInfoDTO.class);

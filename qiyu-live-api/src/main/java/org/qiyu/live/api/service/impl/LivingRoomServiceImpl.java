@@ -102,6 +102,20 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     }
 
     @Override
+    public Integer onlineCount(Integer roomId) {
+        ErrorAssert.isNotNull(roomId, BizBaseErrorEnum.PARAM_ERROR);
+        LivingRoomReqDTO reqDTO = new LivingRoomReqDTO();
+        reqDTO.setRoomId(roomId);
+        reqDTO.setAppId(AppIdEnum.QIYU_LIVE_BIZ.getCode());
+        try {
+            return livingRoomRpc.queryUserIdByRoomId(reqDTO).size();
+        } catch (Exception e) {
+            LOGGER.warn("[onlineCount] query failed, roomId={}", roomId, e);
+            return 0;
+        }
+    }
+
+    @Override
     public LivingRoomInitVO anchorConfig(Long userId, Integer roomId) {
         LivingRoomRespDTO respDTO = livingRoomRpc.queryByRoomId(roomId);
         ErrorAssert.isNotNull(respDTO,ApiErrorEnum.LIVING_ROOM_END);

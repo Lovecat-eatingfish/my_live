@@ -11,6 +11,9 @@
         </div>
       </div>
       <div class="top-actions">
+        <span class="viewer-chip" title="在线观众">
+          <span class="viewer-dot"></span>{{ viewerCount }} 人观看
+        </span>
         <span class="balance-chip" @click="$router.push('/wallet')" title="去充值">
           <span class="coin-icon">🪙</span>{{ userStore.balance }}
         </span>
@@ -88,8 +91,11 @@
         <button class="action-btn gift" @click="showGift = true">
           <span class="btn-icon">🎁</span><span class="btn-label">礼物</span>
         </button>
-        <button class="action-btn shop" @click="shopVisible = true">
+        <button v-if="!roomInfo.anchor" class="action-btn shop" @click="shopVisible = true">
           <span class="btn-icon">🛍</span><span class="btn-label">带货</span>
+        </button>
+        <button v-else class="action-btn shop" @click="manageVisible = true">
+          <span class="btn-icon">🛍</span><span class="btn-label">商品管理</span>
         </button>
         <button v-if="roomInfo.anchor" class="action-btn redpacket" @click="rpVisible = true">
           <span class="btn-icon">🧧</span><span class="btn-label">红包</span>
@@ -121,6 +127,9 @@
 
     <!-- 小黄车（直播带货） -->
     <ShopPanel v-model="shopVisible" :room-id="roomId" />
+
+    <!-- 主播商品管理（小黄车上架/下架） -->
+    <ShopManageDialog v-model="manageVisible" />
 
     <!-- 主播发红包雨弹窗 -->
     <el-dialog v-model="rpVisible" title="🧧 发红包雨" width="380px">
@@ -173,7 +182,7 @@
 import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { anchorConfig, startLiving, closeLiving, getImConfig } from '@/api/room'
+import { anchorConfig, startLiving, closeLiving, getImConfig , onlineCount } from '@/api/room'
 import { createPushUrl, getStreamStatus, getPlayUrl, getRecordList } from '@/api/stream'
 import { sendGift, listGift, createRedPacket, prepareRedPacket, sendRedPacket } from '@/api/gift'
 import { IMConnection } from '@/utils/im/connection'
@@ -184,6 +193,7 @@ import GiftAnimation from '@/components/GiftAnimation.vue'
 import LivePlayer from '@/components/LivePlayer.vue'
 import ReplayPlayer from '@/components/ReplayPlayer.vue'
 import ShopPanel from '@/components/ShopPanel.vue'
+import ShopManageDialog from '@/components/ShopManageDialog.vue'
 import StartLivingDialog from '@/components/StartLivingDialog.vue'
 import RedPacketRain from '@/components/RedPacketRain.vue'
 import { ElMessage } from 'element-plus'
@@ -420,6 +430,7 @@ function formatDuration(seconds) {
 
 // ===== 直播带货 + 红包雨 =====
 const shopVisible = ref(false)
+const manageVisible = ref(false)
 const rpVisible = ref(false)
 const rpSending = ref(false)
 const rpForm = reactive({ totalPrice: 100, totalCount: 10 })
@@ -643,6 +654,16 @@ async function handleCloseLiving() {
   }
 }
 
+// 在线观众数：10 秒轮询刷新
+const viewerCount = ref(0)
+let viewerTimer = null
+async function refreshViewerCount() {
+  try {
+    const vo = await onlineCount(roomId.value)
+    viewerCount.value = Number(vo.data) || 0
+  } catch { /* 静默，下一轮再刷 */ }
+}
+
 onMounted(async () => {
   // 各初始化步骤独立容错：任何一步失败都不能阻断视频流轮询启动
   try {
@@ -652,6 +673,8 @@ onMounted(async () => {
     window.__mountError = (e && (e.msg || e.message)) || String(e)
     console.error('[RoomPage] 初始化失败', e)
   }
+  refreshViewerCount()
+  viewerTimer = setInterval(refreshViewerCount, 10000)
   userStore.refreshBalance()
   // 进房即拉礼物列表（GiftAnimation 按 giftId/url 匹配礼物信息用）
   listGift().then(vo => { window.__qiyuGiftList = vo.data || [] }).catch(() => {})
@@ -681,6 +704,7 @@ onUnmounted(() => {
   imConn?.disconnect()
   stopStreamLoop()
   stopBrowserPush()
+  if (viewerTimer) clearInterval(viewerTimer)
 })
 </script>
 
@@ -718,6 +742,14 @@ onUnmounted(() => {
   transition: all 0.2s;
 }
 .balance-chip:hover { border-color: #ffd700; }
+.viewer-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(102, 126, 234, 0.15);
+  border: 1px solid rgba(102, 126, 234, 0.4); color: #aab4ff;
+  font-size: 13px; padding: 4px 12px; border-radius: 16px;
+}
+.viewer-dot { width: 7px; height: 7px; border-radius: 50%; background: #ff4d4f; animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
 .coin-icon { font-size: 13px; }
 
 /* 三区主体：左视频 / 右聊天 */
