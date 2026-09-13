@@ -21,7 +21,9 @@ public enum ImMsgBizCodeEnum {
     RISK_MSG_BLOCKED(5566,"消息被风控拦截/禁言提示"),
     OPEN_LIVING_PUSH(5567,"关注的主播开播推送"),
     LEVEL_UP_EFFECT(5570,"用户升级特效"),
-    LINK_MIC_SIGNAL(5572,"连麦信令(邀请/接受/挂断)");
+    LINK_MIC_SIGNAL(5572,"连麦信令(邀请/接受/挂断)"),
+    DM_MSG_UP(5568,"私信上行"),
+    DM_MSG_DOWN(5569,"私信下行");
 
     int code;
     String desc;

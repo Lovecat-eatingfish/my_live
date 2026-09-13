@@ -10,7 +10,11 @@ import org.qiyu.live.common.interfaces.dto.UserExpChangeMqDTO;
 import org.qiyu.live.common.interfaces.topic.UserProviderTopicNames;
 import org.apache.dubbo.config.annotation.DubboReference;
 import org.qiyu.live.common.interfaces.constants.RiskConstants;
+import org.qiyu.live.common.interfaces.dto.DmMessageDTO;
 import org.qiyu.live.common.interfaces.dto.RiskCheckRespDTO;
+import org.qiyu.live.msg.provider.dao.mapper.UserDmConversationMapper;
+import org.qiyu.live.msg.provider.dao.mapper.UserDmMessageMapper;
+import org.qiyu.live.msg.provider.dao.po.UserDmMessagePO;
 import org.qiyu.live.im.constants.AppIdEnum;
 import org.qiyu.live.im.dto.ImMsgBody;
 import org.qiyu.live.im.router.interfaces.rpc.ImRouterRpc;
@@ -25,6 +29,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -55,6 +60,10 @@ public class SingleMessageHandlerImpl implements MessageHandler {
     private MQProducer mqProducer;
     @Resource
     private MsgProviderCacheKeyBuilder msgProviderCacheKeyBuilder;
+    @Resource
+    private UserDmMessageMapper dmMapper;
+    @Resource
+    private UserDmConversationMapper conversationMapper;
 
     /** 弹幕经验每日上限（超过后不再结算经验，弹幕本身不受影响） */
     private static final int DANMU_EXP_DAILY_LIMIT = 20;
@@ -109,6 +118,72 @@ public class SingleMessageHandlerImpl implements MessageHandler {
             });
             //暂时不做过多的处理
             routerRpc.batchSendMsg(imMsgBodies);
+        } else if (ImMsgBizCodeEnum.DM_MSG_UP.getCode() == bizCode) {
+            handleDmUp(imMsgBody);
+        }
+    }
+
+    /**
+     * 私信上行（bizCode=5568）：风控 → 落库+会话 upsert → 下行 5569 给接收方，并回显给发送方
+     * （发送方 UI 只以服务端回显为准追加，天然有序且跨端一致）
+     */
+    private void handleDmUp(ImMsgBody imMsgBody) {
+        DmMessageDTO dm;
+        try {
+            dm = JSON.parseObject(imMsgBody.getData(), DmMessageDTO.class);
+        } catch (Exception e) {
+            LOGGER.warn("[handleDmUp] bad data, userId={}", imMsgBody.getUserId());
+            return;
+        }
+        if (dm == null || dm.getToUid() == null || !StringUtils.hasText(dm.getContent())) {
+            return;
+        }
+        Long fromUid = imMsgBody.getUserId();
+        Long toUid = dm.getToUid();
+        //fromUid 以连接鉴权结果为准，防伪造；自己发给自己忽略
+        if (fromUid.equals(toUid) || dm.getContent().length() > 500) {
+            return;
+        }
+        RiskCheckRespDTO riskResp = riskCheckService.checkText(dm.getContent(), RiskConstants.SCENE_DANMU);
+        if (riskResp.isBlocked()) {
+            sendBlockedNotice(imMsgBody, null, "私信包含敏感内容，已被拦截");
+            return;
+        }
+        String content = riskResp.getReplacedText() != null ? riskResp.getReplacedText() : dm.getContent();
+        try {
+            UserDmMessagePO msgPO = new UserDmMessagePO();
+            msgPO.setFromUid(fromUid);
+            msgPO.setToUid(toUid);
+            msgPO.setContent(content);
+            msgPO.setStatus(1);
+            dmMapper.insert(msgPO);
+
+            //会话双方各一行：发送方 unread+0，接收方 unread+1
+            conversationMapper.upsertOnNewMsg(fromUid, toUid, content, 0);
+            conversationMapper.upsertOnNewMsg(toUid, fromUid, content, 1);
+
+            DmMessageDTO down = new DmMessageDTO();
+            down.setMsgId(msgPO.getId());
+            down.setFromUid(fromUid);
+            down.setToUid(toUid);
+            down.setContent(content);
+            down.setCreateTime(msgPO.getCreateTime());
+            String downData = JSON.toJSONString(down);
+            //接收方在线推送（离线自然丢弃，靠会话未读数兜底）
+            ImMsgBody toMsg = new ImMsgBody();
+            toMsg.setUserId(toUid);
+            toMsg.setAppId(AppIdEnum.QIYU_LIVE_BIZ.getCode());
+            toMsg.setBizCode(ImMsgBizCodeEnum.DM_MSG_DOWN.getCode());
+            toMsg.setData(downData);
+            //发送方回显
+            ImMsgBody echoMsg = new ImMsgBody();
+            echoMsg.setUserId(fromUid);
+            echoMsg.setAppId(AppIdEnum.QIYU_LIVE_BIZ.getCode());
+            echoMsg.setBizCode(ImMsgBizCodeEnum.DM_MSG_DOWN.getCode());
+            echoMsg.setData(downData);
+            routerRpc.batchSendMsg(java.util.Arrays.asList(toMsg, echoMsg));
+        } catch (Exception e) {
+            LOGGER.error("[handleDmUp] persist/send error, from={}, to={}", fromUid, toUid, e);
         }
     }
 

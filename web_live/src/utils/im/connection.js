@@ -163,6 +163,24 @@ export class IMConnection {
     this._send(1003, body)
   }
 
+  /**
+   * 发送私信（bizCode=5568 上行）
+   * 服务端落库后回显 5569 给双方，UI 只以服务端回显为准追加
+   */
+  sendDm(toUserId, content) {
+    const body = {
+      appId: this.appId,
+      userId: this.userId,
+      bizCode: 5568,
+      data: JSON.stringify({
+        fromUid: this.userId,
+        toUid: toUserId,
+        content
+      })
+    }
+    this._send(1003, body)
+  }
+
   /** 发送心跳 */
   _sendHeartbeat() {
     if (this._ws && this._ws.readyState === WebSocket.OPEN) {

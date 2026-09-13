@@ -6,6 +6,11 @@
         <span class="logo">🎬 旗鱼直播</span>
         <span :class="['nav-tab', { active: $route.path === '/' }]" @click="$router.push('/')">直播</span>
         <span :class="['nav-tab', { active: $route.path.startsWith('/video') }]" @click="$router.push('/video')">视频</span>
+        <span
+          v-if="userStore.userInfo.loginStatus"
+          :class="['nav-tab', { active: $route.path === '/messages' }]"
+          @click="$router.push('/messages')"
+        >消息<span v-if="dmUnread > 0" class="nav-badge">{{ dmUnread > 99 ? '99+' : dmUnread }}</span></span>
       </div>
       <div class="nav-right">
         <template v-if="userStore.userInfo.loginStatus">
@@ -96,12 +101,13 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { listRoom, startLiving, myLivingRoom } from '@/api/room'
 import { anchorGiftRank, heatRank } from '@/api/rank'
 import { notifyList, notifyRead, notifyUnreadCount } from '@/api/user'
+import { dmUnreadTotal } from '@/api/dm'
 import StartLivingDialog from '@/components/StartLivingDialog.vue'
 import UserProfileDialog from '@/components/UserProfileDialog.vue'
 import ShopManageDialog from '@/components/ShopManageDialog.vue'
@@ -170,6 +176,16 @@ async function switchRank(tab) {
 }
 
 const notifyUnread = ref(0)
+// 私信未读（60s 轮询，进 /messages 清零后由下次轮询修正）
+const dmUnread = ref(0)
+let dmUnreadTimer = null
+async function refreshDmUnread() {
+  if (!userStore.userInfo.loginStatus) return
+  try {
+    const vo = await dmUnreadTotal()
+    dmUnread.value = Number(vo.data) || 0
+  } catch { /* 忽略 */ }
+}
 const notifyListData = ref([])
 async function refreshUnread() {
   if (!userStore.userInfo.loginStatus) return
@@ -239,7 +255,10 @@ onMounted(async () => {
   await fetchRooms()
   refreshMyLivingRoom()
   refreshUnread()
+  refreshDmUnread()
+  dmUnreadTimer = setInterval(refreshDmUnread, 60000)
 })
+onUnmounted(() => clearInterval(dmUnreadTimer))
 </script>
 
 <style scoped>
@@ -256,6 +275,10 @@ onMounted(async () => {
 }
 .nav-tab:hover { color: #ddd; }
 .nav-tab.active { color: #fff; font-weight: bold; }
+.nav-badge {
+  display: inline-block; margin-left: 4px; background: #f56c6c; color: #fff;
+  font-size: 10px; border-radius: 8px; padding: 0 5px; vertical-align: top;
+}
 .nav-right { display: flex; align-items: center; gap: 12px; }
 .avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
 .nickname { color: #ddd; font-size: 14px; }

@@ -11,6 +11,7 @@ const routes = [
   { path: '/user/center', name: 'UserCenter', component: () => import('@/views/UserCenterPage.vue') },
   { path: '/profile/:userId?', name: 'Profile', component: () => import('@/views/ProfilePage.vue') },
   { path: '/search', name: 'Search', component: () => import('@/views/SearchPage.vue') },
+  { path: '/messages', name: 'Messages', component: () => import('@/views/MessagePage.vue') },
 ]
 
 export default createRouter({
