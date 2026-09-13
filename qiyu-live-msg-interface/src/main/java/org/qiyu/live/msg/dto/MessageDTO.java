@@ -21,6 +21,8 @@ public class MessageDTO implements Serializable {
     private String senderName;
     //发送人头像
     private String senderAvtar;
+    //发送人等级（弹幕徽章渲染用，可能为空）
+    private Integer level;
     /**
      * 消息类型
      */
@@ -31,6 +33,14 @@ public class MessageDTO implements Serializable {
     private String content;
     private Date createTime;
     private Date updateTime;
+
+    public Integer getLevel() {
+        return level;
+    }
+
+    public void setLevel(Integer level) {
+        this.level = level;
+    }
 
     public String getSenderName() {
         return senderName;

@@ -9,6 +9,7 @@ const routes = [
   { path: '/video/:id', name: 'VideoDetail', component: () => import('@/views/VideoDetailPage.vue') },
   { path: '/recon', name: 'Recon', component: () => import('@/views/ReconPage.vue') },
   { path: '/user/center', name: 'UserCenter', component: () => import('@/views/UserCenterPage.vue') },
+  { path: '/profile/:userId?', name: 'Profile', component: () => import('@/views/ProfilePage.vue') },
 ]
 
 export default createRouter({

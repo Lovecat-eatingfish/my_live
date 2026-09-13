@@ -2,6 +2,12 @@ package org.qiyu.live.msg.provider.consumer.handler.impl;
 
 import com.alibaba.fastjson.JSON;
 import jakarta.annotation.Resource;
+import org.apache.rocketmq.client.producer.MQProducer;
+import org.apache.rocketmq.common.message.Message;
+import org.idea.qiyu.live.framework.redis.starter.key.MsgProviderCacheKeyBuilder;
+import org.qiyu.live.common.interfaces.constants.UserLevelConstants;
+import org.qiyu.live.common.interfaces.dto.UserExpChangeMqDTO;
+import org.qiyu.live.common.interfaces.topic.UserProviderTopicNames;
 import org.apache.dubbo.config.annotation.DubboReference;
 import org.qiyu.live.common.interfaces.constants.RiskConstants;
 import org.qiyu.live.common.interfaces.dto.RiskCheckRespDTO;
@@ -43,6 +49,15 @@ public class SingleMessageHandlerImpl implements MessageHandler {
     private RiskCheckService riskCheckService;
     @Resource
     private RedisTemplate<String, Object> redisTemplate;
+    @Resource
+    private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
+    @Resource
+    private MQProducer mqProducer;
+    @Resource
+    private MsgProviderCacheKeyBuilder msgProviderCacheKeyBuilder;
+
+    /** 弹幕经验每日上限（超过后不再结算经验，弹幕本身不受影响） */
+    private static final int DANMU_EXP_DAILY_LIMIT = 20;
 
 
     @Override
@@ -69,6 +84,9 @@ public class SingleMessageHandlerImpl implements MessageHandler {
             if (riskResp.getReplacedText() != null) {
                 messageDTO.setContent(riskResp.getReplacedText());
             }
+            // 等级徽章随弹幕下发 + 弹幕经验（每日上限，超限只丢经验不丢弹幕）
+            messageDTO.setLevel(getUserLevel(imMsgBody.getUserId()));
+            sendDanmuExp(imMsgBody.getUserId(), roomId);
             //一个人发送 n个人接收
             // 根据roomId，appId 去调用rpc方法，获取对应的直播间内的userId
             // 创建一个list的imMsgBody对象，
@@ -118,5 +136,37 @@ public class SingleMessageHandlerImpl implements MessageHandler {
         respMsg.setBizCode(ImMsgBizCodeEnum.RISK_MSG_BLOCKED.getCode());
         respMsg.setData(JSON.toJSONString(notice));
         routerRpc.batchSendMsg(Collections.singletonList(respMsg));
+    }
+
+    /** 读取用户等级（user-provider 升级时写入），缓存未命中时不下发徽章 */
+    private Integer getUserLevel(Long userId) {
+        try {
+            String level = stringRedisTemplate.opsForValue().get(UserLevelConstants.LEVEL_KEY_PREFIX + userId);
+            return level == null ? null : Integer.valueOf(level);
+        } catch (Exception e) {
+            LOGGER.error("[getUserLevel] redis error, userId={}", userId, e);
+            return null;
+        }
+    }
+
+    /** 弹幕经验：每日前 DANMU_EXP_DAILY_LIMIT 条每条 +1，经 MQ 交 user-provider 单点结算 */
+    private void sendDanmuExp(Long userId, Integer roomId) {
+        try {
+            String dayKey = msgProviderCacheKeyBuilder.buildDanmuExpDailyKey(userId,
+                    java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE));
+            Long cnt = stringRedisTemplate.opsForValue().increment(dayKey);
+            if (cnt != null && cnt == 1) {
+                stringRedisTemplate.expire(dayKey, java.time.Duration.ofHours(25));
+            }
+            if (cnt == null || cnt > DANMU_EXP_DAILY_LIMIT) {
+                return;
+            }
+            UserExpChangeMqDTO expDTO = UserExpChangeMqDTO.of(userId, 1, UserLevelConstants.EXP_SCENE_DANMU, roomId);
+            mqProducer.send(new Message(UserProviderTopicNames.USER_EXP_CHANGE_TOPIC,
+                    JSON.toJSONBytes(expDTO)));
+        } catch (Exception e) {
+            // 经验结算失败不影响弹幕主链路
+            LOGGER.error("[sendDanmuExp] error, userId={}", userId, e);
+        }
     }
 }

@@ -14,3 +14,24 @@ export const updateProfile = (data) => request.post('/user/updateProfile', null,
 
 // 退出登录
 export const logout = () => Promise.resolve(localStorage.removeItem('qiyu_token'))
+
+// ==================== 关系链（关注/粉丝）与个人主页 ====================
+
+// 关注
+export const followUser = (followUserId) => request.post('/user/follow', null, { params: { followUserId } })
+
+// 取关
+export const unfollowUser = (followUserId) => request.post('/user/unfollow', null, { params: { followUserId } })
+
+// 是否已关注
+export const isFollowUser = (targetUserId) => request.post('/user/isFollow', null, { params: { targetUserId } })
+
+// 我关注的人
+export const followList = (page = 1, pageSize = 20) => request.post('/user/followList', null, { params: { page, pageSize } })
+
+// 我的粉丝
+export const fansList = (page = 1, pageSize = 20) => request.post('/user/fansList', null, { params: { page, pageSize } })
+
+// 个人主页聚合（targetUserId 不传=自己）
+export const getUserProfile = (targetUserId) =>
+  request.post('/user/profile', null, { params: targetUserId ? { targetUserId } : {} })

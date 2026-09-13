@@ -14,6 +14,7 @@
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item command="center">个人中心</el-dropdown-item>
+                <el-dropdown-item command="myprofile">我的主页</el-dropdown-item>
                 <el-dropdown-item command="profile">个人设置</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -116,6 +117,7 @@ const shopManageVisible = ref(false)
 const livingRoomId = ref(null)
 async function handleAvatarCommand(cmd) {
   if (cmd === 'center') router.push('/user/center')
+  else if (cmd === 'myprofile') router.push('/profile')
   else if (cmd === 'profile') profileVisible.value = true
 }
 

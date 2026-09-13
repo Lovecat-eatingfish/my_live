@@ -18,7 +18,9 @@ public enum ImMsgBizCodeEnum {
     LIVING_STREAM_STATUS_CHANGE(5563,"推流状态变更"),
     LIVING_RECORD_DONE(5564,"直播回放生成"),
     LIVING_ROOM_CLOSE(5565,"直播间关闭"),
-    RISK_MSG_BLOCKED(5566,"消息被风控拦截/禁言提示");
+    RISK_MSG_BLOCKED(5566,"消息被风控拦截/禁言提示"),
+    OPEN_LIVING_PUSH(5567,"关注的主播开播推送"),
+    LEVEL_UP_EFFECT(5570,"用户升级特效");
 
     int code;
     String desc;

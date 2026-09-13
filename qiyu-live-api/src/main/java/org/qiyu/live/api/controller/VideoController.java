@@ -114,6 +114,12 @@ public class VideoController {
         return WebResponseVO.success(videoApiService.listHistory(pg(page), ps(pageSize)));
     }
 
+    /** 指定用户发布的视频（个人主页） */
+    @PostMapping("/user/list")
+    public WebResponseVO userList(Long targetUserId, Integer page, Integer pageSize) {
+        return WebResponseVO.success(videoApiService.listByUser(targetUserId, pg(page), ps(pageSize)));
+    }
+
     /** 我发布的视频 */
     @PostMapping("/my/list")
     public WebResponseVO myList(Integer page, Integer pageSize) {

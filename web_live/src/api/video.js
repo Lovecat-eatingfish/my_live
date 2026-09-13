@@ -86,6 +86,10 @@ export const deleteComment = (commentId) => request.post('/video/comment/delete'
 // 记录观看历史（播放≥3秒时上报）
 export const recordHistory = (id) => request.post('/video/history', null, { params: { id } })
 
+// 指定用户发布的视频（个人主页“TA 的视频”）
+export const userVideos = (targetUserId, page = 1, pageSize = 20) =>
+  request.post('/video/user/list', null, { params: { targetUserId, page, pageSize } })
+
 // 我的观看历史 / 我发布的 / 我收藏的 / 我点赞的
 export const myHistory = (page = 1, pageSize = 20) => request.post('/video/my/history', null, { params: { page, pageSize } })
 export const myList = (page = 1, pageSize = 20) => request.post('/video/my/list', null, { params: { page, pageSize } })

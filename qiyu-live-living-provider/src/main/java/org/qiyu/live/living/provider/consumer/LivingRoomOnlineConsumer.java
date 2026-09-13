@@ -2,6 +2,11 @@ package org.qiyu.live.living.provider.consumer;
 
 import com.alibaba.fastjson.JSON;
 import jakarta.annotation.Resource;
+import org.apache.rocketmq.client.producer.MQProducer;
+import org.apache.rocketmq.common.message.Message;
+import org.qiyu.live.common.interfaces.constants.UserLevelConstants;
+import org.qiyu.live.common.interfaces.dto.UserExpChangeMqDTO;
+import org.qiyu.live.common.interfaces.topic.UserProviderTopicNames;
 import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
 import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
@@ -30,6 +35,8 @@ public class LivingRoomOnlineConsumer implements InitializingBean {
     private RocketMQConsumerProperties rocketMQConsumerProperties;
     @Resource
     private ILivingRoomService livingRoomService;
+    @Resource
+    private MQProducer mqProducer;
 
     @Override
     public void afterPropertiesSet() throws Exception {
@@ -45,7 +52,17 @@ public class LivingRoomOnlineConsumer implements InitializingBean {
         mqPushConsumer.subscribe(ImCoreServerProviderTopicNames.IM_ONLINE_TOPIC, "");
         mqPushConsumer.setMessageListener((MessageListenerConcurrently) (msgs, context) -> {
             for (MessageExt msg : msgs) {
-                livingRoomService.userOnlineHandler(JSON.parseObject(new String(msg.getBody()),ImOnlineDTO.class));
+                ImOnlineDTO imOnlineDTO = JSON.parseObject(new String(msg.getBody()), ImOnlineDTO.class);
+                livingRoomService.userOnlineHandler(imOnlineDTO);
+                // 看播经验 +10（进房即算，MQ 交 user-provider 单点结算）
+                try {
+                    UserExpChangeMqDTO expDTO = UserExpChangeMqDTO.of(imOnlineDTO.getUserId(), 10,
+                            UserLevelConstants.EXP_SCENE_WATCH, imOnlineDTO.getRoomId());
+                    mqProducer.send(new Message(UserProviderTopicNames.USER_EXP_CHANGE_TOPIC,
+                            JSON.toJSONBytes(expDTO)));
+                } catch (Exception e) {
+                    LOGGER.error("[consume] send watch exp error, userId={}", imOnlineDTO.getUserId(), e);
+                }
             }
             return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
         });

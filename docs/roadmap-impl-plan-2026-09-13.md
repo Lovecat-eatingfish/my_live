@@ -91,7 +91,16 @@
 
 **验证**：curl/浏览器发含敏感词弹幕 → 被拦截/替换；刷新词库版本后无需重启生效；被封号用户登录 403。
 
-### 批次二：关系链（关注/粉丝/开播推送/主页/等级）
+### 批次二：关系链（关注/粉丝/开播推送/主页/等级）✅ 已完成（2026-09-13）
+
+> 实施偏差：
+> ① **t_user_relation 未做 %100 分表**——运行时 user-provider 用本地 application.yml 直连普通 MySQL（sharding 配置只是 nacos-config 里的种子文件，未启用），单表 + uk(user_id,follow_user_id) + idx(follow_user_id) 即可，与 t_user_ban 同策略；
+> ② 计数不走 Redis 计数器+对账 Job，直接 **t_user_profile_ext 原子 UPDATE（GREATEST 兜底不为负）**，单库量级小够用；
+> ③ 经验结算以 **DB 为事实源**（原子自增后回读），Redis exp/level key 仅作弹幕链路读取的缓存（TTL 30d/7d，每次结算刷新）；等级阈值静态常量 UserLevelConstants（12 级），Nacos 配置化延后；
+> ④ 5570 升级特效：roomId 为空时单发本人，在房间内则广播全房间；
+> ⑤ t_user_notify 本批只写不读（开播通知 type=4），通知中心 UI/接口批次三做；
+> ⑥ HomePage 无 tab 结构，关注/粉丝列表放 ProfilePage 的 tab（TA的视频/关注列表/粉丝列表），未加首页关注 tab。
+> E2E：scripts/relation_profile_level_test.mjs 15/15 全过（关注/取关/计数、双向列表、开播推送 5567+通知落库、主页聚合、TA的视频、看播+10/发视频+50/弹幕+1日限20、跨级升级+5570、弹幕 level 徽章）。
 
 **数据**：`t_user_relation(id, user_id, follow_user_id, status, create_time, UNIQUE(user_id,follow_user_id))`，**跟随 user_id % 100 分表**（加进 qiyu-live-user-shardingjdbc.yaml）。计数器 Redis `relation:follow_cnt:{uid}` / `relation:fans_cnt:{uid}`，定时 Job 对账校正。
 
@@ -165,7 +174,7 @@
 |---|---|---|---|
 | 零 | ✅ 已完成 | 见 2026-09-13 提交 | ① start-all.sh `set -u` 未绑定变量 bug（已修）；② 全量重启时 Nacos 过载，5 个服务注册失败退出 + user-provider 成"僵尸"需手杀重启，错峰重启后恢复；③ E2E 登录撞上验证码 60s TTL 冷却（sendLoginCode 限频），等 60s 再跑即可 |
 | 一 | ✅ 已完成 | 见 2026-09-13 提交 | ① E2E 弹幕全丢排查 3 小时，根因是 JDK17+中文 Windows 默认 GBK 编码坑（troubleshooting §19），顺带修复了潜伏已久的弹幕中文乱码；② 开播接口有频控，E2E 脚本需带重试；③ WS 测试连上后必须先发 1001 登录包且等 ≥3s（进房走 MQ 异步），appId 用 10001 非 URL 里的 1001 |
-| 二 | 未开始 | — | — |
+| 二 | ✅ 已完成 | 见 2026-09-13 提交 | ① 发现 IDE(Eclipse)带错误编译的 class 残留在 target/classes，maven 增量编译跳过重编直接打进 jar → 运行时 "Unresolved compilation problems"（troubleshooting §20）；② MyBatis-Plus `apply()` 是拼 WHERE 不是 SET，计数更新要用 `setSql()`；③ 经验结算"读-算-写"在弹幕并发下互相覆盖丢经验，改原子 `exp = exp + ?`；④ IM 连接是 RoomPage 作用域，5567 开播推送只有粉丝在别的直播间在线时能收到（浏览器无全局 IM 连接），主页挂机收不到属预期 |
 | 三 | 未开始 | — | — |
 | 四 | 未开始 | — | — |
 | 五 | 未开始 | — | — |

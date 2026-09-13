@@ -11,6 +11,10 @@
         </div>
       </div>
       <div class="top-actions">
+        <el-button v-if="!roomInfo.anchor && roomInfo.anchorId" size="small"
+          :type="isFollow ? 'info' : 'primary'" @click="toggleFollow">
+          {{ isFollow ? '已关注' : '+ 关注' }}
+        </el-button>
         <span class="viewer-chip" title="在线观众">
           <span class="viewer-dot"></span>{{ viewerCount }} 人观看
         </span>
@@ -185,6 +189,7 @@ import { useUserStore } from '@/stores/user'
 import { anchorConfig, startLiving, closeLiving, getImConfig , onlineCount } from '@/api/room'
 import { createPushUrl, getStreamStatus, getPlayUrl, getRecordList } from '@/api/stream'
 import { sendGift, listGift, createRedPacket, prepareRedPacket, sendRedPacket } from '@/api/gift'
+import { followUser, unfollowUser, isFollowUser } from '@/api/user'
 import { IMConnection } from '@/utils/im/connection'
 import ChatList from '@/components/ChatList.vue'
 import ChatInput from '@/components/ChatInput.vue'
@@ -204,6 +209,22 @@ const userStore = useUserStore()
 
 const roomId = computed(() => Number(route.params.id))
 const roomInfo = ref({})
+const isFollow = ref(false)
+
+// 关注/取关当前房间主播
+async function toggleFollow() {
+  const anchorId = roomInfo.value.anchorId
+  if (!anchorId) return
+  if (isFollow.value) {
+    await unfollowUser(anchorId)
+    isFollow.value = false
+    ElMessage.success('已取消关注')
+  } else {
+    await followUser(anchorId)
+    isFollow.value = true
+    ElMessage.success('关注成功，主播开播会第一时间通知你')
+  }
+}
 const showGift = ref(false)
 const chatMessages = ref([])
 const giftAnimRef = ref(null)
@@ -464,6 +485,10 @@ async function submitRedPacket() {
 async function fetchRoomInfo() {
   const vo = await anchorConfig(roomId.value)
   roomInfo.value = vo.data || {}
+  if (!roomInfo.value.anchor && roomInfo.value.anchorId) {
+    const f = await isFollowUser(roomInfo.value.anchorId)
+    isFollow.value = !!f.data
+  }
 }
 
 // 获取IM配置并建立连接
@@ -514,6 +539,8 @@ function handleIMMessage(msg) {
         const data = JSON.parse(body.data)
         chatMessages.value.push({
           userName: data.senderName || '用户',
+          userId: data.userId,
+          level: data.level,
           content: data.content,
           avatar: data.senderAvtar || '',
           isSelf: data.userId === userStore.userInfo.userId,
@@ -544,6 +571,30 @@ function handleIMMessage(msg) {
         // 风控提示（禁言/敏感词拦截，后端单发给发送者本人）
         const data = JSON.parse(body.data)
         ElMessage.warning(data.content || '消息包含敏感内容，已被拦截')
+      } else if (bizCode === 5567) {
+        // 关注的主播开播推送（点 Toast 跳转房间）
+        const data = JSON.parse(body.data)
+        ElMessage({
+          message: `📣 你关注的主播 ${data.anchorName || ''} 开播啦${data.roomName ? '：' + data.roomName : ''}（点击前往）`,
+          type: 'success',
+          duration: 8000,
+          onClick: () => { if (data.roomId) router.push(`/room/${data.roomId}`) }
+        })
+      } else if (bizCode === 5570) {
+        // 升级特效：本人弹 Toast，其他人以系统消息入聊天流
+        const data = JSON.parse(body.data)
+        if (Number(data.userId) === Number(userStore.userInfo.userId)) {
+          ElMessage.success(`🎉 恭喜！你升级到了 L${data.level}`)
+        } else {
+          chatMessages.value.push({
+            userName: '系统',
+            content: `${data.nickName || '有人'} 升级到了 L${data.level} 🎉`,
+            avatar: '',
+            isSelf: false,
+            time: new Date().toLocaleTimeString()
+          })
+          if (chatMessages.value.length > 100) chatMessages.value.shift()
+        }
       } else if (bizCode === 5558) {
         // PK礼物
         const data = JSON.parse(body.data)

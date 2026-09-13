@@ -55,6 +55,8 @@ public class VideoApiServiceImpl implements IVideoApiService {
     private IRiskRpc riskRpc;
     @Resource
     private VideoMinioConfig videoMinioConfig;
+    @Resource
+    private org.apache.rocketmq.client.producer.MQProducer mqProducer;
 
     /** 敏感词拦截校验（标题/评论等提交类内容） */
     private void assertNotBlocked(String text, int scene, Long userId) {
@@ -100,7 +102,25 @@ public class VideoApiServiceImpl implements IVideoApiService {
         dto.setDuration(reqVO.getDuration() == null ? 0 : reqVO.getDuration());
         dto.setSize(reqVO.getSize() == null ? 0 : reqVO.getSize());
         VideoDTO published = videoRpc.publish(dto);
+        if (published != null && published.getId() != null) {
+            // 发视频经验 +50（MQ 交 user-provider 单点结算）
+            try {
+                org.qiyu.live.common.interfaces.dto.UserExpChangeMqDTO expDTO =
+                        org.qiyu.live.common.interfaces.dto.UserExpChangeMqDTO.of(userId, 50,
+                                org.qiyu.live.common.interfaces.constants.UserLevelConstants.EXP_SCENE_VIDEO, null);
+                mqProducer.send(new org.apache.rocketmq.common.message.Message(
+                        org.qiyu.live.common.interfaces.topic.UserProviderTopicNames.USER_EXP_CHANGE_TOPIC,
+                        com.alibaba.fastjson.JSON.toJSONBytes(expDTO)));
+            } catch (Exception e) {
+                LOGGER.error("[publish] send video exp error, userId={}", userId, e);
+            }
+        }
         return published != null ? published.getId() : null;
+    }
+
+    @Override
+    public List<VideoItemRespVO> listByUser(Long targetUserId, int page, int pageSize) {
+        return toItems(videoRpc.listByUser(targetUserId, page, pageSize));
     }
 
     @Override

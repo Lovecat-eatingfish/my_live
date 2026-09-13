@@ -369,3 +369,15 @@ if (StringUtils.isEmpty(imMsgBody.getMsgId())) {
 **教训**：编码问题的症状（乱码/偶发解析失败）与业务 bug 极易混淆，"部分成功部分失败"首先怀疑字符集，其次才是业务逻辑；跨服务传中文必须显式统一 file.encoding，不能依赖平台默认值。
 
 ---
+
+## 20. IDE 污染的 class 被打进 maven jar（批次二踩坑）
+
+**现象**：api 服务运行时抛 `java.lang.Error: Unresolved compilation problems: QiyuRequestContext cannot be resolved`（framework-web-starter 里），但 maven 构建显示 BUILD SUCCESS。
+
+**根因**：两层。
+1. **Eclipse/IDE 带错误编译**：IDE 在 classpath 不完整时也会产出 class 文件，错误以 `throw new Error("Unresolved compilation problems...")` 形式嵌在字节码里（ECJ 特性，javac 不允许）；
+2. **maven 增量编译不覆盖**：maven-compiler-plugin 见源码不比 target/classes 里的 class 新就跳过重编译，坏 class 原样打进 jar → BUILD SUCCESS 但运行必炸。本项目 IDE 与命令行 maven 共用同一 target 目录，用户白天开过 IDE 就会中招。
+
+**修复**：`mvn clean install`（必须 clean）受影响模块；排查手段：对可疑 class 执行 `unzip -p xx.jar 路径/Class.class | od -c | grep -i "U n r e s"`（od 输出字节间是多空格，grep 二进制不可靠，用 od）。
+
+**教训**：IDE 与 maven 混用同一 target 目录是隐患源；遇到"构建成功但运行时 Unresolved compilation problems"，第一反应查 target/classes 里是否有 ECJ 产物，clean 重编即可。另注意：`mvn ... | grep ERROR; echo $?` 的 `$?` 是管道最后一个命令的退出码，判断 maven 成败要看真实输出。

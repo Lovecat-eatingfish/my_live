@@ -35,6 +35,9 @@ public interface IVideoApiService {
     /** 分享计数 */
     void share(Long videoId);
 
+    /** 指定用户发布的视频（个人主页“TA 的视频”） */
+    List<VideoItemRespVO> listByUser(Long targetUserId, int page, int pageSize);
+
     /** 标签列表 */
     List<VideoTagRespVO> listTags();
 

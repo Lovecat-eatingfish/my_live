@@ -11,6 +11,8 @@ import org.qiyu.live.api.vo.resp.LivingRoomPageRespVO;
 import org.qiyu.live.api.vo.resp.LivingRoomRespVO;
 import org.qiyu.live.common.interfaces.dto.PageWrapper;
 import org.qiyu.live.common.interfaces.constants.RiskConstants;
+import org.qiyu.live.common.interfaces.dto.OpenLivingPushMqDTO;
+import org.qiyu.live.common.interfaces.topic.UserProviderTopicNames;
 import org.qiyu.live.common.interfaces.dto.RiskCheckReqDTO;
 import org.qiyu.live.common.interfaces.dto.RiskCheckRespDTO;
 import org.qiyu.live.common.interfaces.rpc.IRiskRpc;
@@ -52,6 +54,8 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     private IRiskRpc riskRpc;
     @DubboReference(check = false)
     private org.qiyu.live.gift.interfaces.IAnchorShopRpc anchorShopRpc;
+    @jakarta.annotation.Resource
+    private org.apache.rocketmq.client.producer.MQProducer mqProducer;
     @DubboReference(check = false)
     private ILivingRoomRpc livingRoomRpc;
     // stream-provider 未启动时降级，不阻塞 api 启动
@@ -90,7 +94,20 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
         livingRoomReqDTO.setCovertImg(StringUtils.hasText(covertImg)
                 ? covertImg : userDTO.getAvatar());
         livingRoomReqDTO.setType(type);
-        return livingRoomRpc.startLivingRoom(livingRoomReqDTO);
+        Integer roomId = livingRoomRpc.startLivingRoom(livingRoomReqDTO);
+        if (roomId != null) {
+            // 开播成功 → 通知 user-provider 给粉丝推 5567 + 站内通知
+            try {
+                OpenLivingPushMqDTO pushDTO = OpenLivingPushMqDTO.of(userId,
+                        userDTO.getNickName(), roomId, livingRoomReqDTO.getRoomName(), livingRoomReqDTO.getCovertImg());
+                org.apache.rocketmq.common.message.Message message = new org.apache.rocketmq.common.message.Message(
+                        UserProviderTopicNames.OPEN_LIVING_PUSH_TOPIC, com.alibaba.fastjson.JSON.toJSONBytes(pushDTO));
+                mqProducer.send(message);
+            } catch (Exception e) {
+                LOGGER.error("[startingLiving] send open living push error, userId={}, roomId={}", userId, roomId, e);
+            }
+        }
+        return roomId;
     }
 
     @Override

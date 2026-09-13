@@ -5,10 +5,11 @@
       :key="i"
       :class="['chat-item', { 'is-self': msg.isSelf }]"
     >
-      <img :src="msg.avatar || defaultAvatar" class="chat-avatar" />
+      <img :src="msg.avatar || defaultAvatar" class="chat-avatar" @click="goProfile(msg)" />
       <div class="chat-body">
         <div class="chat-meta">
-          <span class="chat-name">{{ msg.userName }}</span>
+          <span v-if="msg.level" :class="['lv-badge', levelClass(msg.level)]">L{{ msg.level }}</span>
+          <span class="chat-name" @click="goProfile(msg)">{{ msg.userName }}</span>
           <span class="chat-time">{{ msg.time }}</span>
         </div>
         <div class="chat-bubble">{{ msg.content }}</div>
@@ -20,6 +21,21 @@
 
 <script setup>
 import { ref, watch, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
+// 头像/昵称点击进入个人主页
+function goProfile(msg) {
+  if (msg.userId) router.push(`/profile/${msg.userId}`)
+}
+
+// 等级徽章配色：1-4 绿 / 5-8 蓝 / 9+ 金（B 站风格）
+function levelClass(level) {
+  if (level >= 9) return 'lv-gold'
+  if (level >= 5) return 'lv-blue'
+  return 'lv-green'
+}
 
 const props = defineProps({
   messages: {
@@ -92,4 +108,20 @@ watch(() => props.messages.length, () => {
   font-size: 13px;
   padding: 40px 0;
 }
+/* 等级徽章 */
+.lv-badge {
+  display: inline-block;
+  padding: 0 4px;
+  margin-right: 4px;
+  border-radius: 3px;
+  font-size: 10px;
+  line-height: 15px;
+  color: #fff;
+  vertical-align: 1px;
+  cursor: default;
+}
+.lv-green { background: #67c23a; }
+.lv-blue { background: #409eff; }
+.lv-gold { background: #e6a23c; }
+.chat-avatar { cursor: pointer; }
 </style>

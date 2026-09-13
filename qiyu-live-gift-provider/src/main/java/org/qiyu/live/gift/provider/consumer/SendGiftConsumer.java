@@ -1,6 +1,11 @@
 package org.qiyu.live.gift.provider.consumer;
 
 import com.alibaba.fastjson.JSON;
+import org.apache.rocketmq.client.producer.MQProducer;
+import org.apache.rocketmq.common.message.Message;
+import org.qiyu.live.common.interfaces.constants.UserLevelConstants;
+import org.qiyu.live.common.interfaces.dto.UserExpChangeMqDTO;
+import org.qiyu.live.common.interfaces.topic.UserProviderTopicNames;
 import com.alibaba.fastjson.JSONObject;
 import jakarta.annotation.Resource;
 import org.apache.dubbo.config.annotation.DubboReference;
@@ -71,6 +76,8 @@ public class SendGiftConsumer implements InitializingBean {
     private RedisTemplate<String, Object> redisTemplate;
     @Resource
     private GiftProviderCacheKeyBuilder cacheKeyBuilder;
+    @Resource
+    private MQProducer mqProducer;
     @DubboReference(check = false)
     private IQiyuCurrencyAccountRpc qiyuCurrencyAccountRpc;
     @DubboReference(check = false)
@@ -124,6 +131,16 @@ public class SendGiftConsumer implements InitializingBean {
                         // 获取直播间所有用户 进行批量 推动这个 svg 效果即可  实现全直播间 可见这个 svg特效
                         List<Long> userIdList = livingRoomRpc.queryUserIdByRoomId(reqDTO);
                         this.batchSendImMsg(userIdList, ImMsgBizCodeEnum.LIVING_ROOM_SEND_GIFT_SUCCESS, jsonObject);
+                        // 送礼经验：1 金币 +1（MQ 交 user-provider 单点结算）
+                        try {
+                            UserExpChangeMqDTO expDTO = UserExpChangeMqDTO.of(sendGiftMq.getUserId(),
+                                    sendGiftMq.getPrice() == null ? 0 : sendGiftMq.getPrice(),
+                                    UserLevelConstants.EXP_SCENE_GIFT, sendGiftMq.getRoomId());
+                            mqProducer.send(new Message(UserProviderTopicNames.USER_EXP_CHANGE_TOPIC,
+                                    JSON.toJSONBytes(expDTO)));
+                        } catch (Exception e) {
+                            LOGGER.error("[SendGiftConsumer] send gift exp error, userId={}", sendGiftMq.getUserId(), e);
+                        }
                     } else if (SendGiftTypeEnum.PK_SEND_GIFT.getCode().equals(sendGiftType)) {
                         this.pkImMsgSend(jsonObject, sendGiftMq, receiverId);
                     }
