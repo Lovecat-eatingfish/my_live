@@ -23,6 +23,8 @@ public class LivingRoomRpcImpl implements ILivingRoomRpc {
     @Resource
     private ILivingRoomService livingRoomService;
     @Resource
+    private org.qiyu.live.living.provider.service.ILinkMicService linkMicService;
+    @Resource
     private ILivingRoomTxService livingRoomTxService;
 
     @Override
@@ -69,6 +71,21 @@ public class LivingRoomRpcImpl implements ILivingRoomRpc {
     @Override
     public LivingRoomRespDTO queryByAnchorId(Long anchorId) {
         return livingRoomService.queryByAnchorId(anchorId);
+    }
+
+    @Override
+    public Long inviteLinkMic(Integer roomId, Long guestUserId) {
+        return linkMicService.invite(roomId, guestUserId);
+    }
+
+    @Override
+    public Boolean acceptLinkMic(Long linkMicId) {
+        return linkMicService.accept(linkMicId);
+    }
+
+    @Override
+    public Boolean hangUpLinkMic(Integer roomId) {
+        return linkMicService.hangUp(roomId);
     }
 
     @Override

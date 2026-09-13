@@ -88,4 +88,25 @@ public class LivingRoomController {
         return WebResponseVO.success(livingRoomService.anchorConfig(QiyuRequestContext.getUserId(), roomId));
     }
 
+
+
+    // ==================== 连麦（5572 信令） ====================
+
+    /** 主播邀请观众连麦 */
+    @PostMapping("/linkMic/invite")
+    public WebResponseVO inviteLinkMic(Integer roomId, Long guestUserId) {
+        return WebResponseVO.success(livingRoomService.inviteLinkMic(roomId, guestUserId));
+    }
+
+    /** 观众接受连麦 */
+    @PostMapping("/linkMic/accept")
+    public WebResponseVO acceptLinkMic(Long linkMicId) {
+        return WebResponseVO.success(livingRoomService.acceptLinkMic(linkMicId));
+    }
+
+    /** 挂断连麦 */
+    @PostMapping("/linkMic/hangUp")
+    public WebResponseVO hangUpLinkMic(Integer roomId) {
+        return WebResponseVO.success(livingRoomService.hangUpLinkMic(roomId));
+    }
 }

@@ -89,4 +89,19 @@ public interface ILivingRoomRpc {
      * 查询主播当前进行中的直播间（无则返回null）
      */
     LivingRoomRespDTO queryByAnchorId(Long anchorId);
+
+    /**
+     * 连麦：主播邀请观众（返回 linkMicId，重复邀请返回 null），5572 信令单发观众
+     */
+    Long inviteLinkMic(Integer roomId, Long guestUserId);
+
+    /**
+     * 连麦：观众接受（生成第二路推流地址并广播开始）
+     */
+    Boolean acceptLinkMic(Long linkMicId);
+
+    /**
+     * 连麦：挂断（主播/观众均可），广播结束
+     */
+    Boolean hangUpLinkMic(Integer roomId);
 }

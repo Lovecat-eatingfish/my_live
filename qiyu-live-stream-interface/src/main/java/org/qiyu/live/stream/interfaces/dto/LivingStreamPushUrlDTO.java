@@ -28,4 +28,6 @@ public class LivingStreamPushUrlDTO implements Serializable {
 
     /** WebRTC 流地址 webrtc://host:port/live/streamKey */
     private String rtcStreamUrl;
+    /** HLS 播放地址（观众兜底/连麦第二画面） */
+    private String hlsUrl;
 }

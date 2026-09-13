@@ -20,7 +20,8 @@ public enum ImMsgBizCodeEnum {
     LIVING_ROOM_CLOSE(5565,"直播间关闭"),
     RISK_MSG_BLOCKED(5566,"消息被风控拦截/禁言提示"),
     OPEN_LIVING_PUSH(5567,"关注的主播开播推送"),
-    LEVEL_UP_EFFECT(5570,"用户升级特效");
+    LEVEL_UP_EFFECT(5570,"用户升级特效"),
+    LINK_MIC_SIGNAL(5572,"连麦信令(邀请/接受/挂断)");
 
     int code;
     String desc;

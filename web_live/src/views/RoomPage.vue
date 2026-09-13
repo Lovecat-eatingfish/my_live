@@ -22,6 +22,14 @@
         <span class="balance-chip" @click="$router.push('/wallet')" title="去充值">
           <span class="coin-icon">🪙</span>{{ userStore.balance }}
         </span>
+        <template v-if="roomInfo.anchor">
+          <input v-model="linkMicUserId" class="linkmic-input" placeholder="观众ID" @keyup.enter="doInviteLinkMic" />
+          <el-button size="small" @click="doInviteLinkMic">📞 邀请连麦</el-button>
+          <el-button v-if="linkMicActive" size="small" type="warning" @click="doHangUp">挂断连麦</el-button>
+        </template>
+        <el-button v-if="!roomInfo.anchor && linkMicActive && isGuest" size="small" type="warning" @click="doHangUp">
+          下麦
+        </el-button>
         <el-button v-if="roomInfo.anchor" type="danger" size="small" @click="handleCloseLiving">
           结束直播
         </el-button>
@@ -30,6 +38,13 @@
 
     <!-- 三区主体：左直播画面 / 右聊天栏 -->
     <div class="main-area">
+      <!-- 连麦第二画面（观众拉 HLS / 被邀请观众本地预览+推流） -->
+      <div v-if="linkMicActive" class="guest-video-area">
+        <div class="guest-label">🎙 连麦 · {{ guestNick }}</div>
+        <video v-if="isGuest" ref="guestVideoRef" class="guest-video" autoplay muted playsinline></video>
+        <LivePlayer v-else :src="guestHlsUrl" class="guest-video" />
+      </div>
+
       <!-- 直播画面区 -->
       <div class="video-area">
       <!-- 主播端：浏览器摄像头预览 / OBS 推流地址面板 / 推流中 HLS 预览 -->
@@ -212,6 +227,7 @@ async function handleShare() {
   }
 }
 import { roomGiftRank } from '@/api/rank'
+import { inviteLinkMic, acceptLinkMic, hangUpLinkMic } from '@/api/room'
 import { IMConnection } from '@/utils/im/connection'
 import ChatList from '@/components/ChatList.vue'
 import ChatInput from '@/components/ChatInput.vue'
@@ -232,6 +248,98 @@ const userStore = useUserStore()
 const roomId = computed(() => Number(route.params.id))
 const roomInfo = ref({})
 const isFollow = ref(false)
+// ==================== 连麦（5572） ====================
+const linkMicUserId = ref('')
+const linkMicActive = ref(false)   // 房间当前有连麦（观众显示第二画面）
+const guestHlsUrl = ref('')        // 观众拉的第二路 HLS
+const guestNick = ref('')
+let guestPc = null                 // 被邀请观众的第二路 RTCPeerConnection
+let guestStream = null
+const guestVideoRef = ref(null)
+const isGuest = ref(false)         // 当前用户是否为本场连麦观众
+
+async function handleLinkMicSignal(data) {
+  if (data.action === 'invite') {
+    if (Number(data.roomId) !== Number(roomId.value)) return
+    try {
+      await ElMessageBox.confirm('主播邀请你连麦，是否接受？', '连麦邀请', {
+        confirmButtonText: '接受', cancelButtonText: '拒绝', type: 'info'
+      })
+      await acceptLinkMic(data.linkMicId)
+      ElMessage.success('连麦已接受，正在接通摄像头…')
+    } catch { /* 拒绝则忽略 */ }
+  } else if (data.action === 'accepted') {
+    // 我是连麦观众：开第二路 WebRTC 推流
+    startGuestPublish(data.rtcPublishApi, data.rtcStreamUrl)
+  } else if (data.action === 'start') {
+    if (Number(data.roomId) !== Number(roomId.value)) return
+    linkMicActive.value = true
+    guestHlsUrl.value = data.hlsUrl || ''
+    guestNick.value = data.guestNickName || ''
+    chatMessages.value.push({ userName: '系统', content: `${guestNick.value} 已上麦`, avatar: '', system: true, isSelf: false, time: new Date().toLocaleTimeString() })
+  } else if (data.action === 'stop') {
+    if (Number(data.roomId) !== Number(roomId.value)) return
+    stopGuestPublish()
+    linkMicActive.value = false
+    chatMessages.value.push({ userName: '系统', content: '连麦已结束', avatar: '', system: true, isSelf: false, time: new Date().toLocaleTimeString() })
+  }
+}
+
+// 主播发起邀请
+async function doInviteLinkMic() {
+  const uid = Number(linkMicUserId.value)
+  if (!uid) { ElMessage.warning('请输入要邀请的观众用户ID'); return }
+  try {
+    await inviteLinkMic(roomId.value, uid)
+    ElMessage.success('连麦邀请已发送')
+    linkMicUserId.value = ''
+  } catch (e) {
+    ElMessage.error(e?.message || '邀请失败')
+  }
+}
+
+// 被邀请观众：第二路 WebRTC 推流（复用主播采集逻辑，指向 liveg_ 流）
+async function startGuestPublish(rtcPublishApi, rtcStreamUrl) {
+  try {
+    if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) {
+      ElMessage.error('当前浏览器不支持摄像头/WebRTC')
+      return
+    }
+    guestStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+    if (guestVideoRef.value) guestVideoRef.value.srcObject = guestStream
+    const pc = new RTCPeerConnection()
+    guestPc = pc
+    guestStream.getTracks().forEach(track => pc.addTransceiver(track, { direction: 'sendonly' }))
+    const offer = await pc.createOffer()
+    await pc.setLocalDescription(offer)
+    const rtcApi = location.origin + rtcPublishApi
+    const res = await fetch(rtcPublishApi, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ api: rtcApi, streamurl: rtcStreamUrl, sdp: offer.sdp })
+    })
+    const vo = await res.json()
+    if (vo.code !== 0 || !vo.sdp) throw new Error(vo.msg || 'SRS WebRTC 信令失败')
+    await pc.setRemoteDescription({ type: 'answer', sdp: vo.sdp })
+    isGuest.value = true
+    ElMessage.success('连麦推流已接通')
+  } catch (e) {
+    ElMessage.error('连麦推流失败：' + (e?.message || e))
+    stopGuestPublish()
+  }
+}
+
+function stopGuestPublish() {
+  if (guestPc) { try { guestPc.close() } catch { } guestPc = null }
+  if (guestStream) { guestStream.getTracks().forEach(t => t.stop()); guestStream = null }
+  if (guestVideoRef.value) guestVideoRef.value.srcObject = null
+  isGuest.value = false
+}
+
+// 连麦中挂断（主播或连麦观众都可点）
+async function doHangUp() {
+  await hangUpLinkMic(roomId.value)
+}
+
 // 本场贡献榜：初始从 Redis 拉一次，5556 到达时本地增量刷新（不轮询）
 const contribList = ref([])
 const contribMap = reactive({})
@@ -621,6 +729,10 @@ function handleIMMessage(msg) {
         // 风控提示（禁言/敏感词拦截，后端单发给发送者本人）
         const data = JSON.parse(body.data)
         ElMessage.warning(data.content || '消息包含敏感内容，已被拦截')
+      } else if (bizCode === 5572) {
+        // 连麦信令：invite 单发被邀请人 / accepted 单发观众(含推流参数) / start+stop 全房间
+        const data = JSON.parse(body.data)
+        handleLinkMicSignal(data)
       } else if (bizCode === 5567) {
         // 关注的主播开播推送（点 Toast 跳转房间）
         const data = JSON.parse(body.data)
@@ -1090,4 +1202,16 @@ onUnmounted(() => {
 .contrib-name { flex: 1; font-size: 12px; color: #ccc; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .contrib-name:hover { color: #667eea; }
 .contrib-score { font-size: 12px; color: #e6a23c; }
+
+/* 连麦 */
+.linkmic-input {
+  width: 90px; padding: 4px 8px; border-radius: 6px; border: 1px solid #2a3040;
+  background: rgba(255,255,255,0.06); color: #fff; outline: none; font-size: 12px;
+}
+.guest-video-area {
+  position: relative; width: 240px; flex-shrink: 0;
+  border-left: 1px solid #222; background: #000; display: flex; flex-direction: column;
+}
+.guest-label { padding: 6px 10px; font-size: 12px; color: #aaa; }
+.guest-video { width: 100%; flex: 1; object-fit: contain; background: #000; }
 </style>

@@ -186,4 +186,29 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
         return respVO;
     }
 
+
+
+    @Override
+    public Long inviteLinkMic(Integer roomId, Long guestUserId) {
+        org.qiyu.live.living.interfaces.dto.LivingRoomRespDTO room = livingRoomRpc.queryByRoomId(roomId);
+        ErrorAssert.isNotNull(room, ApiErrorEnum.LIVING_ROOM_END);
+        // 只有主播能发起邀请
+        ErrorAssert.isTure(room.getAnchorId() != null && room.getAnchorId().equals(QiyuRequestContext.getUserId()),
+                new QiyuErrorException(-1, "只有主播能发起连麦邀请"));
+        Long linkMicId = livingRoomRpc.inviteLinkMic(roomId, guestUserId);
+        if (linkMicId == null) {
+            throw new QiyuErrorException(-1, "该观众已在连麦或已有待处理邀请");
+        }
+        return linkMicId;
+    }
+
+    @Override
+    public Boolean acceptLinkMic(Long linkMicId) {
+        return livingRoomRpc.acceptLinkMic(linkMicId);
+    }
+
+    @Override
+    public Boolean hangUpLinkMic(Integer roomId) {
+        return livingRoomRpc.hangUpLinkMic(roomId);
+    }
 }

@@ -22,6 +22,11 @@ public class LivingStreamRpcImpl implements ILivingStreamRpc {
     }
 
     @Override
+    public LivingStreamPushUrlDTO createGuestPushUrl(Integer roomId, Long guestUserId) {
+        return livingStreamService.createGuestPushUrl(roomId, guestUserId);
+    }
+
+    @Override
     public StreamStatusDTO getStreamStatus(Integer roomId) {
         return livingStreamService.getStreamStatus(roomId);
     }

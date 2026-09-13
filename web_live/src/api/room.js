@@ -21,3 +21,15 @@ export const getImConfig = () => request.post('/im/getImConfig')
 
 // 主播配置
 export const anchorConfig = (roomId) => request.post('/living/anchorConfig', null, { params: { roomId } })
+
+// ==================== 连麦（5572 信令） ====================
+
+// 主播邀请观众连麦
+export const inviteLinkMic = (roomId, guestUserId) =>
+  request.post('/living/linkMic/invite', null, { params: { roomId, guestUserId } })
+
+// 观众接受连麦
+export const acceptLinkMic = (linkMicId) => request.post('/living/linkMic/accept', null, { params: { linkMicId } })
+
+// 挂断连麦
+export const hangUpLinkMic = (roomId) => request.post('/living/linkMic/hangUp', null, { params: { roomId } })

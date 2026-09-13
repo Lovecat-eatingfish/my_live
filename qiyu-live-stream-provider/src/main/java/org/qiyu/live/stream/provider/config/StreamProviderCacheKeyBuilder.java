@@ -31,4 +31,9 @@ public class StreamProviderCacheKeyBuilder extends org.idea.qiyu.live.framework.
     public String buildRecordContextKey(String streamKey) {
         return super.getPrefix() + RECORD_CONTEXT + super.getSplitItem() + streamKey;
     }
+
+    /** 连麦观众推流地址缓存：roomId:guestUserId -> guestStreamKey */
+    public String buildGuestStreamKey(Integer roomId, Long guestUserId) {
+        return super.getPrefix() + "guestStreamKey" + super.getSplitItem() + roomId + super.getSplitItem() + guestUserId;
+    }
 }

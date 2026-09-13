@@ -18,6 +18,11 @@ public interface ILivingStreamRpc {
     LivingStreamPushUrlDTO createPushUrl(Integer roomId, Long anchorId);
 
     /**
+     * 连麦观众第二路推流地址（streamKey 前缀 liveg_，走 Redis 反查 roomId，不占房间主 stream_key）
+     */
+    LivingStreamPushUrlDTO createGuestPushUrl(Integer roomId, Long guestUserId);
+
+    /**
      * 查询流状态
      *
      * @param roomId 房间ID

@@ -60,6 +60,27 @@ public class LivingStreamServiceImpl implements ILivingStreamService {
     private IImBroadcastService imBroadcastService;
 
     @Override
+    public LivingStreamPushUrlDTO createGuestPushUrl(Integer roomId, Long guestUserId) {
+        String raw = roomId + "_" + guestUserId + "_" + srsConfig.getSecret();
+        String streamKey = "liveg_" + md5(raw);
+        String pushUrl = srsConfig.getRtmpBaseUrl() + "/" + streamKey;
+        // 反向映射供 SRS on_publish 回调反查 roomId（正向映射与房间主 key 分开，互不影响）
+        stringRedisTemplate.opsForValue().set(cacheKeyBuilder.buildStreamKeyReverse(streamKey),
+                String.valueOf(roomId), STREAM_KEY_EXPIRE_HOURS, TimeUnit.HOURS);
+        stringRedisTemplate.opsForValue().set(cacheKeyBuilder.buildGuestStreamKey(roomId, guestUserId),
+                streamKey, STREAM_KEY_EXPIRE_HOURS, TimeUnit.HOURS);
+        LivingStreamPushUrlDTO dto = new LivingStreamPushUrlDTO();
+        dto.setPushUrl(pushUrl);
+        dto.setStreamKey(streamKey);
+        dto.setExpireTime(System.currentTimeMillis() + STREAM_KEY_EXPIRE_HOURS * 3600 * 1000L);
+        dto.setRtcPublishApi(srsConfig.getRtcPublishApiUrl());
+        dto.setRtcStreamUrl(srsConfig.getRtcStreamBaseUrl() + "/" + streamKey);
+        dto.setHlsUrl(srsConfig.getHlsBaseUrl() + "/" + streamKey + ".m3u8");
+        LOGGER.info("[createGuestPushUrl] roomId={}, guestUserId={}, streamKey={}", roomId, guestUserId, streamKey);
+        return dto;
+    }
+
+    @Override
     public LivingStreamPushUrlDTO createPushUrl(Integer roomId, Long anchorId) {
         // 1. 生成带签名的 streamKey，防伪造
         String streamKey = buildStreamKey(roomId, anchorId);

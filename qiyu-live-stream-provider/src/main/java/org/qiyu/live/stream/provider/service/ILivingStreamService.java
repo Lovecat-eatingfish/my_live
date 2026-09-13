@@ -16,6 +16,9 @@ public interface ILivingStreamService {
      */
     LivingStreamPushUrlDTO createPushUrl(Integer roomId, Long anchorId);
 
+    /** 连麦观众第二路推流地址 */
+    LivingStreamPushUrlDTO createGuestPushUrl(Integer roomId, Long guestUserId);
+
     /**
      * 查询流状态
      * @param roomId 房间ID

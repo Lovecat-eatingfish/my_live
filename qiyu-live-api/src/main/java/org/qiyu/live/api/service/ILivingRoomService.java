@@ -73,4 +73,15 @@ public interface ILivingRoomService {
      */
     LivingRoomInitVO anchorConfig(Long userId,Integer roomId);
 
+
+    // ==================== 连麦（5572 信令） ====================
+
+    /** 主播邀请观众连麦 */
+    Long inviteLinkMic(Integer roomId, Long guestUserId);
+
+    /** 观众接受连麦 */
+    Boolean acceptLinkMic(Long linkMicId);
+
+    /** 挂断连麦 */
+    Boolean hangUpLinkMic(Integer roomId);
 }
