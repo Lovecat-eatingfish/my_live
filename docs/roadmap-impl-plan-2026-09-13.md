@@ -46,18 +46,19 @@
 
 ## 四、各批次实现细节
 
-### 批次零：先修现状问题（半天）
+### 批次零：先修现状问题（半天）✅ 已完成（2026-09-13）
 
-1. **支付回调幂等**（`bank-provider/PayOrderServiceImpl.payNotify`）：
-   - 方法开头查单：`status == 已支付` 直接返回 ok；
-   - 入账改条件更新：`UPDATE t_pay_order SET status=2 WHERE order_id=? AND status=1`，affected==0 则说明并发/重复回调，直接返回，不再入账。
-2. **§6.12 清单逐条核实**（迭代中动过代码，可能有几条已不存在）：
-   - [ ] `t_video_info.status` 只有 0/1 无审核语义 → 批次五扩值（0下架 1上线 2审核中 3驳回）
-   - [ ] `MessageDTO.senderAvtar` 拼写 → 新消息类型一律用新 DTO，存量不动
-   - [ ] bank 手写 setIfAbsent 锁 sleep 递归重试 → 评估是否值得引入 `@DistributedLock`（Redisson），不阻塞后续批次
-   - [ ] `SingleMessageHandlerImpl` 每条弹幕 SCAN 全房间用户 Set → 记入批次三压测预案，暂不动
-   - [ ] `VideoApiServiceImpl.uploadVideo` 的 `file.getBytes()` 300MB 入堆 → **本批修掉**，改 `file.getInputStream()` 流式写 MinIO（与批次四转码天然衔接）
-   - [ ] 网关白名单条目核对（admin 登录已放行过，确认无遗漏）
+1. **支付回调幂等**（`bank-provider/PayOrderServiceImpl.payNotify`）：✅ 已修
+   - 查单后 `status == PAYED` 直接返回 ok；
+   - `payNotifyHandler` 改为条件更新 `SET status=2, pay_time=now WHERE order_id=? AND status IN (0,1)`，affected==0（并发双回调）不再入账/发 MQ。E2E：充值 1000 金币后重放同一回调 2 次，余额不变（scripts/paynotify_idempotent_test.mjs 全绿）。
+2. **§6.12 清单逐条核实结论**：
+   - [x] `uploadVideo` 的 `file.getBytes()` → **本批已修**：改 `file.getInputStream()` 流式写 MinIO，真实 17.9MB 视频上传验证通过
+   - [x] 网关白名单（2 条）→ **现状够用**：admin-api 走独立 38100 端口自鉴权不经网关，bank-api mock 回调直连，暂无遗漏
+   - [x] `MessageDTO.senderAvtar` 拼写 → 前后端一致能跑，按既定策略**不动**，新消息类型用新 DTO
+   - [x] bank 锁 sleep 递归重试 → 锁 TTL 仅 2s、单次 sleep 0.5~1s，实际竞争窗口小，**风险可接受，留远期**（Redisson `@DistributedLock`）
+   - [x] `SingleMessageHandlerImpl` SCAN 全房间用户 → **留批次三**压测项
+   - [x] `t_video_info.status` 只有 0/1 → **留批次五**审核流扩值
+   - 本批额外发现并修复：**start-all.sh 在 `set -u` 下引用未设置的 `QIYU_JAVA_HOME` 直接退出**（改为 `${QIYU_JAVA_HOME:-}`）
 
 ### 批次一：内容风控（敏感词 + 封禁）
 
@@ -153,7 +154,7 @@
 
 | 批次 | 状态 | 实际 commit | 偏差/坑 |
 |---|---|---|---|
-| 零 | 未开始 | — | — |
+| 零 | ✅ 已完成 | 见 2026-09-13 提交 | ① start-all.sh `set -u` 未绑定变量 bug（已修）；② 全量重启时 Nacos 过载，5 个服务注册失败退出 + user-provider 成"僵尸"需手杀重启，错峰重启后恢复；③ E2E 登录撞上验证码 60s TTL 冷却（sendLoginCode 限频），等 60s 再跑即可 |
 | 一 | 未开始 | — | — |
 | 二 | 未开始 | — | — |
 | 三 | 未开始 | — | — |

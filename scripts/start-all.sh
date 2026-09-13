@@ -43,7 +43,7 @@ ALL_MODULES=("${WAVE0[@]}" "${WAVE1[@]}" "${WAVE2[@]}" "${WAVE3[@]}" "${WAVE4[@]
 # 本项目固定用本机 JDK17（写死，不读 JAVA_HOME——本机 JAVA_HOME 保持 jdk8 给公司项目用）
 # 如需换路径，改这里或临时 export QIYU_JAVA_HOME=...
 QIYU_JDK17="/d/enviroment/javaenviroment/jdk17"
-if [[ -n "$QIYU_JAVA_HOME" && -x "$QIYU_JAVA_HOME/bin/java" ]]; then
+if [[ -n "${QIYU_JAVA_HOME:-}" && -x "$QIYU_JAVA_HOME/bin/java" ]]; then
   JAVA_CMD="$QIYU_JAVA_HOME/bin/java"
 elif [[ -x "$QIYU_JDK17/bin/java" ]]; then
   JAVA_CMD="$QIYU_JDK17/bin/java"

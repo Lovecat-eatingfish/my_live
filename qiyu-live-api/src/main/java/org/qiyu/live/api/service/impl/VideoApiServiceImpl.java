@@ -24,7 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -56,7 +56,8 @@ public class VideoApiServiceImpl implements IVideoApiService {
         String ext = resolveExt(file.getOriginalFilename());
         String datePath = new SimpleDateFormat("yyyyMMdd").format(new Date());
         String objectName = "videos/" + datePath + "/" + userId + "_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12) + "." + ext;
-        try (var in = new ByteArrayInputStream(file.getBytes())) {
+        // 流式写入，避免大文件整体读入堆内存
+        try (var in = file.getInputStream()) {
             videoMinioConfig.getMinioClient().putObject(PutObjectArgs.builder()
                     .bucket(videoMinioConfig.getVideoBucket())
                     .object(objectName)

@@ -93,12 +93,22 @@ public class PayOrderServiceImpl implements IPayOrderService {
             LOGGER.error("error payOrderPO, payOrderDTO is {}", payOrderDTO);
             return false;
         }
+        // 幂等：已支付订单的重复回调直接视为成功，不再重复入账
+        if (OrderStatusEnum.PAYED.getCode().equals(payOrderPO.getStatus())) {
+            LOGGER.info("[payNotify] order {} already payed, duplicate notify ignored", payOrderDTO.getOrderId());
+            return true;
+        }
         PayTopicPO payTopicPO = payTopicService.getByCode(payOrderDTO.getBizCode());
         if (payTopicPO == null || StringUtils.isEmpty(payTopicPO.getTopic())) {
             LOGGER.error("error payTopicPO, payOrderDTO is {}", payOrderDTO);
             return false;
         }
-        this.payNotifyHandler(payOrderPO);
+        // 条件更新兜底：仅待支付/支付中能改为已支付，并发双回调时只有一个能成功
+        boolean firstNotify = this.payNotifyHandler(payOrderPO);
+        if (!firstNotify) {
+            LOGGER.info("[payNotify] order {} notify lost race, concurrent notify ignored", payOrderDTO.getOrderId());
+            return true;
+        }
         //假设 支付成功后，要发送消息通知 -》 msg-provider
         //假设 支付成功后，要修改用户的vip经验值
         //发mq
@@ -120,16 +130,21 @@ public class PayOrderServiceImpl implements IPayOrderService {
      * 增加用户余额
      *
      * @param payOrderPO
+     * @return true=本次回调首次处理成功；false=并发/重复回调，未做任何处理
      */
-    private void payNotifyHandler(PayOrderPO payOrderPO) {
-        this.updateOrderStatus(payOrderPO.getOrderId(), OrderStatusEnum.PAYED.getCode());
-        // 回填支付成功时间，供 T+1 对账按日归集
-        PayOrderPO payTimeUpdate = new PayOrderPO();
-        payTimeUpdate.setOrderId(payOrderPO.getOrderId());
-        payTimeUpdate.setPayTime(new Date());
-        LambdaUpdateWrapper<PayOrderPO> payTimeWrapper = new LambdaUpdateWrapper<>();
-        payTimeWrapper.eq(PayOrderPO::getOrderId, payOrderPO.getOrderId());
-        payOrderMapper.update(payTimeUpdate, payTimeWrapper);
+    private boolean payNotifyHandler(PayOrderPO payOrderPO) {
+        // 条件更新：status 从待支付/支付中改为已支付并回填支付时间，affected==0 说明已被并发回调处理
+        PayOrderPO payedUpdate = new PayOrderPO();
+        payedUpdate.setStatus(OrderStatusEnum.PAYED.getCode());
+        payedUpdate.setPayTime(new Date());
+        LambdaUpdateWrapper<PayOrderPO> payedWrapper = new LambdaUpdateWrapper<>();
+        payedWrapper.eq(PayOrderPO::getOrderId, payOrderPO.getOrderId());
+        payedWrapper.in(PayOrderPO::getStatus,
+                OrderStatusEnum.WAITING_PAY.getCode(), OrderStatusEnum.PAYING.getCode());
+        int affected = payOrderMapper.update(payedUpdate, payedWrapper);
+        if (affected <= 0) {
+            return false;
+        }
         Integer productId = payOrderPO.getProductId();
         PayProductDTO payProductDTO = payProductService.getByProductId(productId);
         if (payProductDTO != null &&
@@ -140,5 +155,6 @@ public class PayOrderServiceImpl implements IPayOrderService {
             //充值入账：流水类型记为直播间充值，与送礼流水区分开（对账依赖该类型）
             qiyuCurrencyAccountService.incrForRecharge(userId, num);
         }
+        return true;
     }
 }
