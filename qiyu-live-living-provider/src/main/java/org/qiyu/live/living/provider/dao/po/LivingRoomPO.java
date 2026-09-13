@@ -24,6 +24,10 @@ public class LivingRoomPO {
     private Integer streamStatus;
     private Integer watchNum;
     private Integer goodNum;
+    /** 付费类型（0免费 1门票） */
+    private Integer payType;
+    /** 门票价格（金币） */
+    private Integer ticketPrice;
     private Date startTime;
     private Date updateTime;
 
@@ -121,5 +125,21 @@ public class LivingRoomPO {
         return "LivingRoomPO{" + "id=" + id + ", anchorId=" + anchorId + ", type=" + type + ", roomName='" + roomName + '\'' + ", covertImg='" + covertImg +
                 '\'' + ", status=" + status + ", watchNum=" + watchNum + ", goodNum=" + goodNum + ", startTime=" + startTime + ", updateTime=" + updateTime +
                 '}';
+    }
+
+    public Integer getPayType() {
+        return payType;
+    }
+
+    public void setPayType(Integer payType) {
+        this.payType = payType;
+    }
+
+    public Integer getTicketPrice() {
+        return ticketPrice;
+    }
+
+    public void setTicketPrice(Integer ticketPrice) {
+        this.ticketPrice = ticketPrice;
     }
 }

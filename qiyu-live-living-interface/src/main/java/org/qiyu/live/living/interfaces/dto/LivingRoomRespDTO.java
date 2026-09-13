@@ -21,6 +21,10 @@ public class LivingRoomRespDTO implements Serializable {
     private Integer type;
     private Integer watchNum;
     private Integer goodNum;
+    /** 付费类型（0免费 1门票） */
+    private Integer payType;
+    /** 门票价格（金币） */
+    private Integer ticketPrice;
     private Long pkObjId;
 
     public Long getPkObjId() {
@@ -98,5 +102,21 @@ public class LivingRoomRespDTO implements Serializable {
                 ", watchNum=" + watchNum +
                 ", goodNum=" + goodNum +
                 '}';
+    }
+
+    public Integer getPayType() {
+        return payType;
+    }
+
+    public void setPayType(Integer payType) {
+        this.payType = payType;
+    }
+
+    public Integer getTicketPrice() {
+        return ticketPrice;
+    }
+
+    public void setTicketPrice(Integer ticketPrice) {
+        this.ticketPrice = ticketPrice;
     }
 }

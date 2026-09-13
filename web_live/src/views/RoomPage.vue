@@ -227,7 +227,7 @@ async function handleShare() {
   }
 }
 import { roomGiftRank } from '@/api/rank'
-import { inviteLinkMic, acceptLinkMic, hangUpLinkMic } from '@/api/room'
+import { inviteLinkMic, acceptLinkMic, hangUpLinkMic, buyTicket } from '@/api/room'
 import { IMConnection } from '@/utils/im/connection'
 import ChatList from '@/components/ChatList.vue'
 import ChatInput from '@/components/ChatInput.vue'
@@ -257,6 +257,7 @@ let guestPc = null                 // 被邀请观众的第二路 RTCPeerConnect
 let guestStream = null
 const guestVideoRef = ref(null)
 const isGuest = ref(false)         // 当前用户是否为本场连麦观众
+let ticketPrompting = false        // 购票弹窗去重
 
 async function handleLinkMicSignal(data) {
   if (data.action === 'invite') {
@@ -639,6 +640,30 @@ async function submitRedPacket() {
 // 获取直播间完整信息
 async function fetchRoomInfo() {
   const vo = await anchorConfig(roomId.value)
+  if (vo.code === 10114) {
+    // 付费直播间未购票：弹购票窗（重复弹窗去重）
+    if (!ticketPrompting) {
+      ticketPrompting = true
+      try {
+        await ElMessageBox.confirm(
+          `本直播间为付费直播间，购买门票后即可观看。是否立即购票？`,
+          '付费直播间', { confirmButtonText: '购票进入', cancelButtonText: '离开', type: 'warning' }
+        ).then(async () => {
+          await buyTicket(roomId.value)
+          ElMessage.success('购票成功，欢迎观看')
+          ticketPrompting = false
+          return fetchRoomInfo()
+        }).catch(() => {
+          ticketPrompting = false
+          router.back()
+        })
+      } catch (e) {
+        ticketPrompting = false
+        ElMessage.error(e?.message || '购票失败')
+      }
+    }
+    return
+  }
   roomInfo.value = vo.data || {}
   if (!roomInfo.value.anchor && roomInfo.value.anchorId) {
     const f = await isFollowUser(roomInfo.value.anchorId)
@@ -855,9 +880,9 @@ async function handleSendGift(gift) {
 // 开播：由 StartLivingDialog 收集名称与封面后回调
 const startVisible = ref(false)
 const startDialogRef = ref(null)
-async function handleStartLiving({ roomName, covertImg }) {
+async function handleStartLiving({ roomName, covertImg, payType, ticketPrice }) {
   try {
-    const vo = await startLiving(roomInfo.value.type || 1, roomName, covertImg)
+    const vo = await startLiving(roomInfo.value.type || 1, roomName, covertImg, payType, ticketPrice)
     const newRoomId = vo.data?.roomId
     if (newRoomId) {
       startDialogRef.value?.finish()

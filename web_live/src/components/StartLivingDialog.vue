@@ -36,6 +36,16 @@
         >{{ t.label }}</span>
       </div>
 
+      <!-- 门票设置 -->
+      <div class="name-label">付费门票</div>
+      <div class="ticket-row">
+        <el-switch v-model="ticketEnabled" />
+        <template v-if="ticketEnabled">
+          <input v-model.number="ticketPrice" type="number" min="1" class="ticket-input" />
+          <span class="ticket-unit">金币/人</span>
+        </template>
+      </div>
+
       <div class="form-hint">观众会在直播列表看到你的封面和名称，认真填更容易被看到哦</div>
     </div>
     <template #footer>
@@ -64,6 +74,8 @@ const visible = computed({
 })
 
 const roomName = ref('')
+const ticketEnabled = ref(false)
+const ticketPrice = ref(100)
 const coverUrl = ref('')
 const uploading = ref(false)
 const submitting = ref(false)
@@ -139,7 +151,10 @@ async function handleConfirm() {
   }
   if (submitting.value) return
   submitting.value = true
-  emit('confirm', { roomName: roomName.value.trim(), covertImg: coverUrl.value, type: livingType.value })
+  emit('confirm', {
+    roomName: roomName.value.trim(), covertImg: coverUrl.value, type: livingType.value,
+    payType: ticketEnabled.value ? 1 : 0, ticketPrice: ticketEnabled.value ? Number(ticketPrice.value) : null
+  })
 }
 
 // 父组件开播成功后调用，关闭弹窗并复位

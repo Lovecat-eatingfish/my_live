@@ -72,7 +72,7 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     }
 
     @Override
-    public Integer startingLiving(Integer type, String roomName, String covertImg) {
+    public Integer startingLiving(Integer type, String roomName, String covertImg, Integer payType, Integer ticketPrice) {
         Long userId = QiyuRequestContext.getUserId();
         //带货类型开播前必须已配置商品（小黄车空房间没有意义）
         if (type != null && type == 4) {
@@ -94,6 +94,13 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
         livingRoomReqDTO.setCovertImg(StringUtils.hasText(covertImg)
                 ? covertImg : userDTO.getAvatar());
         livingRoomReqDTO.setType(type);
+        // 付费直播间：门票模式时校验价格合法
+        if (payType != null && payType == 1) {
+            ErrorAssert.isTure(ticketPrice != null && ticketPrice > 0,
+                    new QiyuErrorException(-1, "门票价格必须大于0"));
+            livingRoomReqDTO.setPayType(1);
+            livingRoomReqDTO.setTicketPrice(ticketPrice);
+        }
         Integer roomId = livingRoomRpc.startLivingRoom(livingRoomReqDTO);
         if (roomId != null) {
             // 开播成功 → 通知 user-provider 给粉丝推 5567 + 站内通知
@@ -161,6 +168,14 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     public LivingRoomInitVO anchorConfig(Long userId, Integer roomId) {
         LivingRoomRespDTO respDTO = livingRoomRpc.queryByRoomId(roomId);
         ErrorAssert.isNotNull(respDTO,ApiErrorEnum.LIVING_ROOM_END);
+        // 付费直播间门票校验：非主播、未购票 → 特定错误码（前端弹购票窗）
+        if (respDTO.getPayType() != null && respDTO.getPayType() == 1
+                && !userId.equals(respDTO.getAnchorId())) {
+            boolean hasTicket = ticketStringRedisTemplate.hasKey(
+                    org.qiyu.live.common.interfaces.constants.TicketConstants.ROOM_TICKET_KEY_PREFIX
+                            + roomId + ":" + userId);
+            ErrorAssert.isTure(Boolean.TRUE.equals(hasTicket), ApiErrorEnum.TICKET_REQUIRED);
+        }
         Map<Long,UserDTO> userDTOMap = userRpc.batchQueryUserInfo(Arrays.asList(respDTO.getAnchorId(),userId).stream().distinct().collect(Collectors.toList()));
         UserDTO anchor = userDTOMap.get(respDTO.getAnchorId());
         UserDTO watcher = userDTOMap.get(userId);
@@ -210,5 +225,36 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     @Override
     public Boolean hangUpLinkMic(Integer roomId) {
         return livingRoomRpc.hangUpLinkMic(roomId);
+    }
+
+
+    @jakarta.annotation.Resource
+    private org.springframework.data.redis.core.StringRedisTemplate ticketStringRedisTemplate;
+    @DubboReference(check = false)
+    private org.qiyu.live.bank.interfaces.IQiyuCurrencyAccountRpc currencyAccountRpc;
+
+    @Override
+    public Boolean buyTicket(Integer roomId) {
+        Long userId = QiyuRequestContext.getUserId();
+        org.qiyu.live.living.interfaces.dto.LivingRoomRespDTO room = livingRoomRpc.queryByRoomId(roomId);
+        ErrorAssert.isNotNull(room, ApiErrorEnum.LIVING_ROOM_END);
+        if (room.getPayType() == null || room.getPayType() != 1) {
+            return true; // 免费房间无需购票
+        }
+        String ticketKey = org.qiyu.live.common.interfaces.constants.TicketConstants.ROOM_TICKET_KEY_PREFIX
+                + roomId + ":" + userId;
+        if (Boolean.TRUE.equals(ticketStringRedisTemplate.hasKey(ticketKey))) {
+            return true; // 已购幂等
+        }
+        int price = room.getTicketPrice() == null ? 0 : room.getTicketPrice();
+        ErrorAssert.isTure(price > 0, BizBaseErrorEnum.PARAM_ERROR);
+        // 金币直扣（余额不足由 decr 内部抛错）
+        currencyAccountRpc.decr(userId, price);
+        // 主播收益入账
+        currencyAccountRpc.incr(room.getAnchorId(), price);
+        ticketStringRedisTemplate.opsForValue().set(ticketKey, "1",
+                java.time.Duration.ofHours(org.qiyu.live.common.interfaces.constants.TicketConstants.TICKET_TTL_HOURS));
+        LOGGER.info("[buyTicket] roomId={}, userId={}, price={}", roomId, userId, price);
+        return true;
     }
 }

@@ -34,6 +34,9 @@ public class StreamServiceImpl implements IStreamService {
     private ILivingStreamRpc livingStreamRpc;
     @DubboReference(check = false)
     private ILivingPlayBackRpc livingPlayBackRpc;
+
+    @jakarta.annotation.Resource
+    private org.springframework.data.redis.core.StringRedisTemplate ticketRedis;
     @DubboReference(check = false)
     private ILivingRoomRpc livingRoomRpc;
 
@@ -61,6 +64,16 @@ public class StreamServiceImpl implements IStreamService {
 
     @Override
     public StreamPlayUrlVO getPlayUrl(Integer roomId) {
+        // 付费直播间：未购票不可取播放地址（防蹭播）
+        org.qiyu.live.living.interfaces.dto.LivingRoomRespDTO roomInfo = livingRoomRpc.queryByRoomId(roomId);
+        if (roomInfo != null && roomInfo.getPayType() != null && roomInfo.getPayType() == 1) {
+            Long uid = org.qiyu.live.web.starter.context.QiyuRequestContext.getUserId();
+            if (uid != null && !uid.equals(roomInfo.getAnchorId()) && !Boolean.TRUE.equals(ticketRedis.hasKey(
+                    org.qiyu.live.common.interfaces.constants.TicketConstants.ROOM_TICKET_KEY_PREFIX + roomId + ":" + uid))) {
+                throw new org.qiyu.live.web.starter.error.QiyuErrorException(
+                        org.qiyu.live.api.error.ApiErrorEnum.TICKET_REQUIRED);
+            }
+        }
         PlayBackDTO dto = livingPlayBackRpc.getPlayUrl(roomId, "other");
         return ConvertBeanUtils.convert(dto, StreamPlayUrlVO.class);
     }

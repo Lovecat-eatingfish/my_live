@@ -32,7 +32,7 @@ public interface ILivingRoomService {
      * @param roomName  直播间名称，空则用默认名
      * @param covertImg 封面图 URL，空则用用户头像
      */
-    Integer startingLiving(Integer type, String roomName, String covertImg);
+    Integer startingLiving(Integer type, String roomName, String covertImg, Integer payType, Integer ticketPrice);
 
 
     /**
@@ -75,6 +75,9 @@ public interface ILivingRoomService {
 
 
     // ==================== 连麦（5572 信令） ====================
+
+    /** 购买直播间门票（金币直扣） */
+    Boolean buyTicket(Integer roomId);
 
     /** 主播邀请观众连麦 */
     Long inviteLinkMic(Integer roomId, Long guestUserId);

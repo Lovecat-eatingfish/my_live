@@ -5,7 +5,7 @@ export const listRoom = (params) => request.post('/living/list', null, { params 
 
 // 开播
 // 开播（roomName/covertImg 为主播自定义直播间名称与封面 URL，可不传走默认）
-export const startLiving = (type, roomName, covertImg) => request.post('/living/startingLiving', null, { params: { type, roomName, covertImg } })
+export const startLiving = (type, roomName, covertImg, payType, ticketPrice) => request.post('/living/startingLiving', null, { params: { type, roomName, covertImg, payType, ticketPrice } })
 
 // 关播
 export const closeLiving = (roomId) => request.post('/living/closeLiving', null, { params: { roomId } })
@@ -33,3 +33,6 @@ export const acceptLinkMic = (linkMicId) => request.post('/living/linkMic/accept
 
 // 挂断连麦
 export const hangUpLinkMic = (roomId) => request.post('/living/linkMic/hangUp', null, { params: { roomId } })
+
+// 付费直播间门票（金币直扣，幂等）
+export const buyTicket = (roomId) => request.post('/living/ticket/buy', null, { params: { roomId } })

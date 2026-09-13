@@ -36,9 +36,10 @@ public class LivingRoomController {
 
     @RequestLimit(limit = 1, second = 10, msg = "开播请求过于频繁，请稍后再试")
     @PostMapping("/startingLiving")
-    public WebResponseVO startingLiving(Integer type, String roomName, String covertImg) {
+    public WebResponseVO startingLiving(Integer type, String roomName, String covertImg,
+                                            Integer payType, Integer ticketPrice) {
         ErrorAssert.isNotNull(type, BizBaseErrorEnum.PARAM_ERROR);
-        Integer roomId = livingRoomService.startingLiving(type, roomName, covertImg);
+        Integer roomId = livingRoomService.startingLiving(type, roomName, covertImg, payType, ticketPrice);
         LivingRoomInitVO initVO = new LivingRoomInitVO();
         initVO.setRoomId(roomId);
         return WebResponseVO.success(initVO);
@@ -89,6 +90,15 @@ public class LivingRoomController {
     }
 
 
+
+
+    // ==================== 付费直播间门票 ====================
+
+    /** 购买门票（金币直扣，幂等） */
+    @PostMapping("/ticket/buy")
+    public WebResponseVO buyTicket(Integer roomId) {
+        return WebResponseVO.success(livingRoomService.buyTicket(roomId));
+    }
 
     // ==================== 连麦（5572 信令） ====================
 
