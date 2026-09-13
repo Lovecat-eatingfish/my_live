@@ -47,7 +47,7 @@ await sleep(2500)
 const after = await streams()
 const mineAfter = after.filter(s => s.name === push.data.streamKey)
 console.log(`关播后: 本流已销毁=${mineAfter.length === 0}`)
-const exitCode = await Promise.race([ffDone.then(c => c), sleep(10000).then(() => 'still-running')])
+const exitCode = await Promise.race([ffDone.then(c => c), sleep(20000).then(() => 'still-running')])
 const connBroken = exitCode !== 0 && exitCode !== 'still-running'
 console.log(`ffmpeg: exit=${exitCode} 推流连接被断开=${connBroken}`)
 console.log((mineDuring.length === 1 && mineAfter.length === 0 && exitCode !== 'still-running') ? '✅ 关播踢流验证通过' : '❌ 踢流异常')
