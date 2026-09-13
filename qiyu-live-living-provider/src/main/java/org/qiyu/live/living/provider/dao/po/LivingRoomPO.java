@@ -28,6 +28,7 @@ public class LivingRoomPO {
     private Integer payType;
     /** 门票价格（金币） */
     private Integer ticketPrice;
+    private Integer recordEnabled;
     private Date startTime;
     private Date updateTime;
 
@@ -78,6 +79,14 @@ public class LivingRoomPO {
 
     public void setGoodNum(Integer goodNum) {
         this.goodNum = goodNum;
+    }
+
+    public Integer getRecordEnabled() {
+        return recordEnabled;
+    }
+
+    public void setRecordEnabled(Integer recordEnabled) {
+        this.recordEnabled = recordEnabled;
     }
 
     public Date getStartTime() {

@@ -24,4 +24,9 @@ public interface ILivingPlayBackService {
      * @return 回放记录列表
      */
     List<LivingRoomRecordDTO> getRecordList(Integer roomId);
+
+    /**
+     * 主播主页回放：按主播查可用回放（最新 20 条）
+     */
+    List<LivingRoomRecordDTO> getRecordListByAnchor(Long anchorId);
 }

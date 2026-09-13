@@ -262,9 +262,9 @@ async function refreshMyLivingRoom() {
   } catch { /* 静默 */ }
 }
 const startDialogRef = ref(null)
-async function handleStartLiving({ roomName, covertImg, type }) {
+async function handleStartLiving({ roomName, covertImg, type, payType, ticketPrice, recordEnabled }) {
   try {
-    const vo = await startLiving(type || 1, roomName, covertImg)
+    const vo = await startLiving(type || 1, roomName, covertImg, payType, ticketPrice, recordEnabled)
     const newRoomId = vo.data?.roomId
     if (newRoomId) {
       startDialogRef.value?.finish()

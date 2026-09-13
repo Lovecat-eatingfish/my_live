@@ -23,6 +23,7 @@ public class LivingRoomReqDTO implements Serializable {
     private Integer type;
     private Integer appId;
     private int page;
+    private Integer recordEnabled;
     private int pageSize;
     /** 付费类型（0免费 1门票） */
     private Integer payType;
@@ -91,6 +92,14 @@ public class LivingRoomReqDTO implements Serializable {
 
     public void setRoomId(Integer roomId) {
         this.roomId = roomId;
+    }
+
+    public Integer getRecordEnabled() {
+        return recordEnabled;
+    }
+
+    public void setRecordEnabled(Integer recordEnabled) {
+        this.recordEnabled = recordEnabled;
     }
 
     public int getPage() {

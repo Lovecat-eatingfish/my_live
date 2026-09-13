@@ -101,7 +101,7 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     }
 
     @Override
-    public Integer startingLiving(Integer type, String roomName, String covertImg, Integer payType, Integer ticketPrice) {
+    public Integer startingLiving(Integer type, String roomName, String covertImg, Integer payType, Integer ticketPrice, Integer recordEnabled) {
         Long userId = QiyuRequestContext.getUserId();
         //带货类型开播前必须已配置商品（小黄车空房间没有意义）
         if (type != null && type == 4) {
@@ -130,6 +130,8 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
             livingRoomReqDTO.setPayType(1);
             livingRoomReqDTO.setTicketPrice(ticketPrice);
         }
+        // 录制开关：开启后 SRS DVR 落盘 → on_dvr 回调上传 MinIO 生成回放
+        livingRoomReqDTO.setRecordEnabled(recordEnabled != null && recordEnabled == 1 ? 1 : 0);
         Integer roomId = livingRoomRpc.startLivingRoom(livingRoomReqDTO);
         if (roomId != null) {
             // 开播成功 → 通知 user-provider 给粉丝推 5567 + 站内通知

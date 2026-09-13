@@ -11,3 +11,6 @@ export const getPlayUrl = (roomId) => request.post('/stream/playUrl', null, { pa
 
 // 获取录制回放列表
 export const getRecordList = (roomId) => request.post('/stream/records', null, { params: { roomId } })
+
+/** 主播主页回放列表 */
+export const getRecordsByAnchor = (anchorId) => request.post('/stream/recordsByAnchor', null, { params: { anchorId } })

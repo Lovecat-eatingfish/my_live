@@ -71,6 +71,20 @@ public class LivingPlayBackServiceImpl implements ILivingPlayBackService {
         return ConvertBeanUtils.convertList(poList, LivingRoomRecordDTO.class);
     }
 
+    @Override
+    public List<LivingRoomRecordDTO> getRecordListByAnchor(Long anchorId) {
+        if (anchorId == null) {
+            return Collections.emptyList();
+        }
+        LambdaQueryWrapper<LivingRoomRecordPO> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(LivingRoomRecordPO::getAnchorId, anchorId);
+        queryWrapper.eq(LivingRoomRecordPO::getStatus, 2); // 2=可用
+        queryWrapper.orderByDesc(LivingRoomRecordPO::getCreateTime);
+        queryWrapper.last("limit 20");
+        List<LivingRoomRecordPO> poList = livingRoomRecordMapper.selectList(queryWrapper);
+        return ConvertBeanUtils.convertList(poList, LivingRoomRecordDTO.class);
+    }
+
     private boolean isStreaming(LivingRoomPO room) {
         Integer streamStatus = room.getStreamStatus();
         return streamStatus != null && streamStatus == 1 && StringUtils.hasText(room.getStreamKey());

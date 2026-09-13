@@ -43,4 +43,7 @@ public interface IStreamService {
      * @return 回放记录列表
      */
     List<StreamRecordVO> getRecordList(Integer roomId);
+
+    /** 主播主页回放列表 */
+    List<StreamRecordVO> getRecordListByAnchor(Long anchorId);
 }

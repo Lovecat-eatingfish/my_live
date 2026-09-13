@@ -38,7 +38,7 @@ public interface ILivingRoomService {
      * @param roomName  直播间名称，空则用默认名
      * @param covertImg 封面图 URL，空则用用户头像
      */
-    Integer startingLiving(Integer type, String roomName, String covertImg, Integer payType, Integer ticketPrice);
+    Integer startingLiving(Integer type, String roomName, String covertImg, Integer payType, Integer ticketPrice, Integer recordEnabled);
 
 
     /**

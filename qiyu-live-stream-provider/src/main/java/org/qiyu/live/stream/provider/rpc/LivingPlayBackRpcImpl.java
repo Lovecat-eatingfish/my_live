@@ -27,4 +27,9 @@ public class LivingPlayBackRpcImpl implements ILivingPlayBackRpc {
     public List<LivingRoomRecordDTO> getRecordList(Integer roomId) {
         return livingPlayBackService.getRecordList(roomId);
     }
+
+    @Override
+    public List<LivingRoomRecordDTO> getRecordListByAnchor(Long anchorId) {
+        return livingPlayBackService.getRecordListByAnchor(anchorId);
+    }
 }

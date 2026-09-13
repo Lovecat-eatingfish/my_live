@@ -5,7 +5,7 @@ export const listRoom = (params) => request.post('/living/list', null, { params 
 
 // 开播
 // 开播（roomName/covertImg 为主播自定义直播间名称与封面 URL，可不传走默认）
-export const startLiving = (type, roomName, covertImg, payType, ticketPrice) => request.post('/living/startingLiving', null, { params: { type, roomName, covertImg, payType, ticketPrice } })
+export const startLiving = (type, roomName, covertImg, payType, ticketPrice, recordEnabled) => request.post('/living/startingLiving', null, { params: { type, roomName, covertImg, payType, ticketPrice, recordEnabled } })
 
 // 关播
 export const closeLiving = (roomId) => request.post('/living/closeLiving', null, { params: { roomId } })

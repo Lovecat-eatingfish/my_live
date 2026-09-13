@@ -83,4 +83,9 @@ public class StreamServiceImpl implements IStreamService {
         List<LivingRoomRecordDTO> dtoList = livingPlayBackRpc.getRecordList(roomId);
         return ConvertBeanUtils.convertList(dtoList, StreamRecordVO.class);
     }
+
+    @Override
+    public List<StreamRecordVO> getRecordListByAnchor(Long anchorId) {
+        return ConvertBeanUtils.convertList(livingPlayBackRpc.getRecordListByAnchor(anchorId), StreamRecordVO.class);
+    }
 }

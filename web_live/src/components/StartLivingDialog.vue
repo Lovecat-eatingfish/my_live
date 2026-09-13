@@ -37,6 +37,12 @@
       </div>
 
       <!-- 门票设置 -->
+      <div class="name-label">开启录制</div>
+      <div class="ticket-row">
+        <el-switch v-model="recordEnabled" />
+        <span v-if="recordEnabled" class="record-hint">关播后自动生成回放，展示在你的主页</span>
+      </div>
+
       <div class="name-label">付费门票</div>
       <div class="ticket-row">
         <el-switch v-model="ticketEnabled" />
@@ -76,6 +82,7 @@ const visible = computed({
 const roomName = ref('')
 const ticketEnabled = ref(false)
 const ticketPrice = ref(100)
+const recordEnabled = ref(false)
 const coverUrl = ref('')
 const uploading = ref(false)
 const submitting = ref(false)
@@ -153,7 +160,8 @@ async function handleConfirm() {
   submitting.value = true
   emit('confirm', {
     roomName: roomName.value.trim(), covertImg: coverUrl.value, type: livingType.value,
-    payType: ticketEnabled.value ? 1 : 0, ticketPrice: ticketEnabled.value ? Number(ticketPrice.value) : null
+    payType: ticketEnabled.value ? 1 : 0, ticketPrice: ticketEnabled.value ? Number(ticketPrice.value) : null,
+    recordEnabled: recordEnabled.value ? 1 : 0
   })
 }
 
@@ -228,4 +236,5 @@ defineExpose({ finish, fail })
 .type-option:hover { border-color: var(--sq-blue); color: #ccc; }
 .type-option.active { background: linear-gradient(135deg, var(--sq-blue), #764ba2); border-color: var(--sq-blue); color: #fff; }
 .form-hint { font-size: 12px; color: #666; margin-top: 14px; line-height: 1.6; }
+.record-hint { font-size: 11px; color: #999; margin-left: 8px; }
 </style>

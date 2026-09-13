@@ -56,4 +56,11 @@ public class StreamController {
         ErrorAssert.isNotNull(roomId, BizBaseErrorEnum.PARAM_ERROR);
         return WebResponseVO.success(streamService.getRecordList(roomId));
     }
+
+    /** 主播主页回放列表 */
+    @PostMapping("/recordsByAnchor")
+    public WebResponseVO recordsByAnchor(Long anchorId) {
+        ErrorAssert.isNotNull(anchorId, BizBaseErrorEnum.PARAM_ERROR);
+        return WebResponseVO.success(streamService.getRecordListByAnchor(anchorId));
+    }
 }

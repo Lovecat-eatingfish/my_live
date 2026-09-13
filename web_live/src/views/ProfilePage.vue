@@ -48,6 +48,9 @@
       </span>
       <span :class="['tab', { active: activeTab === 'follow' }]" @click="switchTab('follow')">关注列表</span>
       <span :class="['tab', { active: activeTab === 'fans' }]" @click="switchTab('fans')">粉丝列表</span>
+      <span :class="['tab', { active: activeTab === 'replays' }]" @click="switchTab('replays')">
+        直播回放{{ replays.length ? `(${replays.length})` : '' }}
+      </span>
     </div>
 
     <!-- 视频列表 -->
@@ -60,6 +63,15 @@
         <div class="video-title">{{ v.title }}</div>
       </div>
       <div v-if="videos.length === 0" class="empty">还没有发布过视频</div>
+    </div>
+
+    <!-- 直播回放列表 -->
+    <div class="replay-list" v-if="activeTab === 'replays'">
+      <div class="replay-card" v-for="rec in replays" :key="rec.id">
+        <ReplayPlayer :src="rec.recordUrl" />
+        <div class="replay-meta">{{ formatDate(rec.startTime) }} · 时长 {{ formatDuration(rec.duration) }}</div>
+      </div>
+      <div v-if="replays.length === 0" class="empty">还没有直播回放</div>
     </div>
 
     <!-- 关注/粉丝列表 -->
@@ -83,6 +95,8 @@ import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { getUserProfile, followUser, unfollowUser, followList, fansList } from '@/api/user'
 import { userVideos } from '@/api/video'
+import { getRecordsByAnchor } from '@/api/stream'
+import ReplayPlayer from '@/components/ReplayPlayer.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -113,6 +127,14 @@ function levelClass(level) {
   return 'lv-green'
 }
 
+const replays = ref([])
+
+function formatDuration(sec) {
+  const s = Number(sec) || 0
+  const m = Math.floor(s / 60)
+  return m > 0 ? `${m}分${s % 60}秒` : `${s}秒`
+}
+
 function formatDate(d) {
   return d ? new Date(d).toLocaleDateString() : '-'
 }
@@ -127,6 +149,10 @@ async function switchTab(tab) {
   if (tab === 'videos') {
     const vo = await userVideos(profileUserId.value)
     videos.value = vo.data || []
+  } else if (tab === 'replays') {
+    const vo = await getRecordsByAnchor(profileUserId.value)
+    replays.value = vo.data || []
+    return
   } else {
     const vo = tab === 'follow'
       ? await followList(1, 50)
@@ -220,4 +246,7 @@ watch(profileUserId, () => {
 .row-enter { color: #555; }
 
 .empty { text-align: center; color: #555; padding: 48px 0; font-size: 14px; }
+.replay-list { display: flex; flex-direction: column; gap: 16px; max-width: 640px; }
+.replay-card { background: var(--sq-card, #fff); border-radius: 10px; padding: 10px; }
+.replay-meta { font-size: 12px; color: #888; margin-top: 6px; }
 </style>

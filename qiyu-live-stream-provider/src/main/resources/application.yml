@@ -27,9 +27,11 @@ qiyu:
     hls-port: 8080
     secret: your_secret_key_here
     callback-secret: ''  # 留空则跳过回调校验；SRS 默认不带 X-Srs-Secret 头
-    # dvr-container-prefix / dvr-local-dir 使用代码默认值：
-    #   /data/dvr（容器内，对应 srs.conf 的 dvr_path）→ ./docker-data/srs/dvr（宿主机挂载目录）
-    # 仅当改用本机原生 SRS 时才需要覆盖这两个值
+    # DVR 路径映射：on_dvr 回调的 file 字段前缀 → 本地目录
+    # 本机原生 srs.exe（docker/srs-native.conf 的 dvr_path=./objs/dvr/[stream]/...，cwd=项目根）
+    dvr-container-prefix: ./objs/dvr
+    dvr-local-dir: ./objs/dvr
+    # 容器化部署时改回：/data/dvr → ./docker-data/srs/dvr
   minio:
     endpoint: http://127.0.0.1:9000
     access-key: minioadmin

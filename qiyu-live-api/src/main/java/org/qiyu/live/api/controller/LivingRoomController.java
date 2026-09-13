@@ -37,9 +37,9 @@ public class LivingRoomController {
     @RequestLimit(limit = 1, second = 10, msg = "开播请求过于频繁，请稍后再试")
     @PostMapping("/startingLiving")
     public WebResponseVO startingLiving(Integer type, String roomName, String covertImg,
-                                            Integer payType, Integer ticketPrice) {
+                                            Integer payType, Integer ticketPrice, Integer recordEnabled) {
         ErrorAssert.isNotNull(type, BizBaseErrorEnum.PARAM_ERROR);
-        Integer roomId = livingRoomService.startingLiving(type, roomName, covertImg, payType, ticketPrice);
+        Integer roomId = livingRoomService.startingLiving(type, roomName, covertImg, payType, ticketPrice, recordEnabled);
         LivingRoomInitVO initVO = new LivingRoomInitVO();
         initVO.setRoomId(roomId);
         return WebResponseVO.success(initVO);
