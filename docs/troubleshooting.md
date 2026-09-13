@@ -404,3 +404,29 @@ if (StringUtils.isEmpty(imMsgBody.getMsgId())) {
 **修复**：跨服务共享的 key 一律用 common-interface 固定常量前缀（如 PkConstants/LevelConstants/TicketConstants/RankConstants），不做"注入对方 builder"的幻想。注意历史 key 形状（如 `living_pk_is over` 中间有空格）必须原样保留。
 
 **教训**：凡是"在 A 服务里操作 B 服务写的 key"，先确认 key 的完整形态（打印 Redis 实际 key 验证），不要信任 builder 的跨服务复用。
+
+## 23. 旧进程占端口 + 旧 jar 静默运行：Dubbo "Service not found: 接口, 方法名"（批次七/九两连）
+
+**现象**：api 调 provider 新加的 RPC 方法报 `Service not found:org.qiyu.live.xxx.rpc.IXxxRpc, newMethod`，但代码里明明写了、provider 也"在运行"。批次七连麦（living-provider）和批次九（stream-provider）各踩一次。
+
+**根因**（链条）：改接口后只 `mvn package` → clean 阶段因运行中进程锁 jar 失败（§15）→ 构建报错但旧 jar 还在 → 用 nohup 启动"新实例" → Dubbo 端口被旧进程占用，新实例启动失败退出（或先启的旧实例继续占着 30045/30065）→ Nacos 上注册的还是旧服务（无新方法）→ decode 时报 Service not found。**jps 看到的进程、Nacos 注册、jar 内容三者可能完全不一致。**
+
+**修复**：标准流程 = `jps -l` 找全模块的所有 pid → 全部 taskkill → 再 clean package → 确认 BUILD SUCCESS → 启动 → 用 `unzip -p jar 路径/Class.class | python -c "...b'方法名' in ..."` 验证 jar 里真的有新方法 → 再 E2E。
+
+**教训**：加 RPC 方法后的"重启"必须验证 jar 内容（二进制 grep 方法名），不能只看进程存在。另外 jps 里同一模块出现多个 pid 就是僵尸残留，先全杀。
+
+## 24. MyBatis-Plus 三个坑：apply≠SET、分页插件不是默认有、读-算-写丢更新（批次二/四）
+
+**坑 1：`LambdaUpdateWrapper.apply()` 是拼 WHERE 不是 SET。** 计数更新写成 `.apply("follow_cnt = GREATEST(follow_cnt + 1, 0)")` 生成的 SQL 是 `UPDATE t ... WHERE (user_id=? AND follow_cnt = GREATEST(...))`——SET 子句为空直接 BadSqlGrammar。**改列值用 `setSql()`**。
+
+**坑 2：`selectPage` 不是开箱即用。** 模块没配 `MybatisPlusInterceptor + PaginationInnerInterceptor` 时 selectPage 静默全量返回（不报错、不截断），feed/分页列表全部失效。video-provider 就是漏配了（批次四顺带修复）。**新 provider 建表模块时把分页插件 Config 当必配项**（可抄 living-provider 的 MybatisPageConfig）。
+
+**坑 3：读-算-写在并发下丢更新。** 经验值结算最初"SELECT exp → 计算 → UPDATE 覆盖"，弹幕并发结算互相覆盖（应得 122 实得 1）。**改原子自增 `setSql("exp = exp + " + delta)` 后回读**。任何计数类字段（经验/点赞/余额）都适用此规则。
+
+## 25. E2E 测试的五个环境性干扰源（两轮汇总）
+
+1. **验证码 60s TTL**：sendLoginCode 有冷却，E2E 连跑两次登录会撞"短信发送太频繁"。
+2. **开播频控**：startingLiving 1 次/10s 且失败计数，脚本必须带"等 65s 重试"。
+3. **Dubbo 冷连接**：某服务第一次调另一个服务的 RPC 要建连（秒级），E2E 对首条消息断言要轮询（如进场欢迎），不能固定 sleep 3.5s。
+4. **延迟 MQ 落账**：红包结算/关播检查等延迟消息可能在任意时刻落地，余额类断言的绝对值会被历史任务污染——断言增量而非绝对值，或跑前清相关 key。
+5. **lavfi 推流必须 -re**（详见 §21）：否则 50 倍速秒推完，表现为"流莫名秒断"。

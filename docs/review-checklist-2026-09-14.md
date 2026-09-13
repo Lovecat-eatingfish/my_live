@@ -1,0 +1,115 @@
+# 问题复查清单（2026-09-13 ~ 09-14 两轮九批次）
+
+> 供复查用：按批次列出每个批次遇到的问题、根因、修复位置与验证方式。
+> 通用/环境级问题详情在 [troubleshooting.md](troubleshooting.md) 对应章节，本文只给摘要和指针。
+> 每批次均已 E2E 全绿后独立 commit；未推送，推送前可按本文逐项复查。
+
+## 快速索引（按问题类型）
+
+| 类型 | 问题 | 详见 |
+|---|---|---|
+| 环境级 | JDK17 中文 Windows GBK 吃 MQ 消息 | troubleshooting §19 |
+| 环境级 | IDE 污染 class 打进 maven jar | troubleshooting §20 |
+| 环境级 | SRS hooks 未生效 / @EnableScheduling 没标注 / lavfi 忘 -re | troubleshooting §21 |
+| 环境级 | RedisKeyBuilder 跨服务前缀分裂 | troubleshooting §22 |
+| 环境级 | 旧进程占端口 + 旧 jar 静默运行 | troubleshooting §23 |
+| 环境级 | E2E 五个干扰源（验证码冷却/开播频控/冷连接/延迟MQ/推流速率） | troubleshooting §25 |
+| 代码 | MyBatis-Plus apply≠SET / 分页插件漏配 / 读-算-写丢更新 | troubleshooting §24 |
+| 代码 | 支付回调无幂等、uploadVideo 读 300MB 进堆 | 批次零（下表） |
+
+## 批次零：先修（commit 20d45c3 之前身）
+
+| 问题 | 根因 | 修复 | 验证 |
+|---|---|---|---|
+| 支付回调重复入账 | payNotify 无幂等判断 | 条件更新 `WHERE status IN (0,1)`，affected=0 直接返回 | scripts/paynotify_idempotent_test.mjs：同回调重放 2 次余额不变 |
+| start-all.sh `set -u` 启动即退 | 引用未设置的 QIYU_JAVA_HOME | 改 `${QIYU_JAVA_HOME:-}` | 全量启动通过 |
+| uploadVideo 最多 300MB 进堆内存 | `file.getBytes()` | 改 `file.getInputStream()` 流式写 MinIO | 真实 17.9MB 视频上传 |
+
+## 批次一：内容风控（24b3699）
+
+| 问题 | 根因 | 修复 | 验证 |
+|---|---|---|---|
+| E2E 弹幕全丢（排查 3 小时）| 三层叠加：测试端没发 1001 登录包；appId 用 1001 应为 10001；**JDK17 GBK 编码坑（§19）** | 修测试 + start-all.sh 加 `-Dfile.encoding=UTF-8` | scripts/risk_control_test.mjs 13/13 |
+| 开播接口频控导致 E2E 偶发失败 | startingLiving 1次/10s + 失败计数 | 脚本带 65s 重试 | 同上 |
+| mojibake 假成功 | 调试期弹幕内容实为乱码（璋冭瘯寮瑰箷），编码问题早于本批潜伏 | 同 §19 | — |
+
+## 批次二：关系链（44a8f9e）
+
+| 问题 | 根因 | 修复 | 验证 |
+|---|---|---|---|
+| 运行时 `Unresolved compilation problems` 但 BUILD SUCCESS | IDE 带错误编译的 class 残留 target/classes，maven 增量编译跳过（§20）| `mvn clean install` 全链 | od 检查 jar 内 class 无错误标记 |
+| follow/unfollow 500 | `LambdaUpdateWrapper.apply()` 当 SET 用（§24 坑1）| 改 `setSql()` | E2E 关注/取关 |
+| 经验值严重少记（应得122实得1）| "读-算-写"并发覆盖（§24 坑3）| 原子 `exp = exp + ?` + 回读 | E2E 弹幕 12 条全记 |
+| 等级徽章读不到 | level key 只在升级时写，首次结算前无缓存 | 每次结算都刷 level/exp key | E2E 弹幕带 level |
+
+## 批次三：发现与分发（308ef9c）
+
+| 问题 | 根因 | 修复 | 验证 |
+|---|---|---|---|
+| E2E 房间搜索 0 结果 | 测试在关播后才搜（只搜开播中） | 调整测试顺序 | scripts/rank_search_notify_test.mjs 15/15 |
+| E2E 用户搜索 0 结果 | 全员昵称同前缀，LIKE 第一页轮不到目标 | 用唯一 userId 后缀搜索 | 同上 |
+| 排行榜跨服务 key | RedisKeyBuilder 前缀按应用名拼（§22 前奏）| RankConstants 固定前缀 + StringRedisTemplate | E2E 三榜全查到 |
+
+## 批次四：视频跃迁（c8366de）
+
+| 问题 | 根因 | 修复 | 验证 |
+|---|---|---|---|
+| video-provider 启动即挂 | mqProducer 缺 `retryTimes` 配置，bean 创建 NPE | yml 补 retryTimes: 2 | 启动日志 |
+| 转码下载 404 | objectNameOf 没剥 dev 代理前缀 `/minio` | 按 bucket 名定位对象名 | E2E 转码成功 |
+| publish 返回 null | 返回值走 detail 被"处理中不可见"过滤 | publish 直接 enrich 转DTO返回 | E2E 立即返回 videoId |
+| **分页全量返回（潜伏 bug）** | video-provider 没配分页插件（§24 坑2）| 抄 MybatisPageConfig | feed 两页无交集 |
+| 详情页看不到刚发布的视频 | 发布默认 transcode_status=0（处理中不可见）| 属预期设计；测试改断言 | E2E 断言"处理中详情不可见" |
+| 进程残留三份 video-provider | 前几次失败重启的僵尸 | jps 全杀再启 | jps 唯一 pid |
+
+## 批次五：admin 补全（cc054a0 + 1395df8）
+
+| 问题 | 根因 | 修复 | 验证 |
+|---|---|---|---|
+| 仪表盘 SQL 报 Unknown column create_time | t_living_room 时间列叫 start_time | 改列名 | scripts/admin_audit_test.mjs |
+| 截帧永远不出现（三连坑，§21）| SRS 进程早于 hooks 配置启动；@EnableScheduling 只 import 未标注；测试推流忘 -re | 重启 SRS；补标注；加 -re | 30s 一张快照落库 |
+| 审核状态透不出 | VideoItemRespVO 缺 transcodeStatus/status 字段 | 补字段+拷贝 | E2E status=1/3 |
+| stream-provider 僵尸占 38090 | 新实例启动失败旧实例继续服务 | 全杀重启 | 快照任务执行 |
+
+## 批次六：运营配置 + 点睛（0ad3b39）
+
+| 问题 | 根因 | 修复 | 验证 |
+|---|---|---|---|
+| 充值档位改价前台不同步 | products() 有 Redis List 缓存，update 没清 | 清 list+item 两个 key | scripts/ops_config_test.mjs 改价同步 |
+| 欢迎消息 E2E 首次失败 | living→userRpc 首次 Dubbo 冷连接秒级，固定 sleep 不够 | 轮询 12s（§25-3）| 独立探针证明链路通后改轮询 |
+| 欢迎消息代码"静默无效"疑云 | 其实已生效，是断言时序问题 | 探针定位 | 同上 |
+
+## 批次七：连麦（acb15e9）
+
+| 问题 | 根因 | 修复 | 验证 |
+|---|---|---|---|
+| `Service not found: ILivingRoomRpc, inviteLinkMic` | 旧进程占端口 + 旧 jar（§23）| 全杀→clean→验证 jar→重启 | scripts/linkmic_test.mjs 12/12 |
+| living-provider 编译失败 | 模块没有 lombok 依赖（新 PO 用了 @Data）| pom 补 lombok provided | 编译通过 |
+| accept 500 → Service not found createGuestPushUrl | stream-provider 同 §23 旧 jar | 同上流程 | E2E accepted 收到推流参数 |
+| E2E 输出空且任务久挂 | grep 管道缓冲 + WS onopen 挂起无超时 | 改重定向文件直读 | 输出实时可见 |
+
+## 批次八：付费直播间（88588d7）
+
+| 问题 | 根因 | 修复 | 验证 |
+|---|---|---|---|
+| 枚举插入后语法错 | 追加枚举项时吃了上一行结尾逗号 | 修逗号 | 编译通过 |
+| living-interface 装不进仓库 | ReqDTO 字段没插上但 getter 先加了（锚点行 goodNum 在 ReqDTO 不存在）| 补字段 | E2E scripts/pay_ticket_test.mjs 8/8 |
+| StreamServiceImpl 字段重复 | 注入 livingRoomRpc 时已有同名字段 | 去重 | 编译通过 |
+| 主播入账断言偶发差 1 金币 | 历史延迟 MQ（红包结算）任意时刻落账（§25-4）| 断言改"增量上涨" | 8/8 |
+
+## 批次九：PK 竞技化 + 分账（915c069）
+
+| 问题 | 根因 | 修复 | 验证 |
+|---|---|---|---|
+| **PK 进度两套数据**（本批最大坑）| RedisKeyBuilder 前缀取当前应用名，同一 builder 跨服务产出不同 key（§22）| PkConstants 固定前缀（注意 `living_pk_is over` 空格是历史形状）| 点赞与送礼加分同 key 叠加 |
+| 主播侧打满不出 winnerId/不置 isOver | SendGiftConsumer 只有对手侧置 isOver，不对称 | anchor 侧打满也置 isOver | E2E winnerId=主播 |
+| PK 结束后点赞仍加分 | pkLike 没查 isOver | 补 isOver 检查 | E2E data=false |
+| onlinePk "连线成功"却被当错误抛（上游老 bug）| provider 成功路径 `setOnlineStatus(false)` | 改 true | E2E code=200 |
+| 结算消费者读不到进度 | 同 §22 前缀问题 + 硬编码 key 形状错误 | PkConstants 统一 | E2E 打满结算路径 |
+| E2E 打满不了 | 选的礼物 10 金币每发 +1，15 发不够 | 选最大价礼物动态算次数 | winnerId 触发 |
+
+## 复查建议
+
+1. **优先复查 §22/§23/§24**：RedisKeyBuilder 前缀陷阱影响所有跨服务 key（等级/门票/排行/PK 都已改固定前缀，可全局 grep `PREFIX = "qiyu-live-` 复核清单是否完整）。
+2. **审计类**：t_user_ban / t_user_notify / risk_room_snapshot / t_living_linkmic / t_video_play_log 均只写或简单读，无定时清理——量大后需要归档策略（记入 backlog）。
+3. **已知未做**：分账独立流水表（余额即底座）、转码失败 admin 手动重触发、红利名单（大航海/贵族）、Prometheus 监控、弹幕压测（SingleMessageHandlerImpl SCAN 瓶颈预案）——均在 impl-plan 回望表。
+4. 每个 commit 对应的 E2E 脚本都在 scripts/ 下可重跑（连跑需注意 §25 干扰源）。
