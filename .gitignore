@@ -36,6 +36,7 @@ gui-test-screenshots/
 # 前端依赖与构建产物
 web_live/node_modules/
 web_live/dist/
+web_admin/dist/
 node_modules/
 
 # SRS 运行时产物（HLS 切片/录制）
