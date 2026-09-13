@@ -80,6 +80,11 @@ public class SendGiftConsumer implements InitializingBean {
     @Resource
     private MQProducer mqProducer;
     @Resource
+    private org.qiyu.live.bank.interfaces.IQiyuCurrencyAccountRpc currencyAccountRpc;
+
+    /** 平台抽成反比：主播实际入账 = 礼物价格 x 90%（平台抽成 10%） */
+    private static final double PROFIT_SHARE_RATIO = 0.9;
+    @Resource
     private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
     @DubboReference(check = false)
     private IQiyuCurrencyAccountRpc qiyuCurrencyAccountRpc;
@@ -134,6 +139,15 @@ public class SendGiftConsumer implements InitializingBean {
                         // 获取直播间所有用户 进行批量 推动这个 svg 效果即可  实现全直播间 可见这个 svg特效
                         List<Long> userIdList = livingRoomRpc.queryUserIdByRoomId(reqDTO);
                         this.batchSendImMsg(userIdList, ImMsgBizCodeEnum.LIVING_ROOM_SEND_GIFT_SUCCESS, jsonObject);
+                        // 分账底座：主播实际入账 = 价格 x 90%（平台抽成 10%）
+                        try {
+                            int anchorIncome = (int) Math.floor((sendGiftMq.getPrice() == null ? 0 : sendGiftMq.getPrice()) * PROFIT_SHARE_RATIO);
+                            if (anchorIncome > 0 && receiverId != null) {
+                                currencyAccountRpc.incr(receiverId, anchorIncome);
+                            }
+                        } catch (Exception e) {
+                            LOGGER.error("[SendGiftConsumer] profit share error, receiverId={}", sendGiftMq.getReceiverId(), e);
+                        }
                         // 排行榜：主播收礼日榜 + 本场贡献榜（ZSET，StringRedisTemplate 读写）
                         try {
                             String day = java.time.LocalDate.now()
@@ -223,6 +237,8 @@ public class SendGiftConsumer implements InitializingBean {
             Integer moveStep = sendGiftMq.getPrice() / 10;
             pkNum = this.redisTemplate.execute(redisScript, Collections.singletonList(pkNumKey), PK_INIT_NUM, PK_MAX_NUM, PK_MIN_NUM, moveStep);
             if (PK_MAX_NUM <= pkNum) {
+                // 主播侧打满：与对手侧对称置结束标记，点赞/加分通道据此停手
+                this.redisTemplate.opsForValue().set(cacheKeyBuilder.buildLivingPkIsOver(roomId), -1);
                 jsonObject.put("winnerId", pkUserId);
             }
         } else if (pkObjId.equals(receiverId)) {

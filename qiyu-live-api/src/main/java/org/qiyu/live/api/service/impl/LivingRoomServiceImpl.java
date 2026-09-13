@@ -230,6 +230,11 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
 
     @jakarta.annotation.Resource
     private org.springframework.data.redis.core.StringRedisTemplate ticketStringRedisTemplate;
+
+    @Override
+    public Boolean pkLike(Integer roomId) {
+        return livingRoomRpc.pkLike(roomId, QiyuRequestContext.getUserId());
+    }
     @DubboReference(check = false)
     private org.qiyu.live.bank.interfaces.IQiyuCurrencyAccountRpc currencyAccountRpc;
 

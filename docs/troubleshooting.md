@@ -394,3 +394,13 @@ if (StringUtils.isEmpty(imMsgBody.getMsgId())) {
 **排查手段**：SRS HTTP API `curl http://127.0.0.1:1985/api/v1/streams/` 看流是否注册；SRS 日志（log_tank=console 时重定向到文件）grep on_publish；wmic process get CreationDate 对比 conf 修改时间。
 
 **教训**：环境级故障（配置没生效、注解没标注）的表现是"功能静默失效"，比代码错误更难查——先确认链路上每个组件的配置加载时间线，再怀疑代码。
+
+## 22. RedisKeyBuilder 跨服务前缀陷阱（批次九 PK 进度数据分裂）
+
+**现象**：living-provider 读/写的 PK 进度 key 是 `qiyu-live-living-provider:living_pk_key:{id}`，gift-provider 写的是 `qiyu-live-gift-provider:living_pk_key:{id}`——两边各自一套数据，点赞加分与送礼加分互不可见，结算消费者读不到数据。
+
+**根因**：`RedisKeyBuilder.getPrefix()` 取 `spring.application.name`；`RedisKeyLoadMatch` 恒返回 true，所有 builder 类在每个服务都可注入。于是在 living-provider 里注入 GiftProviderCacheKeyBuilder 并不会读到 gift 写的 key——前缀被换成了 living 自己的应用名。
+
+**修复**：跨服务共享的 key 一律用 common-interface 固定常量前缀（如 PkConstants/LevelConstants/TicketConstants/RankConstants），不做"注入对方 builder"的幻想。注意历史 key 形状（如 `living_pk_is over` 中间有空格）必须原样保留。
+
+**教训**：凡是"在 A 服务里操作 B 服务写的 key"，先确认 key 的完整形态（打印 Redis 实际 key 验证），不要信任 builder 的跨服务复用。

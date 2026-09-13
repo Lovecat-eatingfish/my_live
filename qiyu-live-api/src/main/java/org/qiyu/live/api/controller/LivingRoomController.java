@@ -92,6 +92,14 @@ public class LivingRoomController {
 
 
 
+    // ==================== PK 竞技化 ====================
+
+    /** 观众点赞为主播方加分（PK 中有效，每观众每日 50） */
+    @PostMapping("/pk/like")
+    public WebResponseVO pkLike(Integer roomId) {
+        return WebResponseVO.success(livingRoomService.pkLike(roomId));
+    }
+
     // ==================== 付费直播间门票 ====================
 
     /** 购买门票（金币直扣，幂等） */

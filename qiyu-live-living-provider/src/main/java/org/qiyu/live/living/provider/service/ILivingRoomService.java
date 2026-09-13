@@ -110,4 +110,7 @@ public interface ILivingRoomService {
      * @return
      */
     boolean offlinePk(LivingRoomReqDTO livingRoomReqDTO);
+
+    /** PK 观众点赞加分（+1，广播进度） */
+    Boolean pkLike(Integer roomId, Long userId);
 }

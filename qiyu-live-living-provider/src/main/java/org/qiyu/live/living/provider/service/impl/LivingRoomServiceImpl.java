@@ -34,6 +34,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ScanOptions;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -63,6 +64,8 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     @Resource
     private LivingProviderCacheKeyBuilder cacheKeyBuilder;
     @Resource
+    private org.idea.qiyu.live.framework.redis.starter.key.GiftProviderCacheKeyBuilder giftCacheKeyBuilder;
+    @Resource
     private ILivingRoomTxService livingRoomTxService;
     @Resource
     private MQProducer mqProducer;
@@ -70,6 +73,15 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     private ImRouterRpc imRouterRpc;
     @DubboReference(check = false)
     private org.qiyu.live.user.interfaces.IUserRpc userRpc;
+
+    /** PK 进度 Lua（与 gift-provider SendGiftConsumer 同 key 同语义） */
+    private static final Long PK_INIT_NUM = 50L;
+    private static final Long PK_MAX_NUM = 100L;
+    private static final Long PK_MIN_NUM = 0L;
+    private String PK_LIKE_LUA =
+            " local a = redis.call('exists',KEYS[1]); " +
+            " if a == 0 then redis.call('set',KEYS[1],ARGV[1]) end; " +
+            " return redis.call('incrby',KEYS[1],tonumber(ARGV[4])) ";
 
     @Override
     public List<Long> queryUserIdByRoomId(LivingRoomReqDTO livingRoomReqDTO) {
@@ -333,7 +345,17 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
             jsonObject.put("pkObjAvatar", "https://picdm.sunbangyan.cn/2023/08/29/w2qq1k.jpeg");
             batchSendImMsg(userIdList, ImMsgBizCodeEnum.LIVING_ROOM_PK_ONLINE.getCode(), jsonObject);
             respDTO.setMsg("连线成功");
-            respDTO.setOnlineStatus(false);
+            respDTO.setOnlineStatus(true);
+            // 倒计时结算：10 分钟后自动结算胜负（RocketMQ 延迟消息 level14=10min，与红包结算同构）
+            try {
+                org.apache.rocketmq.common.message.Message msg = new org.apache.rocketmq.common.message.Message(
+                        "LivingPkSettleTopic",
+                        String.valueOf(livingRoomReqDTO.getRoomId()).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                msg.setDelayTimeLevel(14);
+                mqProducer.send(msg);
+            } catch (Exception e) {
+                LOGGER.error("[onlinePk] send settle mq error, roomId={}", livingRoomReqDTO.getRoomId(), e);
+            }
         } else {
             respDTO.setMsg("目前有人在线，请稍后再试");
         }
@@ -356,5 +378,43 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
             return imMsgBody;
         }).collect(Collectors.toList());
         imRouterRpc.batchSendMsg(imMsgBodies);
+    }
+
+
+    @Override
+    public Boolean pkLike(Integer roomId, Long userId) {
+        Long pkObjId = queryOnlinePkUserId(roomId);
+        if (pkObjId == null) {
+            return false; // 未在 PK 中
+        }
+        // 已结算（打满/倒计时）后不再加分
+        if (Boolean.TRUE.equals(stringRedisTemplate.hasKey(
+                org.qiyu.live.common.interfaces.constants.PkConstants.PK_IS_OVER_KEY_PREFIX + roomId))) {
+            return false;
+        }
+        // 每观众每日上限 50（防刷）
+        String dayKey = cacheKeyBuilder.buildLivingRoomUserSet(roomId, 0) + ":pklike:" + userId + ":" + java.time.LocalDate.now();
+        Long cnt = stringRedisTemplate.opsForValue().increment(dayKey);
+        stringRedisTemplate.expire(dayKey, java.time.Duration.ofHours(25));
+        if (cnt == null || cnt > 50) {
+            return false;
+        }
+        // 点赞 = 主播方 +1（Lua clamp 到 [0,100]，与送礼加分同 key 同语义）
+        String pkNumKey = org.qiyu.live.common.interfaces.constants.PkConstants.PK_NUM_KEY_PREFIX + roomId;
+        DefaultRedisScript<Long> redisScript = new DefaultRedisScript();
+        redisScript.setScriptText(PK_LIKE_LUA);
+        redisScript.setResultType(Long.class);
+        Long pkNum = redisTemplate.execute(redisScript, Collections.singletonList(pkNumKey),
+                PK_INIT_NUM, PK_MAX_NUM, PK_MIN_NUM, 1L);
+        // 广播进度 5558（复用送礼 PK 通道，前端进度条自动更新）
+        LivingRoomReqDTO reqDTO = new LivingRoomReqDTO();
+        reqDTO.setRoomId(roomId);
+        reqDTO.setAppId(AppIdEnum.QIYU_LIVE_BIZ.getCode());
+        List<Long> userIds = queryUserIdByRoomId(reqDTO);
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("pkNum", pkNum);
+        jsonObject.put("likeAdd", true);
+        batchSendImMsg(userIds, ImMsgBizCodeEnum.LIVING_ROOM_PK_SEND_GIFT_SUCCESS.getCode(), jsonObject);
+        return pkNum != null;
     }
 }

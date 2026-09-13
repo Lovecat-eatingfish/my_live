@@ -104,4 +104,9 @@ public interface ILivingRoomRpc {
      * 连麦：挂断（主播/观众均可），广播结束
      */
     Boolean hangUpLinkMic(Integer roomId);
+
+    /**
+     * PK 竞技化：观众点赞为主播方加分（+1，每观众每日上限 50），广播 5558 进度
+     */
+    Boolean pkLike(Integer roomId, Long userId);
 }

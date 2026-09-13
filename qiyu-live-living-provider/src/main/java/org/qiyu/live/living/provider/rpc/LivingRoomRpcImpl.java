@@ -89,6 +89,11 @@ public class LivingRoomRpcImpl implements ILivingRoomRpc {
     }
 
     @Override
+    public Boolean pkLike(Integer roomId, Long userId) {
+        return livingRoomService.pkLike(roomId, userId);
+    }
+
+    @Override
     public boolean offlinePk(LivingRoomReqDTO livingRoomReqDTO) {
         return livingRoomService.offlinePk(livingRoomReqDTO);
     }

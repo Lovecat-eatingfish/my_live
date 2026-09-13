@@ -76,6 +76,9 @@ public interface ILivingRoomService {
 
     // ==================== 连麦（5572 信令） ====================
 
+    /** PK 观众点赞加分（PK 中有效，每观众每日 50） */
+    Boolean pkLike(Integer roomId);
+
     /** 购买直播间门票（金币直扣） */
     Boolean buyTicket(Integer roomId);
 
