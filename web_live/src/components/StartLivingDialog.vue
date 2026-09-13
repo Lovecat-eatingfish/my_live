@@ -50,12 +50,13 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { uploadImage } from '@/api/resource'
-import { ElMessage } from 'element-plus'
+import { listMyShop } from '@/api/gift'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
 })
-const emit = defineEmits(['update:modelValue', 'confirm'])
+const emit = defineEmits(['update:modelValue', 'confirm', 'goShopManage'])
 
 const visible = computed({
   get: () => props.modelValue,
@@ -111,7 +112,7 @@ async function onFileChange(e) {
   }
 }
 
-function handleConfirm() {
+async function handleConfirm() {
   if (!roomName.value.trim()) {
     ElMessage.warning('先给直播间起个名字')
     return
@@ -119,6 +120,22 @@ function handleConfirm() {
   if (!coverUrl.value) {
     ElMessage.warning('先上传一张直播间封面')
     return
+  }
+  // 带货类型：先校验已上架商品，为空则引导去配置
+  if (livingType.value === 4) {
+    try {
+      const vo = await listMyShop()
+      if (!(vo.data || []).length) {
+        ElMessageBox.confirm('带货直播需要先在商品管理上架至少一件商品，现在去配置吗？', '还没有配置商品', {
+          confirmButtonText: '去配置商品',
+          cancelButtonText: '返回',
+          type: 'warning'
+        }).then(() => emit('goShopManage')).catch(() => {})
+        return
+      }
+    } catch {
+      return // 查询失败不拦截开播（后端会再兜底校验）
+    }
   }
   if (submitting.value) return
   submitting.value = true

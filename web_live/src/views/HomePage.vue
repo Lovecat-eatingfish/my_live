@@ -14,6 +14,7 @@
           <span class="balance-chip" @click="$router.push('/wallet')" title="去充值">
             <span class="coin-icon">🪙</span>{{ formatBalance }}
           </span>
+          <el-button v-if="userStore.userInfo.showStartLivingBtn" size="small" @click="shopManageVisible = true">商品</el-button>
           <el-button v-if="userStore.userInfo.showStartLivingBtn" size="small" type="success" @click="startVisible = true">开播</el-button>
           <el-button v-if="livingRoomId" size="small" type="warning" @click="$router.push(`/room/${livingRoomId}`)">回到我的直播间</el-button>
           <el-button size="small" @click="$router.push('/wallet')">钱包</el-button>
@@ -51,7 +52,8 @@
     </div>
 
     <!-- 开播设置弹窗：起名 + 上传封面 -->
-    <StartLivingDialog ref="startDialogRef" v-model="startVisible" @confirm="handleStartLiving" />
+    <StartLivingDialog ref="startDialogRef" v-model="startVisible" @confirm="handleStartLiving" @goShopManage="shopManageVisible = true" />
+    <ShopManageDialog v-model="shopManageVisible" />
     <UserProfileDialog v-model="profileVisible" />
   </div>
 </template>
@@ -63,6 +65,7 @@ import { useUserStore } from '@/stores/user'
 import { listRoom, startLiving, myLivingRoom } from '@/api/room'
 import StartLivingDialog from '@/components/StartLivingDialog.vue'
 import UserProfileDialog from '@/components/UserProfileDialog.vue'
+import ShopManageDialog from '@/components/ShopManageDialog.vue'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
@@ -100,6 +103,7 @@ const formatBalance = computed(() => {
 // 开播：由 StartLivingDialog 收集名称与封面后回调，创建直播间并跳转主播端
 const startVisible = ref(false)
 const profileVisible = ref(false)
+const shopManageVisible = ref(false)
 // 我进行中的直播间（主播刷新浏览器后一键回到直播间）
 const livingRoomId = ref(null)
 async function refreshMyLivingRoom() {

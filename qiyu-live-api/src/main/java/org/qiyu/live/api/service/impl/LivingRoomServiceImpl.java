@@ -45,6 +45,8 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     @DubboReference(check = false)
     private IUserRpc userRpc;
     @DubboReference(check = false)
+    private org.qiyu.live.gift.interfaces.IAnchorShopRpc anchorShopRpc;
+    @DubboReference(check = false)
     private ILivingRoomRpc livingRoomRpc;
     // stream-provider 未启动时降级，不阻塞 api 启动
     @DubboReference(check = false)
@@ -62,6 +64,11 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     @Override
     public Integer startingLiving(Integer type, String roomName, String covertImg) {
         Long userId = QiyuRequestContext.getUserId();
+        //带货类型开播前必须已配置商品（小黄车空房间没有意义）
+        if (type != null && type == 4) {
+            java.util.List<org.qiyu.live.gift.dto.AnchorShopInfoDTO> shopList = anchorShopRpc.listByAnchorId(userId);
+            ErrorAssert.isTure(shopList != null && !shopList.isEmpty(), ApiErrorEnum.SHOP_CONFIG_REQUIRED);
+        }
         UserDTO userDTO = userRpc.getByUserId(userId);
         LivingRoomReqDTO livingRoomReqDTO = new LivingRoomReqDTO();
         livingRoomReqDTO.setAnchorId(userId);
