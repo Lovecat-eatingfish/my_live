@@ -1,6 +1,7 @@
 package org.qiyu.live.user.provider.service.impl;
 
 import com.alibaba.fastjson.JSON;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.google.common.collect.Maps;
 import jakarta.annotation.Resource;
 import org.apache.rocketmq.client.producer.MQProducer;
@@ -10,7 +11,11 @@ import org.qiyu.live.common.interfaces.topic.UserProviderTopicNames;
 import org.qiyu.live.common.interfaces.utils.ConvertBeanUtils;
 import org.qiyu.live.user.constants.CacheAsyncDeleteCode;
 import org.qiyu.live.user.dto.UserCacheAsyncDeleteDTO;
+import org.qiyu.live.common.interfaces.constants.RiskConstants;
+import org.qiyu.live.user.dto.UserBanDTO;
 import org.qiyu.live.user.dto.UserDTO;
+import org.qiyu.live.user.provider.dao.mapper.IUserBanMapper;
+import org.qiyu.live.user.provider.dao.po.UserBanPO;
 import org.qiyu.live.user.provider.dao.mapper.IUserMapper;
 import org.qiyu.live.user.provider.dao.po.UserPO;
 import org.qiyu.live.user.provider.service.IUserService;
@@ -39,7 +44,11 @@ public class UserServiceImpl implements IUserService {
     @Resource
     private IUserMapper userMapper;
     @Resource
+    private IUserBanMapper userBanMapper;
+    @Resource
     private RedisTemplate<String, UserDTO> redisTemplate;
+    @Resource
+    private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
     @Resource
     private UserProviderCacheKeyBuilder cacheKeyBuilder;
     @Resource
@@ -170,5 +179,46 @@ public class UserServiceImpl implements IUserService {
     private int createRandomTime() {
         int randomNumSecond = ThreadLocalRandom.current().nextInt(10000);
         return randomNumSecond + 30 * 60;
+    }
+
+    @Override
+    public boolean banUser(UserBanDTO banDTO) {
+        if (banDTO == null || banDTO.getUserId() == null || banDTO.getType() == null) {
+            return false;
+        }
+        int minutes = banDTO.getDurationMinutes() == null ? 0 : banDTO.getDurationMinutes();
+        Date endTime = minutes > 0 ? new Date(System.currentTimeMillis() + minutes * 60_000L) : null;
+        UserBanPO po = new UserBanPO();
+        po.setUserId(banDTO.getUserId());
+        po.setType(banDTO.getType());
+        po.setReason(banDTO.getReason() == null ? "" : banDTO.getReason());
+        po.setStartTime(new Date());
+        po.setEndTime(endTime);
+        po.setOperator("admin");
+        po.setStatus(1);
+        userBanMapper.insert(po);
+        //运行时校验 key：网关查封号、msg-provider 查禁言；key 值存原因便于排查
+        String banKey = banDTO.getType() == UserBanDTO.TYPE_ACCOUNT_BAN
+                ? RiskConstants.BAN_ACCOUNT_KEY_PREFIX + banDTO.getUserId()
+                : RiskConstants.BAN_MUTE_KEY_PREFIX + banDTO.getUserId();
+        long ttlSeconds = minutes > 0 ? minutes * 60L : 365L * 24 * 3600;
+        stringRedisTemplate.opsForValue().set(banKey, banDTO.getReason() == null ? "1" : banDTO.getReason(),
+                ttlSeconds, TimeUnit.SECONDS);
+        return true;
+    }
+
+    @Override
+    public boolean unbanUser(Long userId, int type) {
+        LambdaUpdateWrapper<UserBanPO> wrapper = new LambdaUpdateWrapper<>();
+        wrapper.eq(UserBanPO::getUserId, userId)
+                .eq(UserBanPO::getType, type)
+                .eq(UserBanPO::getStatus, 1)
+                .set(UserBanPO::getStatus, 0);
+        int rows = userBanMapper.update(null, wrapper);
+        String banKey = type == UserBanDTO.TYPE_ACCOUNT_BAN
+                ? RiskConstants.BAN_ACCOUNT_KEY_PREFIX + userId
+                : RiskConstants.BAN_MUTE_KEY_PREFIX + userId;
+        stringRedisTemplate.delete(banKey);
+        return rows > 0;
     }
 }

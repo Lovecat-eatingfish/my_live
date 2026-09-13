@@ -48,4 +48,14 @@ public interface IUserService {
      * 管理端用户列表（keyword 模糊匹配昵称，分页）
      */
     java.util.List<UserDTO> listUsers(String keyword, int page, int pageSize);
+
+    /**
+     * 封禁/禁言：写 t_user_ban 记录 + 写运行时 Redis key（网关封号校验、弹幕禁言校验）
+     */
+    boolean banUser(org.qiyu.live.user.dto.UserBanDTO banDTO);
+
+    /**
+     * 解除封禁/禁言（解除该用户当前生效中的 type 类型记录 + 删 Redis key）
+     */
+    boolean unbanUser(Long userId, int type);
 }

@@ -540,6 +540,10 @@ function handleIMMessage(msg) {
         } else {
           ElMessage.error(failMsg)
         }
+      } else if (bizCode === 5566) {
+        // 风控提示（禁言/敏感词拦截，后端单发给发送者本人）
+        const data = JSON.parse(body.data)
+        ElMessage.warning(data.content || '消息包含敏感内容，已被拦截')
       } else if (bizCode === 5558) {
         // PK礼物
         const data = JSON.parse(body.data)

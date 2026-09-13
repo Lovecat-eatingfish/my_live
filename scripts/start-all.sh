@@ -24,7 +24,9 @@ LOG_DIR="$PROJECT_ROOT/logs"
 mkdir -p "$LOG_DIR"
 cd "$PROJECT_ROOT"
 
-JAVA_OPTS="${JAVA_OPTS:--Xms128m -Xmx384m}"
+# file.encoding 必须显式 UTF-8：JDK17 在中文 Windows 默认 GBK，会把 MQ 消息体里
+# 的 UTF-8 字节按 GBK 解码成乱码，且 GBK 双字节会吞掉 JSON 转义符导致弹幕解析失败全丢
+JAVA_OPTS="${JAVA_OPTS:--Xms128m -Xmx384m -Dfile.encoding=UTF-8}"
 NACOS_ADDR="${NACOS_ADDR:-127.0.0.1:8848}"
 STARTUP_WAIT="${STARTUP_WAIT:-10}"
 

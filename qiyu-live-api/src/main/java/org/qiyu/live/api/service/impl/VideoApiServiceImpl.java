@@ -4,13 +4,18 @@ import io.minio.PutObjectArgs;
 import jakarta.annotation.Resource;
 import org.apache.dubbo.config.annotation.DubboReference;
 import org.qiyu.live.api.config.VideoMinioConfig;
+import org.qiyu.live.api.error.ApiErrorEnum;
 import org.qiyu.live.api.service.IVideoApiService;
 import org.qiyu.live.api.vo.req.VideoPublishReqVO;
 import org.qiyu.live.api.vo.resp.VideoCommentRespVO;
 import org.qiyu.live.api.vo.resp.VideoDetailRespVO;
 import org.qiyu.live.api.vo.resp.VideoItemRespVO;
 import org.qiyu.live.api.vo.resp.VideoTagRespVO;
+import org.qiyu.live.common.interfaces.constants.RiskConstants;
 import org.qiyu.live.common.interfaces.dto.PageWrapper;
+import org.qiyu.live.common.interfaces.dto.RiskCheckReqDTO;
+import org.qiyu.live.common.interfaces.dto.RiskCheckRespDTO;
+import org.qiyu.live.common.interfaces.rpc.IRiskRpc;
 import org.qiyu.live.video.dto.VideoCommentDTO;
 import org.qiyu.live.video.dto.VideoDTO;
 import org.qiyu.live.video.interfaces.rpc.IVideoRpc;
@@ -46,8 +51,16 @@ public class VideoApiServiceImpl implements IVideoApiService {
 
     @DubboReference(check = false)
     private IVideoRpc videoRpc;
+    @DubboReference(check = false)
+    private IRiskRpc riskRpc;
     @Resource
     private VideoMinioConfig videoMinioConfig;
+
+    /** 敏感词拦截校验（标题/评论等提交类内容） */
+    private void assertNotBlocked(String text, int scene, Long userId) {
+        RiskCheckRespDTO riskResp = riskRpc.checkText(RiskCheckReqDTO.of(text, scene, userId));
+        ErrorAssert.isTure(!riskResp.isBlocked(), ApiErrorEnum.CONTENT_BLOCKED);
+    }
 
     @Override
     public String uploadVideo(MultipartFile file, Long userId) {
@@ -75,6 +88,7 @@ public class VideoApiServiceImpl implements IVideoApiService {
     public Long publish(VideoPublishReqVO reqVO, Long userId) {
         ErrorAssert.isTure(reqVO != null && StringUtils.hasText(reqVO.getTitle()), BizBaseErrorEnum.PARAM_ERROR);
         ErrorAssert.isTure(StringUtils.hasText(reqVO.getVideoUrl()), BizBaseErrorEnum.PARAM_ERROR);
+        assertNotBlocked(reqVO.getTitle(), RiskConstants.SCENE_VIDEO_TITLE, userId);
 
         VideoDTO dto = new VideoDTO();
         dto.setUserId(userId);
@@ -198,6 +212,7 @@ public class VideoApiServiceImpl implements IVideoApiService {
     public VideoCommentRespVO addComment(Long videoId, String content) {
         ErrorAssert.isNotNull(videoId, BizBaseErrorEnum.PARAM_ERROR);
         ErrorAssert.isTure(StringUtils.hasText(content), BizBaseErrorEnum.PARAM_ERROR);
+        assertNotBlocked(content, RiskConstants.SCENE_COMMENT, QiyuRequestContext.getUserId());
         VideoCommentDTO dto = new VideoCommentDTO();
         dto.setVideoId(videoId);
         dto.setUserId(QiyuRequestContext.getUserId());

@@ -10,6 +10,10 @@ import org.qiyu.live.api.vo.req.OnlinePkReqVO;
 import org.qiyu.live.api.vo.resp.LivingRoomPageRespVO;
 import org.qiyu.live.api.vo.resp.LivingRoomRespVO;
 import org.qiyu.live.common.interfaces.dto.PageWrapper;
+import org.qiyu.live.common.interfaces.constants.RiskConstants;
+import org.qiyu.live.common.interfaces.dto.RiskCheckReqDTO;
+import org.qiyu.live.common.interfaces.dto.RiskCheckRespDTO;
+import org.qiyu.live.common.interfaces.rpc.IRiskRpc;
 import org.qiyu.live.common.interfaces.utils.ConvertBeanUtils;
 import org.qiyu.live.im.constants.AppIdEnum;
 import org.qiyu.live.living.interfaces.constants.LivingRoomTypeEnum;
@@ -45,6 +49,8 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     @DubboReference(check = false)
     private IUserRpc userRpc;
     @DubboReference(check = false)
+    private IRiskRpc riskRpc;
+    @DubboReference(check = false)
     private org.qiyu.live.gift.interfaces.IAnchorShopRpc anchorShopRpc;
     @DubboReference(check = false)
     private ILivingRoomRpc livingRoomRpc;
@@ -75,6 +81,12 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
         //主播自定义直播间名称与封面；未填时降级为默认名 / 用户头像
         livingRoomReqDTO.setRoomName(StringUtils.hasText(roomName)
                 ? roomName : ("主播-" + userId + "的直播间"));
+        //房间名敏感词校验（只校验自定义名，默认名不含用户输入）
+        if (StringUtils.hasText(roomName)) {
+            RiskCheckRespDTO riskResp = riskRpc.checkText(
+                    RiskCheckReqDTO.of(roomName, RiskConstants.SCENE_ROOM_NAME, userId));
+            ErrorAssert.isTure(!riskResp.isBlocked(), ApiErrorEnum.CONTENT_BLOCKED);
+        }
         livingRoomReqDTO.setCovertImg(StringUtils.hasText(covertImg)
                 ? covertImg : userDTO.getAvatar());
         livingRoomReqDTO.setType(type);

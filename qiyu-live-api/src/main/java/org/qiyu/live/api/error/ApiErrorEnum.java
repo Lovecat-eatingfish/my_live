@@ -21,7 +21,8 @@ public enum ApiErrorEnum implements QiyuBaseError {
     LIVING_ROOM_END(9,"直播间已结束"),
     PARAM_ERROR(10,"参数异常"),
     RED_PACKET_BALANCE_NOT_ENOUGH(11,"金币余额不足，无法发送红包"),
-    SHOP_CONFIG_REQUIRED(12,"带货直播需先在商品管理上架至少一件商品");
+    SHOP_CONFIG_REQUIRED(12,"带货直播需先在商品管理上架至少一件商品"),
+    CONTENT_BLOCKED(13,"内容包含敏感词，请修改后重试");
 
     private String errorMsg;
     private int errorCode;

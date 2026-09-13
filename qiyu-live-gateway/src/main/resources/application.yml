@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: qiyu-live-gateway
+  data:
+    redis:
+      port: 6379
+      host: 127.0.0.1
   cloud:
     gateway:
       discovery:

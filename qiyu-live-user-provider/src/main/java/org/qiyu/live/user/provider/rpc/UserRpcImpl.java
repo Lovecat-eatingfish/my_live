@@ -2,6 +2,7 @@ package org.qiyu.live.user.provider.rpc;
 
 import jakarta.annotation.Resource;
 import org.apache.dubbo.config.annotation.DubboService;
+import org.qiyu.live.user.dto.UserBanDTO;
 import org.qiyu.live.user.dto.UserDTO;
 import org.qiyu.live.user.interfaces.IUserRpc;
 import org.qiyu.live.user.provider.service.IUserService;
@@ -43,5 +44,15 @@ public class UserRpcImpl implements IUserRpc {
     @Override
     public java.util.List<UserDTO> listUsers(String keyword, int page, int pageSize) {
         return userService.listUsers(keyword, page, pageSize);
+    }
+
+    @Override
+    public boolean banUser(UserBanDTO banDTO) {
+        return userService.banUser(banDTO);
+    }
+
+    @Override
+    public boolean unbanUser(Long userId, int type) {
+        return userService.unbanUser(userId, type);
     }
 }

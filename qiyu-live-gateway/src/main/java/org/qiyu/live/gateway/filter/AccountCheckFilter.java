@@ -3,6 +3,7 @@ package org.qiyu.live.gateway.filter;
 import jakarta.annotation.Resource;
 import org.apache.dubbo.config.annotation.DubboReference;
 import org.qiyu.live.account.interfaces.IAccountTokenRPC;
+import org.qiyu.live.common.interfaces.constants.RiskConstants;
 import org.qiyu.live.common.interfaces.enums.GatewayHeaderEnum;
 import org.qiyu.live.gateway.properties.GatewayApplicationProperties;
 import org.slf4j.Logger;
@@ -10,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpCookie;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -39,6 +41,8 @@ public class AccountCheckFilter implements GlobalFilter, Ordered {
 
     @DubboReference(check = false)
     private IAccountTokenRPC accountTokenRPC;
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
     @Resource
     private GatewayApplicationProperties gatewayApplicationProperties;
 
@@ -89,10 +93,35 @@ public class AccountCheckFilter implements GlobalFilter, Ordered {
             LOGGER.error("请求的token失效了，被拦截");
             return writeUnauthorized(response);
         }
+        //账号封禁校验：命中 ban:account:{userId} 直接 403（key 由 user-provider banUser 写入）
+        if (isAccountBanned(userId)) {
+            LOGGER.warn("请求的账号已被封禁, userId={}, url={}", userId, reqUrl);
+            return writeForbidden(response);
+        }
         // gateway --(header)--> springboot-web(interceptor-->get header)
         ServerHttpRequest.Builder builder = request.mutate();
         builder.header(GatewayHeaderEnum.USER_LOGIN_ID.getName(), String.valueOf(userId));
         return chain.filter(exchange.mutate().request(builder.build()).build());
+    }
+
+    private boolean isAccountBanned(Long userId) {
+        try {
+            return Boolean.TRUE.equals(stringRedisTemplate.hasKey(
+                    RiskConstants.BAN_ACCOUNT_KEY_PREFIX + userId));
+        } catch (Exception e) {
+            LOGGER.error("ban check redis error, userId={}", userId, e);
+            return false;
+        }
+    }
+
+    /**
+     * 封禁账号返回403和JSON报文
+     */
+    private Mono<Void> writeForbidden(ServerHttpResponse response) {
+        response.setStatusCode(HttpStatus.FORBIDDEN);
+        response.getHeaders().add(HttpHeaders.CONTENT_TYPE, "application/json;charset=UTF-8");
+        byte[] body = "{\"code\":403,\"msg\":\"账号已被封禁，如有疑问请联系客服\"}".getBytes(StandardCharsets.UTF_8);
+        return response.writeWith(Mono.just(response.bufferFactory().wrap(body)));
     }
 
     /**

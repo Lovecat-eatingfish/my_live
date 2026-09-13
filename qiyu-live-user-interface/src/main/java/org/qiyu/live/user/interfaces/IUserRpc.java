@@ -1,5 +1,6 @@
 package org.qiyu.live.user.interfaces;
 
+import org.qiyu.live.user.dto.UserBanDTO;
 import org.qiyu.live.user.dto.UserDTO;
 
 import java.util.List;
@@ -49,4 +50,16 @@ public interface IUserRpc {
      * 管理端用户列表（keyword 模糊匹配昵称/userId，分页）
      */
     List<UserDTO> listUsers(String keyword, int page, int pageSize);
+
+    /**
+     * 封禁/禁言：写 t_user_ban 记录 + 写运行时 Redis key（网关封号校验、弹幕禁言校验）
+     *
+     * @param banDTO userId/type(1禁言 2封号)/durationMinutes(0=永久)/reason
+     */
+    boolean banUser(UserBanDTO banDTO);
+
+    /**
+     * 解除封禁/禁言（解除该用户当前生效中的 type 类型记录 + 删 Redis key）
+     */
+    boolean unbanUser(Long userId, int type);
 }

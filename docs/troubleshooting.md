@@ -350,3 +350,22 @@ if (StringUtils.isEmpty(imMsgBody.getMsgId())) {
 - 服务端日志（`D:\tmp\logs\qiyu-live-im-core-server\192.168.31.252\qiyu-live-im-core-server.log` 11:33:37 ~ 11:33:57 段）：同一 msgId 的 `SEND_OK` 推送出现 2 次，中间夹着 `retryTimes is 1` / `retryTimes is 2`。
 - 观众端探针日志（`gui-test-screenshots/viewer_b_received.log`）：同一弹幕两条帧，`msgId` 分别为 `884dab8b-…` 与 `9779678d-…`。
 - 用户截图：room/29 内 `你好` 消息在 12:33:32 与 12:33:37 出现两次，间隔 5 秒，与延迟级别 2（5s）吻合。
+
+---
+
+## 19. JDK17 中文 Windows 默认 GBK：MQ 消息体乱码 + 弹幕整批解析失败（2026-09-13）
+
+**现象**：风控 E2E 发弹幕，接收端 0 条收到；服务端日志显示 `consumeMessage exception: JSONException: illegal identifier : \`，消息在重试队列无限打转（`retryTimes 1/2/...` 反复出现）。更隐蔽的是：部分中文消息能"成功"投递但内容是乱码（`调试弹幕` 变 `璋冭瘯寮瑰箷`），容易被误判为控制台显示问题放过。
+
+**根因**（两层叠加）：
+
+1. fastjson 的 `JSON.toJSONBytes()` 固定写 **UTF-8** 字节进 MQ，但消费端 `ImMsgConsumer` 用 `new String(msg.getBody())` 解码——**JDK17 在中文 Windows 上默认 `file.encoding=GBK`**（JEP 400 是 JDK18 才改默认 UTF-8），于是按 GBK 去解 UTF-8 字节 → 内容乱码。
+2. 更致命：GBK 是双字节编码且**第二字节合法范围包含 0x5C（反斜杠）**。当多字节汉字紧跟 JSON 转义 `\"` 时（弹幕 content 恰好总在 `\",\"roomId` 前面），GBK 配对会"吞掉"转义符 `\` → fastjson 抛 `illegal identifier` → 解析失败 → 消息进重试队列，永远消费不掉。这就是"弹幕整批丢失"的直接原因。纯 ASCII 内容不受影响，所以此前部分测试能过、部分不能过，呈**随机假象**。
+
+**修复**：`scripts/start-all.sh` 的 JAVA_OPTS 默认值加 `-Dfile.encoding=UTF-8`，全链路字符集统一。任何"Java 服务间传中文"的链路都受此影响（MQ、HTTP body 手工解析等），脚本启动已全局覆盖；用 IDEA 单跑服务时也需在 VM options 里加该参数。
+
+**排查手段**：消费端无任何业务日志时，先看 `C:/Users/<用户>/logs/rocketmqlogs/rocketmq_client.log`（RocketMQ 客户端自己的日志），`consumeMessage exception` 会打出完整消息体和解析异常；broker 侧用 `mqadmin consumerConnection -g <组名> -n <namesrv>` 确认消费者是否还注册着（组名格式见各 provider 的 `rocketMQConsumerProperties` 配置，不是想当然的 spring.application.name）。
+
+**教训**：编码问题的症状（乱码/偶发解析失败）与业务 bug 极易混淆，"部分成功部分失败"首先怀疑字符集，其次才是业务逻辑；跨服务传中文必须显式统一 file.encoding，不能依赖平台默认值。
+
+---

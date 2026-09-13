@@ -26,6 +26,11 @@
             <artifactId>spring-cloud-starter-gateway</artifactId>
             <version>${spring-cloud-starter-gateway.version}</version>
         </dependency>
+        <!-- 账号封禁运行时校验（ban:account:{userId}）需要读 Redis -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.apache.dubbo</groupId>
             <artifactId>dubbo-spring-boot-starter</artifactId>
