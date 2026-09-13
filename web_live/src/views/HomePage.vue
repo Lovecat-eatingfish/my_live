@@ -9,7 +9,15 @@
       </div>
       <div class="nav-right">
         <template v-if="userStore.userInfo.loginStatus">
-          <img :src="userStore.userInfo.avatar || defaultAvatar" class="avatar" title="个人设置" @click="profileVisible = true" />
+          <el-dropdown trigger="click" @command="handleAvatarCommand">
+            <img :src="userStore.userInfo.avatar || defaultAvatar" class="avatar" title="个人菜单" style="cursor: pointer" />
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="center">个人中心</el-dropdown-item>
+                <el-dropdown-item command="profile">个人设置</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
           <span class="nickname">{{ userStore.userInfo.nickName }}</span>
           <span class="balance-chip" @click="$router.push('/wallet')" title="去充值">
             <span class="coin-icon">🪙</span>{{ formatBalance }}
@@ -106,7 +114,12 @@ const profileVisible = ref(false)
 const shopManageVisible = ref(false)
 // 我进行中的直播间（主播刷新浏览器后一键回到直播间）
 const livingRoomId = ref(null)
-async function refreshMyLivingRoom() {
+async function handleAvatarCommand(cmd) {
+  if (cmd === 'center') router.push('/user/center')
+  else if (cmd === 'profile') profileVisible.value = true
+}
+
+function refreshMyLivingRoom() {
   try {
     const vo = await myLivingRoom()
     livingRoomId.value = vo.data || null

@@ -100,4 +100,43 @@ public class VideoController {
     public WebResponseVO deleteComment(Long commentId) {
         return WebResponseVO.success(videoApiService.deleteComment(commentId));
     }
+
+    /** 记录观看历史（播放≥3秒时前端上报） */
+    @PostMapping("/history")
+    public WebResponseVO recordHistory(Long id) {
+        videoApiService.recordHistory(id);
+        return WebResponseVO.success();
+    }
+
+    /** 我的观看历史 */
+    @PostMapping("/my/history")
+    public WebResponseVO myHistory(Integer page, Integer pageSize) {
+        return WebResponseVO.success(videoApiService.listHistory(pg(page), ps(pageSize)));
+    }
+
+    /** 我发布的视频 */
+    @PostMapping("/my/list")
+    public WebResponseVO myList(Integer page, Integer pageSize) {
+        return WebResponseVO.success(videoApiService.listMyVideos(pg(page), ps(pageSize)));
+    }
+
+    /** 我收藏的视频 */
+    @PostMapping("/my/favorites")
+    public WebResponseVO myFavorites(Integer page, Integer pageSize) {
+        return WebResponseVO.success(videoApiService.listMyFavorites(pg(page), ps(pageSize)));
+    }
+
+    /** 我点赞的视频 */
+    @PostMapping("/my/likes")
+    public WebResponseVO myLikes(Integer page, Integer pageSize) {
+        return WebResponseVO.success(videoApiService.listMyLikes(pg(page), ps(pageSize)));
+    }
+
+    private int pg(Integer page) {
+        return page == null || page < 1 ? 1 : page;
+    }
+
+    private int ps(Integer pageSize) {
+        return pageSize == null || pageSize < 1 ? 20 : Math.min(pageSize, 50);
+    }
 }

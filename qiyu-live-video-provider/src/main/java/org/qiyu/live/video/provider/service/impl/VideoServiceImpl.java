@@ -58,6 +58,8 @@ public class VideoServiceImpl implements IVideoService {
     private IVideoUserActionMapper videoUserActionMapper;
     @Resource
     private IVideoCommentMapper videoCommentMapper;
+    @Resource
+    private org.qiyu.live.video.provider.dao.maper.IVideoWatchHistoryMapper watchHistoryMapper;
 
     @DubboReference(check = false)
     private IUserRpc userRpc;
@@ -245,6 +247,82 @@ public class VideoServiceImpl implements IVideoService {
                 .stream()
                 .map(po -> new TagDTO(po.getId(), po.getTagName()))
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public void recordHistory(Long userId, Long videoId) {
+        org.qiyu.live.video.provider.dao.po.VideoWatchHistoryPO exist = watchHistoryMapper.selectOne(
+                new LambdaQueryWrapper<org.qiyu.live.video.provider.dao.po.VideoWatchHistoryPO>()
+                        .eq(org.qiyu.live.video.provider.dao.po.VideoWatchHistoryPO::getUserId, userId)
+                        .eq(org.qiyu.live.video.provider.dao.po.VideoWatchHistoryPO::getVideoId, videoId)
+                        .last("limit 1"));
+        if (exist != null) {
+            org.qiyu.live.video.provider.dao.po.VideoWatchHistoryPO update = new org.qiyu.live.video.provider.dao.po.VideoWatchHistoryPO();
+            update.setId(exist.getId());
+            update.setWatchTime(new java.util.Date());
+            watchHistoryMapper.updateById(update);
+        } else {
+            org.qiyu.live.video.provider.dao.po.VideoWatchHistoryPO po = new org.qiyu.live.video.provider.dao.po.VideoWatchHistoryPO();
+            po.setUserId(userId);
+            po.setVideoId(videoId);
+            watchHistoryMapper.insert(po);
+        }
+    }
+
+    @Override
+    public PageWrapper<VideoDTO> listHistory(Long userId, int page, int pageSize) {
+        // 按最近观看时间排序的 id 分页，再按原顺序装载视频
+        Page<org.qiyu.live.video.provider.dao.po.VideoWatchHistoryPO> historyPage = watchHistoryMapper.selectPage(
+                new Page<>(Math.max(page, 1), Math.min(Math.max(pageSize, 1), PAGE_SIZE_MAX)),
+                new LambdaQueryWrapper<org.qiyu.live.video.provider.dao.po.VideoWatchHistoryPO>()
+                        .eq(org.qiyu.live.video.provider.dao.po.VideoWatchHistoryPO::getUserId, userId)
+                        .orderByDesc(org.qiyu.live.video.provider.dao.po.VideoWatchHistoryPO::getWatchTime));
+        List<Long> videoIds = historyPage.getRecords().stream()
+                .map(org.qiyu.live.video.provider.dao.po.VideoWatchHistoryPO::getVideoId).collect(Collectors.toList());
+        return wrapOrdered(videoIds, userId, historyPage);
+    }
+
+    @Override
+    public PageWrapper<VideoDTO> listByUser(Long userId, int page, int pageSize) {
+        LambdaQueryWrapper<VideoInfoPO> qw = new LambdaQueryWrapper<VideoInfoPO>()
+                .eq(VideoInfoPO::getUserId, userId)
+                .ne(VideoInfoPO::getStatus, STATUS_DELETED)
+                .orderByDesc(VideoInfoPO::getId);
+        Page<VideoInfoPO> poPage = videoInfoMapper.selectPage(new Page<>(Math.max(page, 1), Math.min(Math.max(pageSize, 1), PAGE_SIZE_MAX)), qw);
+        PageWrapper<VideoDTO> wrapper = new PageWrapper<>();
+        wrapper.setList(enrich(poPage.getRecords(), userId));
+        wrapper.setHasNext(poPage.getCurrent() * poPage.getSize() < poPage.getTotal());
+        return wrapper;
+    }
+
+    @Override
+    public PageWrapper<VideoDTO> listByAction(Long userId, int actionType, int page, int pageSize) {
+        Page<VideoUserActionPO> actionPage = videoUserActionMapper.selectPage(
+                new Page<>(Math.max(page, 1), Math.min(Math.max(pageSize, 1), PAGE_SIZE_MAX)),
+                new LambdaQueryWrapper<VideoUserActionPO>()
+                        .eq(VideoUserActionPO::getUserId, userId)
+                        .eq(VideoUserActionPO::getActionType, actionType)
+                        .orderByDesc(VideoUserActionPO::getId));
+        List<Long> videoIds = actionPage.getRecords().stream()
+                .map(VideoUserActionPO::getVideoId).collect(Collectors.toList());
+        return wrapOrdered(videoIds, userId, actionPage);
+    }
+
+    /** 按给定 id 顺序装载视频（跳过已删除），带作者/标签/点赞收藏状态 */
+    private PageWrapper<VideoDTO> wrapOrdered(List<Long> videoIds, Long viewerUserId, com.baomidou.mybatisplus.extension.plugins.pagination.Page<?> page) {
+        PageWrapper<VideoDTO> wrapper = new PageWrapper<>();
+        if (videoIds.isEmpty()) {
+            wrapper.setList(Collections.emptyList());
+            wrapper.setHasNext(false);
+            return wrapper;
+        }
+        Map<Long, VideoInfoPO> poMap = videoInfoMapper.selectBatchIds(videoIds).stream()
+                .filter(po -> po.getStatus() == STATUS_ONLINE)
+                .collect(Collectors.toMap(VideoInfoPO::getId, po -> po, (a, b) -> a));
+        List<VideoInfoPO> ordered = videoIds.stream().map(poMap::get).filter(Objects::nonNull).collect(Collectors.toList());
+        wrapper.setList(enrich(ordered, viewerUserId));
+        wrapper.setHasNext(page.getCurrent() * page.getSize() < page.getTotal());
+        return wrapper;
     }
 
     /**

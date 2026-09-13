@@ -46,4 +46,19 @@ public interface IVideoApiService {
 
     /** 删除本人评论 */
     boolean deleteComment(Long commentId);
+
+    /** 记录观看历史 */
+    void recordHistory(Long videoId);
+
+    /** 我的观看历史 */
+    List<VideoItemRespVO> listHistory(int page, int pageSize);
+
+    /** 我发布的视频 */
+    List<VideoItemRespVO> listMyVideos(int page, int pageSize);
+
+    /** 我收藏的视频 */
+    List<VideoItemRespVO> listMyFavorites(int page, int pageSize);
+
+    /** 我点赞的视频 */
+    List<VideoItemRespVO> listMyLikes(int page, int pageSize);
 }

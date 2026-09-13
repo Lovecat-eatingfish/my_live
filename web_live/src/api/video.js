@@ -82,3 +82,12 @@ export const addComment = (id, content) => request.post('/video/comment/add', nu
 
 // 删除本人评论
 export const deleteComment = (commentId) => request.post('/video/comment/delete', null, { params: { commentId } })
+
+// 记录观看历史（播放≥3秒时上报）
+export const recordHistory = (id) => request.post('/video/history', null, { params: { id } })
+
+// 我的观看历史 / 我发布的 / 我收藏的 / 我点赞的
+export const myHistory = (page = 1, pageSize = 20) => request.post('/video/my/history', null, { params: { page, pageSize } })
+export const myList = (page = 1, pageSize = 20) => request.post('/video/my/list', null, { params: { page, pageSize } })
+export const myFavorites = (page = 1, pageSize = 20) => request.post('/video/my/favorites', null, { params: { page, pageSize } })
+export const myLikes = (page = 1, pageSize = 20) => request.post('/video/my/likes', null, { params: { page, pageSize } })

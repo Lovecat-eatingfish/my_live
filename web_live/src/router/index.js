@@ -8,6 +8,7 @@ const routes = [
   { path: '/video', name: 'VideoSquare', component: () => import('@/views/VideoSquarePage.vue') },
   { path: '/video/:id', name: 'VideoDetail', component: () => import('@/views/VideoDetailPage.vue') },
   { path: '/recon', name: 'Recon', component: () => import('@/views/ReconPage.vue') },
+  { path: '/user/center', name: 'UserCenter', component: () => import('@/views/UserCenterPage.vue') },
 ]
 
 export default createRouter({

@@ -74,4 +74,24 @@ public class VideoRpcImpl implements IVideoRpc {
     public List<TagDTO> listTags() {
         return videoService.listTags();
     }
+
+    @Override
+    public void recordHistory(Long userId, Long videoId) {
+        videoService.recordHistory(userId, videoId);
+    }
+
+    @Override
+    public org.qiyu.live.common.interfaces.dto.PageWrapper<org.qiyu.live.video.dto.VideoDTO> listHistory(Long userId, int page, int pageSize) {
+        return videoService.listHistory(userId, page, pageSize);
+    }
+
+    @Override
+    public org.qiyu.live.common.interfaces.dto.PageWrapper<org.qiyu.live.video.dto.VideoDTO> listByUser(Long userId, int page, int pageSize) {
+        return videoService.listByUser(userId, page, pageSize);
+    }
+
+    @Override
+    public org.qiyu.live.common.interfaces.dto.PageWrapper<org.qiyu.live.video.dto.VideoDTO> listByAction(Long userId, int actionType, int page, int pageSize) {
+        return videoService.listByAction(userId, actionType, page, pageSize);
+    }
 }

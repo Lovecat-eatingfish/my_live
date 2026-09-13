@@ -43,4 +43,16 @@ public interface IVideoRpc {
 
     /** 标签列表 */
     List<TagDTO> listTags();
+
+    /** 记录观看历史 */
+    void recordHistory(Long userId, Long videoId);
+
+    /** 我的观看历史 */
+    PageWrapper<VideoDTO> listHistory(Long userId, int page, int pageSize);
+
+    /** 我发布的视频 */
+    PageWrapper<VideoDTO> listByUser(Long userId, int page, int pageSize);
+
+    /** 我点赞/收藏的视频（actionType: 1赞 2藏） */
+    PageWrapper<VideoDTO> listByAction(Long userId, int actionType, int page, int pageSize);
 }

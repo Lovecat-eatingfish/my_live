@@ -77,10 +77,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { videoDetail, likeVideo, favoriteVideo, shareVideo, listComments, addComment, deleteComment } from '@/api/video'
+import { videoDetail, likeVideo, favoriteVideo, shareVideo, listComments, addComment, deleteComment, recordHistory } from '@/api/video'
 import { ElMessage } from 'element-plus'
 
 const route = useRoute()
@@ -170,6 +170,17 @@ onMounted(async () => {
   await userStore.fetchUserInfo()
   await fetchDetail()
   await fetchComments()
+  // 播放≥3秒记录观看历史（静默上报）；等 v-if 的播放器渲染出来再挂监听
+  await nextTick()
+  const player = playerRef.value
+  if (player) {
+    player.addEventListener('timeupdate', function onTime(e) {
+      if (e.target.currentTime >= 3) {
+        player.removeEventListener('timeupdate', onTime)
+        if (userStore.userInfo.userId) recordHistory(route.params.id).catch(() => {})
+      }
+    })
+  }
 })
 </script>
 

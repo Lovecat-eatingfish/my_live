@@ -125,6 +125,40 @@ public class VideoApiServiceImpl implements IVideoApiService {
     }
 
     @Override
+    public void recordHistory(Long videoId) {
+        ErrorAssert.isNotNull(videoId, BizBaseErrorEnum.PARAM_ERROR);
+        videoRpc.recordHistory(QiyuRequestContext.getUserId(), videoId);
+    }
+
+    @Override
+    public List<VideoItemRespVO> listHistory(int page, int pageSize) {
+        return toItems(videoRpc.listHistory(QiyuRequestContext.getUserId(), page, pageSize));
+    }
+
+    @Override
+    public List<VideoItemRespVO> listMyVideos(int page, int pageSize) {
+        return toItems(videoRpc.listByUser(QiyuRequestContext.getUserId(), page, pageSize));
+    }
+
+    @Override
+    public List<VideoItemRespVO> listMyFavorites(int page, int pageSize) {
+        return toItems(videoRpc.listByAction(QiyuRequestContext.getUserId(), 2, page, pageSize));
+    }
+
+    @Override
+    public List<VideoItemRespVO> listMyLikes(int page, int pageSize) {
+        return toItems(videoRpc.listByAction(QiyuRequestContext.getUserId(), 1, page, pageSize));
+    }
+
+    private List<VideoItemRespVO> toItems(PageWrapper<VideoDTO> wrapper) {
+        List<VideoItemRespVO> list = new ArrayList<>();
+        for (VideoDTO dto : wrapper.getList()) {
+            list.add(toItemVO(dto));
+        }
+        return list;
+    }
+
+    @Override
     public void share(Long videoId) {
         ErrorAssert.isNotNull(videoId, BizBaseErrorEnum.PARAM_ERROR);
         videoRpc.incShareCount(videoId);
