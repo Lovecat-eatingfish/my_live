@@ -40,18 +40,20 @@ WAVE5=(qiyu-live-api qiyu-live-admin-api)
 ALL_MODULES=("${WAVE0[@]}" "${WAVE1[@]}" "${WAVE2[@]}" "${WAVE3[@]}" "${WAVE4[@]}" "${WAVE4B[@]}" "${WAVE4C[@]}" "${WAVE5[@]}")
 
 # ---------- 工具函数 ----------
-# 本项目必须 JDK17（Spring Boot 3）。取值优先级：
-#   QIYU_JAVA_HOME > 本机已知 jdk17 路径 > JAVA_HOME > PATH 的 java
-# 注意不能盲信 JAVA_HOME——本机 JAVA_HOME 可能指向 jdk8
+# 本项目固定用本机 JDK17（写死，不读 JAVA_HOME——本机 JAVA_HOME 保持 jdk8 给公司项目用）
+# 如需换路径，改这里或临时 export QIYU_JAVA_HOME=...
+QIYU_JDK17="/d/enviroment/javaenviroment/jdk17"
 if [[ -n "$QIYU_JAVA_HOME" && -x "$QIYU_JAVA_HOME/bin/java" ]]; then
   JAVA_CMD="$QIYU_JAVA_HOME/bin/java"
-elif [[ -x "/d/enviroment/javaenviroment/jdk17/bin/java" ]]; then
-  JAVA_CMD="/d/enviroment/javaenviroment/jdk17/bin/java"
-elif [[ -n "$JAVA_HOME" && -x "$JAVA_HOME/bin/java" ]]; then
-  JAVA_CMD="$JAVA_HOME/bin/java"
+elif [[ -x "$QIYU_JDK17/bin/java" ]]; then
+  JAVA_CMD="$QIYU_JDK17/bin/java"
 else
-  JAVA_CMD="java"
+  echo "❌ 未找到 JDK17: $QIYU_JDK17（Spring Boot 3 必须 JDK17）"
+  exit 1
 fi
+# mvn 构建同样用 JDK17（不污染当前 shell，仅对本脚本生效）
+export JAVA_HOME="$QIYU_JDK17"
+export PATH="$JAVA_HOME/bin:$PATH"
 find_jar() {  # $1=模块目录 -> 输出可执行 jar 路径(可能为空)
   # target 里可能同时存在新旧两个 fatjar（finalName 变更的历史残留），按修改时间取最新
   ls -t "$1"/target/*.jar 2>/dev/null | grep -vE '(-sources\.jar|-javadoc\.jar|\.jar\.original)$' | head -1 || true
