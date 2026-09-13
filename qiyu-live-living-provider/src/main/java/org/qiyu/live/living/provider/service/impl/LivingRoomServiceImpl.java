@@ -215,12 +215,44 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     private void sendWelcomeMsg(Long userId, Integer roomId, Integer appId) {
         org.qiyu.live.user.dto.UserDTO userDTO = userRpc.getByUserId(userId);
         String nick = userDTO == null || userDTO.getNickName() == null ? ("用户" + userId) : userDTO.getNickName();
+        // 粉丝灯牌：房间主播的粉丝亲密度（每日观看 +10，送礼累计）
+        Long anchorId = null;
+        LivingRoomRespDTO room = queryByRoomId(roomId);
+        if (room != null && room.getId() != null) {
+            anchorId = room.getAnchorId();
+        }
+        int fanLevel = 0;
+        if (anchorId != null) {
+            try {
+                // 每日首次进房 +10（关注与否不强制，进房即积累亲密度）
+                String dailyKey = org.qiyu.live.common.interfaces.constants.FanConstants.FAN_DAILY_KEY_PREFIX
+                        + anchorId + ":" + userId + ":"
+                        + java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+                if (Boolean.TRUE.equals(stringRedisTemplate.opsForValue()
+                        .setIfAbsent(dailyKey, "1", java.time.Duration.ofHours(25)))) {
+                    stringRedisTemplate.opsForHash().increment(
+                            org.qiyu.live.common.interfaces.constants.FanConstants.FAN_POINTS_KEY_PREFIX + anchorId,
+                            String.valueOf(userId),
+                            org.qiyu.live.common.interfaces.constants.FanConstants.DAILY_WATCH_POINTS);
+                }
+                Object pts = stringRedisTemplate.opsForHash().get(
+                        org.qiyu.live.common.interfaces.constants.FanConstants.FAN_POINTS_KEY_PREFIX + anchorId,
+                        String.valueOf(userId));
+                fanLevel = org.qiyu.live.common.interfaces.constants.FanConstants.levelOf(
+                        pts == null ? 0 : Long.parseLong(pts.toString()));
+            } catch (Exception e) {
+                LOGGER.error("[sendWelcomeMsg] fan level error, roomId={}, userId={}", roomId, userId, e);
+            }
+        }
         com.alibaba.fastjson.JSONObject data = new com.alibaba.fastjson.JSONObject();
         data.put("userId", userId);
         data.put("roomId", roomId);
         data.put("senderName", "系统");
-        data.put("content", "欢迎 " + nick + " 来到直播间");
+        data.put("content", fanLevel >= org.qiyu.live.common.interfaces.constants.FanConstants.ENTRANCE_EFFECT_LEVEL
+                ? "欢迎 " + nick + " 带着粉丝团 " + fanLevel + " 号灯牌进场 🎉"
+                : "欢迎 " + nick + " 来到直播间");
         data.put("system", true);
+        data.put("fanLevel", fanLevel);
         org.qiyu.live.living.interfaces.dto.LivingRoomReqDTO reqDTO = new org.qiyu.live.living.interfaces.dto.LivingRoomReqDTO();
         reqDTO.setRoomId(roomId);
         reqDTO.setAppId(appId);

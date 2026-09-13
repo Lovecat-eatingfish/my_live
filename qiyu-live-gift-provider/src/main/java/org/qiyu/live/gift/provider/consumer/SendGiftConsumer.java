@@ -167,6 +167,16 @@ public class SendGiftConsumer implements InitializingBean {
                         } catch (Exception e) {
                             LOGGER.error("[SendGiftConsumer] rank zincrby error, roomId={}", sendGiftMq.getRoomId(), e);
                         }
+                        // 粉丝团灯牌：送给主播的金币累加为粉丝亲密度
+                        try {
+                            stringRedisTemplate.opsForHash().increment(
+                                    org.qiyu.live.common.interfaces.constants.FanConstants.FAN_POINTS_KEY_PREFIX
+                                            + sendGiftMq.getReceiverId(),
+                                    String.valueOf(sendGiftMq.getUserId()),
+                                    sendGiftMq.getPrice() == null ? 0 : sendGiftMq.getPrice());
+                        } catch (Exception e) {
+                            LOGGER.error("[SendGiftConsumer] fan points error, receiver={}", sendGiftMq.getReceiverId(), e);
+                        }
                         // 送礼经验：1 金币 +1（MQ 交 user-provider 单点结算）
                         try {
                             UserExpChangeMqDTO expDTO = UserExpChangeMqDTO.of(sendGiftMq.getUserId(),

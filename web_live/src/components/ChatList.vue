@@ -13,6 +13,7 @@
       <div class="chat-body">
         <div class="chat-meta">
           <span v-if="msg.level" :class="['lv-badge', levelClass(msg.level)]">L{{ msg.level }}</span>
+          <span v-if="msg.fanLevel > 0" class="fan-badge" :class="'fan-' + msg.fanLevel">团{{ msg.fanLevel }}</span>
           <span class="chat-name" @click="goProfile(msg)">{{ msg.userName }}</span>
           <span class="chat-time">{{ msg.time }}</span>
           <span v-if="canMute && !msg.isSelf" class="chat-mute" title="禁言 30 分钟" @click="$emit('mute', msg)">🔇</span>
@@ -139,4 +140,7 @@ watch(() => props.messages.length, () => {
 }
 .chat-mute { cursor: pointer; opacity: 0; transition: opacity .15s; font-size: 11px; }
 .chat-item:hover .chat-mute { opacity: 1; }
+.fan-badge { font-size: 10px; color: #fff; border-radius: 3px; padding: 0 4px; margin-left: 2px; }
+.fan-1 { background: #90caf9; } .fan-2 { background: #42a5f5; } .fan-3 { background: #ab47bc; }
+.fan-4 { background: #ff7043; } .fan-5 { background: linear-gradient(90deg,#f44336,#ff9800); }
 </style>

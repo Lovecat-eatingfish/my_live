@@ -102,6 +102,7 @@ public class SingleMessageHandlerImpl implements MessageHandler {
             checkLotteryJoin(roomId, imMsgBody.getUserId(), messageDTO.getContent());
             // 等级徽章随弹幕下发 + 弹幕经验（每日上限，超限只丢经验不丢弹幕）
             messageDTO.setLevel(getUserLevel(imMsgBody.getUserId()));
+            messageDTO.setFanLevel(getFanLevel(roomId, imMsgBody.getUserId()));
             sendDanmuExp(imMsgBody.getUserId(), roomId);
             //一个人发送 n个人接收
             // 根据roomId，appId 去调用rpc方法，获取对应的直播间内的userId
@@ -191,6 +192,27 @@ public class SingleMessageHandlerImpl implements MessageHandler {
             routerRpc.batchSendMsg(java.util.Arrays.asList(toMsg, echoMsg));
         } catch (Exception e) {
             LOGGER.error("[handleDmUp] persist/send error, from={}, to={}", fromUid, toUid, e);
+        }
+    }
+
+    /** 粉丝灯牌等级：对当前房间主播的亲密度换算（房间查询走 living 缓存，成本可接受） */
+    private Integer getFanLevel(Integer roomId, Long userId) {
+        try {
+            if (roomId == null) {
+                return null;
+            }
+            org.qiyu.live.living.interfaces.dto.LivingRoomRespDTO room = livingRoomRpc.queryByRoomId(roomId);
+            if (room == null || room.getId() == null || room.getAnchorId() == null) {
+                return null;
+            }
+            Object pts = stringRedisTemplate.opsForHash().get(
+                    org.qiyu.live.common.interfaces.constants.FanConstants.FAN_POINTS_KEY_PREFIX + room.getAnchorId(),
+                    String.valueOf(userId));
+            return org.qiyu.live.common.interfaces.constants.FanConstants.levelOf(
+                    pts == null ? 0 : Long.parseLong(pts.toString()));
+        } catch (Exception e) {
+            LOGGER.error("[getFanLevel] error, roomId={}, userId={}", roomId, userId, e);
+            return null;
         }
     }
 

@@ -36,7 +36,7 @@
       </div>
       <div class="actions" v-if="!profile.isSelf">
         <el-button :type="profile.isFollow ? 'info' : 'primary'" size="small" @click="toggleFollow">
-          {{ profile.isFollow ? '已关注' : '+ 关注' }}
+          {{ profile.isMutual ? '🤝 互相关注' : (profile.isFollow ? '已关注' : '+ 关注') }}
         </el-button>
       </div>
     </div>

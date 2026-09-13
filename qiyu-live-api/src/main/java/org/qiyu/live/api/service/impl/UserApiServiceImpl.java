@@ -81,7 +81,10 @@ public class UserApiServiceImpl implements IUserApiService {
         vo.setLikeReceivedCnt(ext == null || ext.getLikeReceivedCnt() == null ? 0 : ext.getLikeReceivedCnt());
         boolean isSelf = viewerId != null && viewerId.equals(profileUserId);
         vo.setIsSelf(isSelf);
-        vo.setIsFollow(!isSelf && userRelationRpc.isFollow(viewerId, profileUserId));
+        boolean iFollowHim = !isSelf && userRelationRpc.isFollow(viewerId, profileUserId);
+        vo.setIsFollow(iFollowHim);
+        // 相互关注：我关注了 TA 且 TA 也关注了我
+        vo.setIsMutual(iFollowHim && userRelationRpc.isFollow(profileUserId, viewerId));
         return vo;
     }
 }

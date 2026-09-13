@@ -1,5 +1,11 @@
 <template>
   <div class="room-page">
+    <!-- 粉丝团进场特效 -->
+    <transition name="fade">
+      <div v-if="entranceEffect" :class="['entrance-effect', 'effect-' + entranceEffect.level]">
+        <div class="effect-text">🎉{{ entranceEffect.name }}🎉</div>
+      </div>
+    </transition>
     <!-- 顶部栏 -->
     <header class="top-bar">
       <span class="back" @click="$router.back()">← 返回</span>
@@ -281,6 +287,7 @@ const roomId = computed(() => Number(route.params.id))
 const roomInfo = ref({})
 const isFollow = ref(false)
 // ==================== 直播间治理（公告/管理员/禁言） ====================
+const entranceEffect = ref(null)
 const announcement = ref('')
 const isRoomAdmin = ref(false)
 const isAnchor = computed(() => !!roomInfo.value.anchor)
@@ -819,6 +826,11 @@ function handleIMMessage(msg) {
       if (bizCode === 5555) {
         // 聊天消息（data结构对齐后端MessageDTO：senderName/senderAvtar/content）
         const data = JSON.parse(body.data)
+        // 粉丝团进场特效：system 欢迎且灯牌≥3 → 全屏动画
+        if (data.system && data.fanLevel >= 3) {
+          entranceEffect.value = { level: data.fanLevel, name: data.content, ts: Date.now() }
+          setTimeout(() => { entranceEffect.value = null }, 3500)
+        }
         chatMessages.value.push({
           userName: data.senderName || '用户',
           userId: data.userId,
@@ -1362,6 +1374,22 @@ onUnmounted(() => {
 .guest-label { padding: 6px 10px; font-size: 12px; color: #aaa; }
 .guest-video { width: 100%; flex: 1; object-fit: contain; background: #000; }
 .announce-chip { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: rgba(64, 158, 255, 0.15); border: 1px solid rgba(64, 158, 255, 0.5); }
+.entrance-effect {
+  position: fixed; inset: 0; z-index: 3000; pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+  animation: entrance-flash 3.2s ease-out forwards;
+}
+.effect-3 { background: radial-gradient(ellipse at center, rgba(171, 71, 188, 0.35), transparent 65%); }
+.effect-4 { background: radial-gradient(ellipse at center, rgba(255, 112, 67, 0.4), transparent 65%); }
+.effect-5 { background: radial-gradient(ellipse at center, rgba(244, 67, 54, 0.5), transparent 70%); }
+.effect-text {
+  font-size: 34px; font-weight: bold; color: #fff; text-shadow: 0 0 18px rgba(255, 200, 0, 0.9);
+  animation: entrance-zoom 3.2s ease-out forwards;
+}
+@keyframes entrance-flash { 0% { opacity: 0 } 15% { opacity: 1 } 80% { opacity: 1 } 100% { opacity: 0 } }
+@keyframes entrance-zoom { 0% { transform: scale(0.4) } 20% { transform: scale(1.15) } 35% { transform: scale(1) } 100% { transform: scale(1) } }
+.fade-enter-active, .fade-leave-active { transition: opacity .4s }
+.fade-enter-from, .fade-leave-to { opacity: 0 }
 .lottery-chip { background: rgba(103, 194, 58, 0.15); border: 1px solid rgba(103, 194, 58, 0.5); }
 .lottery-hint { font-size: 11px; color: #999; margin-top: 4px; }
 </style>

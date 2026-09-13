@@ -25,6 +25,8 @@ public class UserProfileRespVO implements Serializable {
     private Integer likeReceivedCnt;
     /** 观看者视角 */
     private Boolean isFollow;
+    /** 相互关注（对方也关注了我） */
+    private Boolean isMutual;
     private Boolean isSelf;
 
     public Long getUserId() {
@@ -138,4 +140,12 @@ public class UserProfileRespVO implements Serializable {
     public void setIsSelf(Boolean isSelf) {
         this.isSelf = isSelf;
     }
+    public Boolean getIsMutual() {
+        return isMutual;
+    }
+
+    public void setIsMutual(Boolean isMutual) {
+        this.isMutual = isMutual;
+    }
+
 }

@@ -23,6 +23,8 @@ public class MessageDTO implements Serializable {
     private String senderAvtar;
     //发送人等级（弹幕徽章渲染用，可能为空）
     private Integer level;
+    /** 粉丝团灯牌等级（0=未加入；对应当前房间主播） */
+    private Integer fanLevel;
     /**
      * 消息类型
      */
@@ -118,4 +120,12 @@ public class MessageDTO implements Serializable {
                 ", updateTime=" + updateTime +
                 '}';
     }
+    public Integer getFanLevel() {
+        return fanLevel;
+    }
+
+    public void setFanLevel(Integer fanLevel) {
+        this.fanLevel = fanLevel;
+    }
+
 }
