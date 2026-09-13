@@ -20,6 +20,12 @@ public interface ILivingRoomService {
      */
     LivingRoomPageRespVO list(LivingRoomReqVO livingRoomReqVO);
 
+    /** 全部启用中的直播分区（动态 tab） */
+    java.util.List<org.qiyu.live.living.interfaces.dto.LivingCategoryDTO> categories();
+
+    /** 关注 tab：关注的主播中正在开播的房间 */
+    LivingRoomPageRespVO followRooms(int page, int pageSize);
+
     /**
      * 开启直播间
      *

@@ -45,6 +45,18 @@ public class LivingRoomController {
         return WebResponseVO.success(initVO);
     }
 
+    /** 直播分区列表（首页动态 tab） */
+    @PostMapping("/categories")
+    public WebResponseVO categories() {
+        return WebResponseVO.success(livingRoomService.categories());
+    }
+
+    /** 关注 tab：关注的主播中正在开播的房间 */
+    @PostMapping("/followRooms")
+    public WebResponseVO followRooms() {
+        return WebResponseVO.success(livingRoomService.followRooms(1, 20));
+    }
+
     @PostMapping("/onlinePk")
     @RequestLimit(limit = 1,second = 3)
     public WebResponseVO onlinePk(OnlinePkReqVO onlinePkReqVO) {

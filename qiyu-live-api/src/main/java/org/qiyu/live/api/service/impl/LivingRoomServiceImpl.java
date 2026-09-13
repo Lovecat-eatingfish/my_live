@@ -58,6 +58,10 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     private org.apache.rocketmq.client.producer.MQProducer mqProducer;
     @DubboReference(check = false)
     private ILivingRoomRpc livingRoomRpc;
+    @DubboReference(check = false)
+    private org.qiyu.live.living.interfaces.rpc.ILivingCategoryRpc livingCategoryRpc;
+    @jakarta.annotation.Resource
+    private org.qiyu.live.api.service.IUserApiService userApiService;
     // stream-provider 未启动时降级，不阻塞 api 启动
     @DubboReference(check = false)
     private ILivingStreamRpc livingStreamRpc;
@@ -69,6 +73,31 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
         livingRoomPageRespVO.setList(ConvertBeanUtils.convertList(resultPage.getList(), LivingRoomRespVO.class));
         livingRoomPageRespVO.setHasNext(resultPage.isHasNext());
         return livingRoomPageRespVO;
+    }
+
+    @Override
+    public java.util.List<org.qiyu.live.living.interfaces.dto.LivingCategoryDTO> categories() {
+        //RPC 返回全量（含停用），C 端只出启用项
+        return livingCategoryRpc.listCategories().stream()
+                .filter(c -> c.getStatus() != null && c.getStatus() == 1)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public LivingRoomPageRespVO followRooms(int page, int pageSize) {
+        LivingRoomPageRespVO respVO = new LivingRoomPageRespVO();
+        PageWrapper<org.qiyu.live.user.dto.UserDTO> followPage = userApiService.followList(page, 200);
+        java.util.List<Long> anchorIds = followPage.getList().stream()
+                .map(UserDTO::getUserId).collect(Collectors.toList());
+        if (anchorIds.isEmpty()) {
+            respVO.setList(java.util.Collections.emptyList());
+            respVO.setHasNext(false);
+            return respVO;
+        }
+        PageWrapper<LivingRoomRespDTO> resultPage = livingRoomRpc.listByAnchorIds(anchorIds, 1, 100);
+        respVO.setList(ConvertBeanUtils.convertList(resultPage.getList(), LivingRoomRespVO.class));
+        respVO.setHasNext(resultPage.isHasNext() && followPage.isHasNext());
+        return respVO;
     }
 
     @Override

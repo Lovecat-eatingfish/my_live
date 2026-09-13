@@ -97,4 +97,9 @@ public class LivingRoomRpcImpl implements ILivingRoomRpc {
     public boolean offlinePk(LivingRoomReqDTO livingRoomReqDTO) {
         return livingRoomService.offlinePk(livingRoomReqDTO);
     }
+
+    @Override
+    public PageWrapper<LivingRoomRespDTO> listByAnchorIds(java.util.List<Long> anchorIds, int page, int pageSize) {
+        return livingRoomService.listByAnchorIds(anchorIds, page, pageSize);
+    }
 }

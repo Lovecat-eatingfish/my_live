@@ -34,6 +34,7 @@ const menus = [
   { path: '/video', label: '内容管理', icon: '▶' },
   { path: '/user', label: '用户管理', icon: '☰' },
   { path: '/living', label: '直播管理', icon: '◉' },
+  { path: '/livingCategory', label: '直播分区', icon: '▤' },
 ]
 
 function handleLogout() {

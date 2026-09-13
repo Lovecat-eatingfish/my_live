@@ -280,6 +280,26 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     }
 
     @Override
+    public PageWrapper<LivingRoomRespDTO> listByAnchorIds(java.util.List<Long> anchorIds, int page, int pageSize) {
+        PageWrapper<LivingRoomRespDTO> pageWrapper = new PageWrapper<>();
+        if (CollectionUtils.isEmpty(anchorIds)) {
+            pageWrapper.setList(Collections.emptyList());
+            pageWrapper.setHasNext(false);
+            return pageWrapper;
+        }
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<LivingRoomPO> poPage =
+                livingRoomMapper.selectPage(
+                        new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, pageSize),
+                        new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<LivingRoomPO>()
+                                .eq(LivingRoomPO::getStatus, CommonStatusEum.VALID_STATUS.getCode())
+                                .in(LivingRoomPO::getAnchorId, anchorIds)
+                                .orderByDesc(LivingRoomPO::getId));
+        pageWrapper.setList(ConvertBeanUtils.convertList(poPage.getRecords(), LivingRoomRespDTO.class));
+        pageWrapper.setHasNext(poPage.getRecords().size() == pageSize);
+        return pageWrapper;
+    }
+
+    @Override
     public LivingRoomRespDTO queryByRoomId(Integer roomId) {
         String cacheKey = cacheKeyBuilder.buildLivingRoomObj(roomId);
         LivingRoomRespDTO queryResult = (LivingRoomRespDTO) redisTemplate.opsForValue().get(cacheKey);

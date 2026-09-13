@@ -40,14 +40,19 @@
       </div>
     </header>
 
-    <!-- 类型筛选 -->
+    <!-- 类型筛选（动态分区 + 关注） -->
     <div class="filter-bar">
+      <span
+        v-if="userStore.userInfo.loginStatus"
+        :class="['type-tag', { active: currentType === 'follow' }]"
+        @click="switchType('follow')"
+      >➕ 关注</span>
       <span
         v-for="t in roomTypes"
         :key="t.value"
         :class="['type-tag', { active: currentType === t.value }]"
-        @click="currentType = t.value"
-      >{{ t.label }}</span>
+        @click="switchType(t.value)"
+      >{{ t.icon ? t.icon + ' ' : '' }}{{ t.label }}</span>
     </div>
 
     <!-- 直播间列表 -->
@@ -104,7 +109,8 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { listRoom, startLiving, myLivingRoom } from '@/api/room'
+import { listRoom, startLiving, myLivingRoom, followRooms } from '@/api/room'
+import { listCategories } from '@/api/room'
 import { anchorGiftRank, heatRank } from '@/api/rank'
 import { notifyList, notifyRead, notifyUnreadCount } from '@/api/user'
 import { dmUnreadTotal } from '@/api/dm'
@@ -117,12 +123,31 @@ const router = useRouter()
 const userStore = useUserStore()
 const rooms = ref([])
 const currentType = ref(1)
-const roomTypes = [
-  { label: '娱乐', value: 1 },
-  { label: '游戏', value: 2 },
-  { label: '赛事', value: 3 },
-  { label: '带货', value: 4 },
-]
+// 默认兜底分区；挂载后用运营配置的动态分区覆盖
+const roomTypes = ref([
+  { label: '娱乐', value: 1, icon: '🎭' },
+  { label: '游戏', value: 2, icon: '🎮' },
+  { label: '赛事', value: 3, icon: '🏆' },
+  { label: '带货', value: 4, icon: '🛒' },
+])
+
+async function loadCategories() {
+  try {
+    const vo = await listCategories()
+    if (Array.isArray(vo.data) && vo.data.length) {
+      roomTypes.value = vo.data.map(c => ({ label: c.name, value: c.id, icon: c.icon || '' }))
+      if (!roomTypes.value.some(t => t.value === currentType.value)) {
+        currentType.value = roomTypes.value[0].value
+        fetchRooms()
+      }
+    }
+  } catch { /* 保持兜底 */ }
+}
+
+function switchType(v) {
+  currentType.value = v
+  fetchRooms()
+}
 
 const defaultAvatar = 'https://via.placeholder.com/40/667eea/fff?text=U'
 const defaultCover = 'https://via.placeholder.com/320x180/1a1a2e/667eea?text=Live'
@@ -131,6 +156,12 @@ const loading = ref(false)
 async function fetchRooms() {
   loading.value = true
   try {
+    if (currentType.value === 'follow') {
+      if (!userStore.userInfo.loginStatus) { rooms.value = []; return }
+      const vo = await followRooms()
+      rooms.value = vo.data?.list || []
+      return
+    }
     const vo = await listRoom({ type: currentType.value, page: 1, pageSize: 20 })
     rooms.value = vo.data?.list || []
   } finally {
@@ -138,8 +169,7 @@ async function fetchRooms() {
   }
 }
 
-// 类型切换时自动请求
-watch(currentType, () => fetchRooms())
+// 分区切换经 switchType 主动请求（watch 移除避免双请求）
 
 async function handleLogout() {
   await userStore.logoutUser()
@@ -256,6 +286,7 @@ onMounted(async () => {
   refreshMyLivingRoom()
   refreshUnread()
   refreshDmUnread()
+  loadCategories()
   dmUnreadTimer = setInterval(refreshDmUnread, 60000)
 })
 onUnmounted(() => clearInterval(dmUnreadTimer))

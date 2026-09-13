@@ -19,6 +19,12 @@ export const myLivingRoom = () => request.post('/living/myLivingRoom')
 // 获取IM配置
 export const getImConfig = () => request.post('/im/getImConfig')
 
+/** 直播分区列表（首页动态 tab） */
+export const listCategories = () => request.post('/living/categories')
+
+/** 关注 tab：关注的主播中正在开播的房间 */
+export const followRooms = () => request.post('/living/followRooms')
+
 // 主播配置
 export const anchorConfig = (roomId) => request.post('/living/anchorConfig', null, { params: { roomId } })
 

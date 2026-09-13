@@ -109,4 +109,9 @@ public interface ILivingRoomRpc {
      * PK 竞技化：观众点赞为主播方加分（+1，每观众每日上限 50），广播 5558 进度
      */
     Boolean pkLike(Integer roomId, Long userId);
+
+    /**
+     * 关注 tab：按主播 id 集合查开播中的房间（startTime 倒序）
+     */
+    PageWrapper<LivingRoomRespDTO> listByAnchorIds(java.util.List<Long> anchorIds, int page, int pageSize);
 }

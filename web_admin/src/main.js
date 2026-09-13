@@ -10,6 +10,7 @@ import TagPage from './views/TagPage.vue'
 import UserPage from './views/UserPage.vue'
 import VideoPage from './views/VideoPage.vue'
 import LivingPage from './views/LivingPage.vue'
+import LivingCategoryPage from './views/LivingCategoryPage.vue'
 import DashPage from './views/DashboardPage.vue'
 import AuditPage from './views/AuditPage.vue'
 import SnapshotPage from './views/SnapshotPage.vue'
@@ -37,6 +38,7 @@ const router = createRouter({
         { path: 'video', name: 'Video', component: VideoPage },
         { path: 'user', name: 'User', component: UserPage },
         { path: 'living', name: 'Living', component: LivingPage },
+        { path: 'livingCategory', name: 'LivingCategory', component: LivingCategoryPage },
       ]
     },
   ]

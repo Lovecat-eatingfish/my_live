@@ -72,4 +72,29 @@ public class AdminLivingController {
         req.setAnchorId(room.getAnchorId());
         return WebResponseVO.success(livingRoomRpc.closeLiving(req));
     }
+
+    // ==================== 直播分区（运营可配置） ====================
+
+    @DubboReference(check = false)
+    private org.qiyu.live.living.interfaces.rpc.ILivingCategoryRpc livingCategoryRpc;
+
+    @PostMapping("/category/list")
+    public WebResponseVO categoryList() {
+        //后台看全量（含停用），前端区分展示
+        return WebResponseVO.success(livingCategoryRpc.listCategories());
+    }
+
+    @PostMapping("/category/add")
+    public WebResponseVO categoryAdd(String name, String icon, Integer sort) {
+        ErrorAssert.isTure(name != null && !name.trim().isEmpty(), BizBaseErrorEnum.PARAM_ERROR);
+        Integer id = livingCategoryRpc.addCategory(name, icon, sort);
+        ErrorAssert.isTure(id != null, BizBaseErrorEnum.PARAM_ERROR);
+        return WebResponseVO.success(java.util.Map.of("id", id));
+    }
+
+    @PostMapping("/category/update")
+    public WebResponseVO categoryUpdate(Integer id, String name, String icon, Integer sort, Integer status) {
+        ErrorAssert.isNotNull(id, BizBaseErrorEnum.PARAM_ERROR);
+        return WebResponseVO.success(livingCategoryRpc.updateCategory(id, name, icon, sort, status));
+    }
 }
