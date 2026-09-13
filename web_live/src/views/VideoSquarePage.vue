@@ -295,7 +295,8 @@ async function switchTag(tagId) {
     setupObserver()
   } else {
     const vo = await listVideos(tagId, 1, 20)
-    videos.value = vo.data?.list || []
+    // /video/list 的 data 是数组（非 PageWrapper）
+    videos.value = Array.isArray(vo.data) ? vo.data : (vo.data?.list || [])
   }
 }
 

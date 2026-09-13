@@ -373,8 +373,10 @@ async function doCastVote(idx) {
 async function loadCurrentVote() {
   try {
     const vo = await currentVote(roomId.value)
-    if (vo.data && new Date(vo.data.endTime) > new Date()) {
-      voteActive.value = { ...JSON.parse(vo.data), voted: -1 }
+    // 后端返回的是上下文 JSON 字符串，需先解析
+    const ctx = typeof vo.data === 'string' ? JSON.parse(vo.data) : vo.data
+    if (ctx && new Date(ctx.endTime) > new Date()) {
+      voteActive.value = { ...ctx, voted: -1 }
     }
   } catch { /* 无投票 */ }
 }
