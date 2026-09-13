@@ -1,0 +1,24 @@
+/* 旗鱼运营台 · 设计 token
+   方向：浅色高效运营风（刻意与 C 端暗色娱乐风区分）
+   底色暖白 / 主色深青 / 告警红 / 墨黑文字 / 数字等宽（查账场景） */
+:root {
+  --bg: #FAFAF7;
+  --surface: #FFFFFF;
+  --ink: #1A1D1F;
+  --ink-2: #6B7280;
+  --line: #E7E7E1;
+  --brand: #0F6B5C;
+  --brand-weak: #E5F1EE;
+  --danger: #C0392B;
+  --mono: 'JetBrains Mono', 'Cascadia Mono', Consolas, monospace;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  font-size: 14px;
+}
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+a { color: var(--brand); text-decoration: none; }

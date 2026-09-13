@@ -250,6 +250,52 @@ public class VideoServiceImpl implements IVideoService {
     }
 
     @Override
+    public PageWrapper<VideoDTO> adminListVideos(int page, int pageSize) {
+        Page<VideoInfoPO> poPage = videoInfoMapper.selectPage(
+                new Page<>(Math.max(page, 1), Math.min(Math.max(pageSize, 1), PAGE_SIZE_MAX)),
+                new LambdaQueryWrapper<VideoInfoPO>().ne(VideoInfoPO::getStatus, STATUS_DELETED)
+                        .orderByDesc(VideoInfoPO::getId));
+        PageWrapper<VideoDTO> wrapper = new PageWrapper<>();
+        wrapper.setList(enrich(poPage.getRecords(), null));
+        wrapper.setHasNext(poPage.getCurrent() * poPage.getSize() < poPage.getTotal());
+        return wrapper;
+    }
+
+    @Override
+    public boolean setVideoStatus(Long videoId, int status) {
+        VideoInfoPO po = new VideoInfoPO();
+        po.setId(videoId);
+        po.setStatus(status);
+        return videoInfoMapper.updateById(po) > 0;
+    }
+
+    @Override
+    public Integer addTag(String tagName) {
+        VideoTagPO po = new VideoTagPO();
+        po.setTagName(tagName);
+        po.setSort(99);
+        po.setStatus(STATUS_ONLINE);
+        videoTagMapper.insert(po);
+        return po.getId();
+    }
+
+    @Override
+    public boolean renameTag(Integer tagId, String tagName) {
+        VideoTagPO po = new VideoTagPO();
+        po.setId(tagId);
+        po.setTagName(tagName);
+        return videoTagMapper.updateById(po) > 0;
+    }
+
+    @Override
+    public boolean deleteTag(Integer tagId) {
+        VideoTagPO po = new VideoTagPO();
+        po.setId(tagId);
+        po.setStatus(STATUS_DELETED);
+        return videoTagMapper.updateById(po) > 0;
+    }
+
+    @Override
     public void recordHistory(Long userId, Long videoId) {
         org.qiyu.live.video.provider.dao.po.VideoWatchHistoryPO exist = watchHistoryMapper.selectOne(
                 new LambdaQueryWrapper<org.qiyu.live.video.provider.dao.po.VideoWatchHistoryPO>()

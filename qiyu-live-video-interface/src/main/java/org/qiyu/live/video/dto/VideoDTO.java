@@ -33,6 +33,17 @@ public class VideoDTO implements Serializable {
     private Long shareCount;
     private Long commentCount;
     /** 当前登录用户是否已赞/已藏（查询时按需 enrich） */
+    /** 视频状态（1上架 0下架），管理端展示与操作用 */
+    private Integer status;
+
+    public Integer getStatus() {
+        return status;
+    }
+
+    public void setStatus(Integer status) {
+        this.status = status;
+    }
+
     private Boolean liked;
     private Boolean favorited;
     private Date createTime;

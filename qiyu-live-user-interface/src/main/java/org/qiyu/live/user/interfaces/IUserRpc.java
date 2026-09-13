@@ -44,4 +44,9 @@ public interface IUserRpc {
      * @return
      */
     Map<Long,UserDTO> batchQueryUserInfo(List<Long> userIdList);
+
+    /**
+     * 管理端用户列表（keyword 模糊匹配昵称/userId，分页）
+     */
+    List<UserDTO> listUsers(String keyword, int page, int pageSize);
 }

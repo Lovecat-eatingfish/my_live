@@ -22,4 +22,9 @@ public interface IReconciliationService {
      * @param bizDate 为空则查全部日期
      */
     List<ReconciliationDetailPO> listDetails(String bizDate, int page, int pageSize);
+
+    /**
+     * 标记差错已处理
+     */
+    boolean markProcessed(Long id, String remark);
 }

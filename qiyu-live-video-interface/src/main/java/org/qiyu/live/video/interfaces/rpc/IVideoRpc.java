@@ -55,4 +55,21 @@ public interface IVideoRpc {
 
     /** 我点赞/收藏的视频（actionType: 1赞 2藏） */
     PageWrapper<VideoDTO> listByAction(Long userId, int actionType, int page, int pageSize);
+
+    // ==================== 管理端 ====================
+
+    /** 管理端视频列表（含未上架，adminView=true 时不过滤状态） */
+    PageWrapper<VideoDTO> adminListVideos(int page, int pageSize);
+
+    /** 上架/下架视频（status: 1上架 0下架） */
+    boolean setVideoStatus(Long videoId, int status);
+
+    /** 新增标签，返回标签id */
+    Integer addTag(String tagName);
+
+    /** 重命名标签 */
+    boolean renameTag(Integer tagId, String tagName);
+
+    /** 删除标签 */
+    boolean deleteTag(Integer tagId);
 }

@@ -43,4 +43,9 @@ public class ReconciliationRpcImpl implements IReconciliationRpc {
     public int triggerReconcile(String bizDate) {
         return reconciliationService.reconcileDay(bizDate);
     }
+
+    @Override
+    public boolean markProcessed(Long id, String remark) {
+        return reconciliationService.markProcessed(id, remark);
+    }
 }

@@ -237,6 +237,15 @@ public class ReconciliationServiceImpl implements IReconciliationService {
         return reconMapper.selectList(wrapper);
     }
 
+    @Override
+    public boolean markProcessed(Long id, String remark) {
+        ReconciliationDetailPO po = new ReconciliationDetailPO();
+        po.setId(id);
+        po.setStatus(1);
+        po.setRemark(remark);
+        return reconMapper.updateById(po) > 0;
+    }
+
     private static class OrderSide {
         String orderId;
         Long userId;

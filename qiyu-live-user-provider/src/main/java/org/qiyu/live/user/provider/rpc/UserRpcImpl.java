@@ -39,4 +39,9 @@ public class UserRpcImpl implements IUserRpc {
     public Map<Long, UserDTO> batchQueryUserInfo(List<Long> userIdList) {
         return userService.batchQueryUserInfo(userIdList);
     }
+
+    @Override
+    public java.util.List<UserDTO> listUsers(String keyword, int page, int pageSize) {
+        return userService.listUsers(keyword, page, pageSize);
+    }
 }

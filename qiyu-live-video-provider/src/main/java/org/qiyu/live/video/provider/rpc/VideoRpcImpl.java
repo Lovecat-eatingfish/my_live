@@ -76,6 +76,31 @@ public class VideoRpcImpl implements IVideoRpc {
     }
 
     @Override
+    public org.qiyu.live.common.interfaces.dto.PageWrapper<org.qiyu.live.video.dto.VideoDTO> adminListVideos(int page, int pageSize) {
+        return videoService.adminListVideos(page, pageSize);
+    }
+
+    @Override
+    public boolean setVideoStatus(Long videoId, int status) {
+        return videoService.setVideoStatus(videoId, status);
+    }
+
+    @Override
+    public Integer addTag(String tagName) {
+        return videoService.addTag(tagName);
+    }
+
+    @Override
+    public boolean renameTag(Integer tagId, String tagName) {
+        return videoService.renameTag(tagId, tagName);
+    }
+
+    @Override
+    public boolean deleteTag(Integer tagId) {
+        return videoService.deleteTag(tagId);
+    }
+
+    @Override
     public void recordHistory(Long userId, Long videoId) {
         videoService.recordHistory(userId, videoId);
     }

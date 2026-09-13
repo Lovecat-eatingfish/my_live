@@ -135,7 +135,7 @@
     </dependencies>
 
     <build>
-        <finalName>qiyu-live-user-provider-docker</finalName>
+        <finalName>${artifactId}</finalName>
         <plugins>
             <plugin>
                 <groupId>com.spotify</groupId>

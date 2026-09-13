@@ -45,4 +45,19 @@ public interface IVideoService {
 
     /** 我点赞/收藏的视频（actionType: 1赞 2藏） */
     PageWrapper<VideoDTO> listByAction(Long userId, int actionType, int page, int pageSize);
+
+    /** 管理端视频列表（含下架） */
+    PageWrapper<VideoDTO> adminListVideos(int page, int pageSize);
+
+    /** 上架/下架视频 */
+    boolean setVideoStatus(Long videoId, int status);
+
+    /** 新增标签，返回id */
+    Integer addTag(String tagName);
+
+    /** 重命名标签 */
+    boolean renameTag(Integer tagId, String tagName);
+
+    /** 删除标签 */
+    boolean deleteTag(Integer tagId);
 }

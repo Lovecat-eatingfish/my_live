@@ -43,4 +43,9 @@ public interface IUserService {
      * @return
      */
     Map<Long,UserDTO> batchQueryUserInfo(List<Long> userIdList);
+
+    /**
+     * 管理端用户列表（keyword 模糊匹配昵称，分页）
+     */
+    java.util.List<UserDTO> listUsers(String keyword, int page, int pageSize);
 }

@@ -24,4 +24,9 @@ public interface IReconciliationRpc {
      * @return 本日发现差错条数
      */
     int triggerReconcile(String bizDate);
+
+    /**
+     * 标记差错已处理（运营台用）
+     */
+    boolean markProcessed(Long id, String remark);
 }

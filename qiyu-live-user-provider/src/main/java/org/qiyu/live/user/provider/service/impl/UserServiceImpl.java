@@ -100,6 +100,25 @@ public class UserServiceImpl implements IUserService {
     }
 
     @Override
+    public java.util.List<UserDTO> listUsers(String keyword, int page, int pageSize) {
+        com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<org.qiyu.live.user.provider.dao.po.UserPO> wrapper =
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
+        if (keyword != null && !keyword.isEmpty()) {
+            boolean numeric = keyword.chars().allMatch(Character::isDigit);
+            // 数字优先按userId精确，其次昵称模糊
+            if (numeric) {
+                wrapper.and(w -> w.eq(org.qiyu.live.user.provider.dao.po.UserPO::getUserId, Long.parseLong(keyword))
+                        .or().like(org.qiyu.live.user.provider.dao.po.UserPO::getNickName, keyword));
+            } else {
+                wrapper.like(org.qiyu.live.user.provider.dao.po.UserPO::getNickName, keyword);
+            }
+        }
+        wrapper.orderByDesc(org.qiyu.live.user.provider.dao.po.UserPO::getUserId);
+        wrapper.last(String.format("limit %d,%d", Math.max(page - 1, 0) * pageSize, pageSize));
+        return org.qiyu.live.common.interfaces.utils.ConvertBeanUtils.convertList(userMapper.selectList(wrapper), UserDTO.class);
+    }
+
+    @Override
     public Map<Long, UserDTO> batchQueryUserInfo(List<Long> userIdList) {
         if (CollectionUtils.isEmpty(userIdList)) {
             return Maps.newHashMap();
