@@ -13,3 +13,4 @@
 | [archive/iterations-2026-09.md](archive/iterations-2026-09.md) | 2026-09 两轮迭代的设计文档归档（体验完善版 + 后台管理系统版） | 归档 |
 | [archive/todo-origin.md](archive/todo-origin.md) | 项目最初的需求原文（语音转文字，全部已实施） | 归档 |
 | [roadmap-features-2026-09-13.md](roadmap-features-2026-09-13.md) | 产品功能完善路线图（对标 B 站/抖音，下一版规划的输入） | 规划中 |
+| [roadmap-impl-plan-2026-09-13.md](roadmap-impl-plan-2026-09-13.md) | 路线图的执行版计划：已做完项裁剪、矛盾裁定、批次零~五实现细节与验证方式，随进度回填 | 执行中 |
