@@ -166,3 +166,20 @@ CREATE TABLE t_video_watch_history (
 3. `feat: 视频观看历史 + 个人中心四tab`
 4. `feat: 后台管理系统（admin-api + web_admin：对账/标签/用户/内容/直播）`
 5. `feat: 前端视觉重设计（C端深海旗鱼主题 + 管理端运营台）`
+
+---
+
+## 八、实施结果（2026-09-13 全部完成）
+
+| 需求 | 提交 | 验证 |
+|------|------|------|
+| ⑥ 主播刷新不关播 | `da9b9b7` | 三场景 E2E 全过（`scripts/refresh_no_close_test.mjs`）：无推流超时关播 / 30s内重连继续 / OBS推流存活继续；新增「回到我的直播间」入口 |
+| ⑤ 带货联动 | 见 git log | 无商品开播被拦（code 10112 引导文案）；上架后开播成功；开播弹窗选带货自动校验并引导 |
+| ③ 视频个人中心 | `f345904` | 播放≥3秒自动记录历史；四tab数据正确；头像改下拉菜单 |
+| ①② 后台管理系统 | `f725c17` | admin-api(38300)+web_admin(3001) 独立登录；对账中心「账实差值」大数字卡+标记处理闭环；标签CRUD同步C端；视频下架C端立即不可见；强制关播可用。管理员 admin/admin123 |
+| ④ 视觉重设计 | 见 git log | 「深海旗鱼」主题 token 落地（theme.css），全部页面换深海色阶+银蓝主色，房间顶栏鱼群游动签名动效，数字等宽，开播按钮高能渐变 |
+
+### 部署备忘
+- 新服务：qiyu-live-admin-api（端口 38300，jar 启动；web_admin 开发 `cd web_admin && npm run dev` 端口 3001）
+- 管理员账号：admin / admin123（t_admin_user 表，qiyu_live_common 库）
+- 注意：admin-api 依赖各 interface 的最新 SNAPSHOT，改过接口后需先 `mvn install` 对应 interface 再 package admin-api（曾因旧 jar 打包导致 status 字段丢失）
