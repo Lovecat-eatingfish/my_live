@@ -125,8 +125,8 @@ onMounted(loadList)
   align-items: center;
   gap: 16px;
   padding: 14px 24px;
-  background: #161625;
-  border-bottom: 1px solid #222;
+  background: var(--sq-deep);
+  border-bottom: 1px solid var(--sq-line);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -141,15 +141,15 @@ onMounted(loadList)
 .stat-row { display: flex; gap: 16px; margin-bottom: 20px; }
 .stat-card {
   flex: 1;
-  background: #1a1a2e;
-  border: 1px solid #26263a;
+  background: var(--sq-card);
+  border: 1px solid var(--sq-line);
   border-radius: 10px;
   padding: 18px 20px;
   text-align: center;
 }
 .stat-card.danger { border-color: rgba(245, 108, 108, 0.4); }
 .stat-card.warn { border-color: rgba(230, 162, 60, 0.4); }
-.stat-num { font-size: 28px; font-weight: bold; color: #fff; }
+.stat-num { font-family: var(--sq-font-mono); font-size: 28px; font-weight: bold; color: #fff; }
 .stat-card.danger .stat-num { color: #f56c6c; }
 .stat-card.warn .stat-num { color: #e6a23c; }
 .stat-label { font-size: 12px; color: #888; margin-top: 6px; }
@@ -166,7 +166,7 @@ onMounted(loadList)
 .recon-table {
   background: transparent;
 }
-:deep(.el-table) { --el-table-bg-color: #161625; --el-table-tr-bg-color: #161625;
-  --el-table-header-bg-color: #1e1e2e; --el-table-row-hover-bg-color: #20203a;
-  --el-table-border-color: #26263a; color: #ccc; }
+:deep(.el-table) { --el-table-bg-color: var(--sq-deep); --el-table-tr-bg-color: var(--sq-deep);
+  --el-table-header-bg-color: var(--sq-card); --el-table-row-hover-bg-color: #20203a;
+  --el-table-border-color: var(--sq-line); color: #ccc; }
 </style>

@@ -76,11 +76,11 @@ async function toggle(sku) {
 .sku-list { max-height: 380px; overflow-y: auto; }
 .sku-item {
   display: flex; align-items: center; gap: 12px;
-  padding: 10px 12px; border: 1px solid #26263a; border-radius: 10px;
+  padding: 10px 12px; border: 1px solid var(--sq-line); border-radius: 10px;
   margin-bottom: 8px; cursor: pointer; transition: border-color 0.15s;
 }
-.sku-item:hover { border-color: #667eea; }
-.sku-icon { width: 42px; height: 42px; border-radius: 8px; object-fit: cover; background: #1a1a2e; }
+.sku-item:hover { border-color: var(--sq-blue); }
+.sku-icon { width: 42px; height: 42px; border-radius: 8px; object-fit: cover; background: var(--sq-card); }
 .sku-info { flex: 1; }
 .sku-name { font-size: 14px; color: #eee; }
 .sku-price { font-size: 13px; color: #ffd700; margin-top: 2px; }

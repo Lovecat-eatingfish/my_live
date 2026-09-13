@@ -185,12 +185,12 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.video-detail-page { min-height: 100vh; background: #0a0a0a; color: #fff; }
+.video-detail-page { min-height: 100vh; background: var(--sq-abyss); color: #fff; }
 .nav-bar {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 20px; background: #161625; border-bottom: 1px solid #222;
+  padding: 14px 20px; background: var(--sq-deep); border-bottom: 1px solid var(--sq-line);
 }
-.back { color: #667eea; cursor: pointer; }
+.back { color: var(--sq-blue); cursor: pointer; }
 .title { font-size: 16px; font-weight: bold; }
 .balance-chip {
   display: inline-flex; align-items: center; gap: 4px;
@@ -206,34 +206,34 @@ onMounted(async () => {
 .video-title { font-size: 20px; margin: 16px 0 10px; }
 .meta-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .author-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
-.author { color: #667eea; font-size: 14px; }
+.author { color: var(--sq-blue); font-size: 14px; }
 .publish-time { color: #555; font-size: 12px; }
 
 .action-row { display: flex; gap: 14px; margin-bottom: 16px; }
 .action-btn {
-  background: #1e1e2e; border: 1px solid #2c2c44; color: #ddd;
+  background: var(--sq-card); border: 1px solid #2c2c44; color: #ddd;
   padding: 8px 18px; border-radius: 20px; cursor: pointer; font-size: 14px;
   transition: all 0.2s;
 }
-.action-btn:hover { border-color: #667eea; }
+.action-btn:hover { border-color: var(--sq-blue); }
 .action-btn.active { color: #ffd700; border-color: #ffd700; }
 .desc { color: #999; font-size: 14px; line-height: 1.7; margin-bottom: 20px; }
 
-.comment-section { border-top: 1px solid #222; padding-top: 18px; }
+.comment-section { border-top: 1px solid var(--sq-line); padding-top: 18px; }
 .comment-title { font-size: 15px; margin-bottom: 14px; }
 .comment-input-row { display: flex; gap: 10px; margin-bottom: 20px; }
 .comment-input {
-  flex: 1; padding: 10px 14px; border: 1px solid #333; border-radius: 20px;
-  background: #1a1a2e; color: #fff; font-size: 14px; outline: none;
+  flex: 1; padding: 10px 14px; border: 1px solid var(--sq-line); border-radius: 20px;
+  background: var(--sq-card); color: #fff; font-size: 14px; outline: none;
 }
-.comment-input:focus { border-color: #667eea; }
+.comment-input:focus { border-color: var(--sq-blue); }
 .comment-input::placeholder { color: #555; }
 .comment-list { display: flex; flex-direction: column; gap: 16px; }
 .comment-item { display: flex; gap: 10px; align-items: flex-start; }
 .comment-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
 .comment-body { flex: 1; }
 .comment-meta { display: flex; gap: 10px; align-items: center; margin-bottom: 4px; }
-.comment-name { font-size: 13px; color: #667eea; }
+.comment-name { font-size: 13px; color: var(--sq-blue); }
 .comment-time { font-size: 12px; color: #555; }
 .comment-del { font-size: 12px; color: #f56c6c; cursor: pointer; }
 .comment-content { font-size: 14px; color: #ccc; line-height: 1.5; }

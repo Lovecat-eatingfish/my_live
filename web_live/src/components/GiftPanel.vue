@@ -84,7 +84,7 @@ function handleConfirm() {
   background: #0f0f1a;
 }
 .gift-item:hover { background: rgba(102,126,234,0.1); }
-.gift-item.selected { border-color: #667eea; background: rgba(102,126,234,0.15); }
+.gift-item.selected { border-color: var(--sq-blue); background: rgba(102,126,234,0.15); }
 .gift-img { width: 52px; height: 52px; object-fit: contain; margin-bottom: 6px; }
 .gift-name { font-size: 12px; color: #ddd; margin-bottom: 2px; text-align: center; }
 .gift-price { font-size: 11px; color: #ffd700; }

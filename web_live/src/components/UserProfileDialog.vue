@@ -102,19 +102,19 @@ async function handleSave() {
 <style scoped>
 .profile-form { padding: 4px 2px; }
 .avatar-row { display: flex; align-items: center; gap: 16px; }
-.avatar-preview { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; border: 1px solid #333; }
+.avatar-preview { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; border: 1px solid var(--sq-line); }
 .field-label { font-size: 13px; color: #8a8aa0; margin: 18px 0 8px; }
 .nick-input {
   width: 100%;
   padding: 10px 14px;
-  border: 1px solid #333;
+  border: 1px solid var(--sq-line);
   border-radius: 10px;
-  background: #1a1a2e;
+  background: var(--sq-card);
   color: #fff;
   font-size: 14px;
   outline: none;
   box-sizing: border-box;
 }
-.nick-input:focus { border-color: #667eea; }
+.nick-input:focus { border-color: var(--sq-blue); }
 .nick-input::placeholder { color: #555; }
 </style>

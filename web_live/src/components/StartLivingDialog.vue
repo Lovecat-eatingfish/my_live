@@ -163,7 +163,7 @@ defineExpose({ finish, fail })
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  border: 1px dashed #3a3a55;
+  border: 1px dashed var(--sq-line);
   border-radius: 12px;
   overflow: hidden;
   cursor: pointer;
@@ -173,7 +173,7 @@ defineExpose({ finish, fail })
   align-items: center;
   justify-content: center;
 }
-.cover-upload:hover { border-color: #667eea; }
+.cover-upload:hover { border-color: var(--sq-blue); }
 .cover-preview { width: 100%; height: 100%; object-fit: cover; display: block; }
 .cover-empty { text-align: center; color: #555; }
 .cover-empty-icon { font-size: 34px; margin-bottom: 8px; }
@@ -188,21 +188,21 @@ defineExpose({ finish, fail })
 .name-input {
   width: 100%;
   padding: 10px 14px;
-  border: 1px solid #333;
+  border: 1px solid var(--sq-line);
   border-radius: 10px;
-  background: #1a1a2e;
+  background: var(--sq-card);
   color: #fff;
   font-size: 14px;
   outline: none;
   box-sizing: border-box;
 }
-.name-input:focus { border-color: #667eea; }
+.name-input:focus { border-color: var(--sq-blue); }
 .name-input::placeholder { color: #555; }
 .name-count { text-align: right; font-size: 12px; color: #555; margin-top: 4px; }
 .type-options { display: flex; gap: 10px; margin-bottom: 6px; }
 .type-option {
   padding: 7px 18px;
-  border: 1px solid #333;
+  border: 1px solid var(--sq-line);
   border-radius: 18px;
   font-size: 13px;
   color: #999;
@@ -210,7 +210,7 @@ defineExpose({ finish, fail })
   transition: all 0.15s;
   user-select: none;
 }
-.type-option:hover { border-color: #667eea; color: #ccc; }
-.type-option.active { background: linear-gradient(135deg, #667eea, #764ba2); border-color: #667eea; color: #fff; }
+.type-option:hover { border-color: var(--sq-blue); color: #ccc; }
+.type-option.active { background: linear-gradient(135deg, var(--sq-blue), #764ba2); border-color: var(--sq-blue); color: #fff; }
 .form-hint { font-size: 12px; color: #666; margin-top: 14px; line-height: 1.6; }
 </style>

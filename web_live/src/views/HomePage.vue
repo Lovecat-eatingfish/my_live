@@ -23,7 +23,7 @@
             <span class="coin-icon">🪙</span>{{ formatBalance }}
           </span>
           <el-button v-if="userStore.userInfo.showStartLivingBtn" size="small" @click="shopManageVisible = true">商品</el-button>
-          <el-button v-if="userStore.userInfo.showStartLivingBtn" size="small" type="success" @click="startVisible = true">开播</el-button>
+          <el-button v-if="userStore.userInfo.showStartLivingBtn" size="small" class="start-btn" @click="startVisible = true">开播</el-button>
           <el-button v-if="livingRoomId" size="small" type="warning" @click="$router.push(`/room/${livingRoomId}`)">回到我的直播间</el-button>
           <el-button size="small" @click="$router.push('/wallet')">钱包</el-button>
           <el-button size="small" @click="$router.push('/recon')">对账</el-button>
@@ -119,7 +119,7 @@ async function handleAvatarCommand(cmd) {
   else if (cmd === 'profile') profileVisible.value = true
 }
 
-function refreshMyLivingRoom() {
+async function refreshMyLivingRoom() {
   try {
     const vo = await myLivingRoom()
     livingRoomId.value = vo.data || null
@@ -152,12 +152,12 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.home-page { min-height: 100vh; background: #0a0a0a; }
+.home-page { min-height: 100vh; background: var(--sq-abyss); }
 .nav-bar {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 16px 32px; background: #161625; border-bottom: 1px solid #222;
+  padding: 16px 32px; background: var(--sq-deep); border-bottom: 1px solid var(--sq-line);
 }
-.logo { font-size: 20px; font-weight: bold; color: #667eea; }
+.logo { font-size: 20px; font-weight: bold; font-family: var(--sq-font-display); letter-spacing: 0.5px; color: var(--sq-blue); }
 .nav-tab {
   font-size: 15px; color: #888; cursor: pointer; padding: 4px 6px;
   border-radius: 6px; transition: color 0.2s;
@@ -167,7 +167,7 @@ onMounted(async () => {
 .nav-right { display: flex; align-items: center; gap: 12px; }
 .avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
 .nickname { color: #ddd; font-size: 14px; }
-.balance-chip {
+.balance-chip { font-family: var(--sq-font-mono);
   display: inline-flex; align-items: center; gap: 4px;
   background: linear-gradient(135deg, #3a2c00, #4a3a00);
   border: 1px solid #7a5c00; color: #ffd700;
@@ -180,14 +180,14 @@ onMounted(async () => {
 .filter-bar { display: flex; gap: 16px; padding: 20px 32px; }
 .type-tag {
   padding: 6px 18px; border-radius: 20px; cursor: pointer; font-size: 14px;
-  color: #888; background: #1e1e2e; transition: all 0.2s;
+  color: #888; background: var(--sq-card); transition: all 0.2s;
 }
-.type-tag.active { background: #667eea; color: #fff; }
+.type-tag.active { background: var(--sq-blue); color: #fff; }
 .room-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 20px; padding: 0 32px 40px;
 }
-.room-card { background: #161625; border-radius: 12px; overflow: hidden; cursor: pointer; transition: transform 0.2s; }
+.room-card { background: var(--sq-deep); border-radius: 12px; overflow: hidden; cursor: pointer; transition: transform 0.2s; }
 .room-card:hover { transform: translateY(-4px); }
 .cover-wrap { position: relative; }
 .cover { width: 100%; height: 140px; object-fit: cover; display: block; }
@@ -198,4 +198,15 @@ onMounted(async () => {
 .room-name { font-size: 14px; color: #ddd; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .anchor-info { font-size: 12px; color: #666; }
 .empty { grid-column: 1/-1; text-align: center; color: #444; padding: 60px 0; }
+</style>
+
+<style>
+/* 高能动作专用渐变按钮（开播） */
+.start-btn {
+  border: none !important;
+  background: var(--sq-energetic) !important;
+  color: #fff !important;
+  font-weight: bold;
+}
+.start-btn:hover { filter: brightness(1.12); }
 </style>

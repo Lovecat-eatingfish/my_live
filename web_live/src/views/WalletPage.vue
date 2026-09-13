@@ -114,25 +114,25 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.wallet-page { min-height: 100vh; background: #0a0a0a; color: #fff; }
+.wallet-page { min-height: 100vh; background: var(--sq-abyss); color: #fff; }
 .nav-bar {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 20px; background: #161625; border-bottom: 1px solid #222;
+  padding: 14px 20px; background: var(--sq-deep); border-bottom: 1px solid var(--sq-line);
 }
-.back-btn { color: #667eea; cursor: pointer; }
+.back-btn { color: var(--sq-blue); cursor: pointer; }
 .title { font-size: 16px; font-weight: bold; }
 .balance { color: #ffd700; font-size: 14px; }
 .content { max-width: 720px; margin: 0 auto; padding: 24px 20px 60px; }
 
 .balance-card {
-  background: linear-gradient(135deg, #2b2350, #1a1a2e);
+  background: linear-gradient(135deg, #2b2350, var(--sq-card));
   border: 1px solid #3d3768;
   border-radius: 16px;
   padding: 28px 32px;
   text-align: center;
 }
 .balance-label { font-size: 13px; color: #8a8aa0; }
-.balance-num { font-size: 40px; font-weight: bold; color: #ffd700; margin: 8px 0; }
+.balance-num { font-family: var(--sq-font-mono); font-size: 40px; font-weight: bold; color: #ffd700; margin: 8px 0; }
 .balance-sub { font-size: 12px; color: #666; }
 
 .section-title { font-size: 14px; color: #888; margin: 28px 0 16px; }
@@ -141,11 +141,11 @@ onMounted(async () => {
 }
 .product-card {
   position: relative;
-  background: #1e1e2e; border: 2px solid transparent; border-radius: 14px;
+  background: var(--sq-card); border: 2px solid transparent; border-radius: 14px;
   padding: 22px 12px 18px; text-align: center; cursor: pointer; transition: all 0.2s;
 }
-.product-card:hover { border-color: #667eea; }
-.product-card.selected { border-color: #667eea; background: rgba(102,126,234,0.15); }
+.product-card:hover { border-color: var(--sq-blue); }
+.product-card.selected { border-color: var(--sq-blue); background: rgba(102,126,234,0.15); }
 .recommend-badge {
   position: absolute; top: -1px; right: -1px;
   background: linear-gradient(135deg, #ff7a45, #f5222d);

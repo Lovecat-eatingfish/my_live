@@ -1,0 +1,41 @@
+/**
+ * 旗鱼直播 C 端设计 token —— 主题「深海旗鱼」
+ *
+ * 设计说明（frontend-design 两遍法的第一遍定稿）：
+ * - 底色不用纯黑，用带蓝的深海色阶（#0A1120 → #101A2E），像旗鱼巡游的水层
+ * - 主强调色是旗鱼侧线的银蓝 #5EA8FF，只用于"活"的元素：在线状态、聚焦、进度
+ * - 高能动作（开播/送礼/发布）才给流光渐变，普通按钮保持安静
+ * - 数字（余额/人气/计数）用等宽字体，表格与计数对齐不跳动
+ * - 签名元素：viewer-chip 的鱼群游动点阵 + 卡片 hover 的轻微游动位移
+ */
+:root {
+  /* 深海色阶 */
+  --sq-abyss: #0a1120;      /* 页面底 */
+  --sq-deep: #101a2e;       /* 面板底 */
+  --sq-card: #15223a;       /* 卡片底 */
+  --sq-line: #1f3050;       /* 描边 */
+  --sq-text: #dde7f5;       /* 主文字（冷白） */
+  --sq-text-dim: #7d8ca6;   /* 次级文字 */
+  --sq-text-faint: #4a5a75; /* 弱文字 */
+
+  /* 旗鱼银蓝 */
+  --sq-blue: #5ea8ff;
+  --sq-blue-deep: #2f6fd8;
+  --sq-blue-soft: rgba(94, 168, 255, 0.14);
+
+  /* 语义色 */
+  --sq-gold: #ffd166;       /* 金币/余额 */
+  --sq-red: #ff5d6c;        /* 直播中/错误 */
+  --sq-green: #3ddc97;      /* 成功 */
+  --sq-warn: #ffb454;       /* 警告 */
+
+  /* 高能渐变（开播/送礼/发布专用） */
+  --sq-energetic: linear-gradient(135deg, #5ea8ff 0%, #7c6aff 100%);
+
+  /* 字体 */
+  --sq-font-display: 'HarmonyOS Sans SC', 'MiSans', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --sq-font-mono: 'JetBrains Mono', 'Cascadia Mono', Consolas, monospace;
+
+  --sq-radius: 12px;
+  --sq-radius-sm: 8px;
+}

@@ -116,13 +116,13 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.video-square { min-height: 100vh; background: #0a0a0a; color: #fff; }
+.video-square { min-height: 100vh; background: var(--sq-abyss); color: #fff; }
 .nav-bar {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 16px 32px; background: #161625; border-bottom: 1px solid #222;
+  padding: 16px 32px; background: var(--sq-deep); border-bottom: 1px solid var(--sq-line);
 }
 .nav-left { display: flex; align-items: center; gap: 18px; }
-.logo { font-size: 20px; font-weight: bold; color: #667eea; }
+.logo { font-size: 20px; font-weight: bold; color: var(--sq-blue); }
 .nav-tab { font-size: 15px; color: #888; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
 .nav-tab:hover { color: #ddd; }
 .nav-tab.active { color: #fff; font-weight: bold; }
@@ -142,18 +142,18 @@ onMounted(async () => {
 .filter-spacer { flex: 1; }
 .type-tag {
   padding: 6px 18px; border-radius: 20px; cursor: pointer; font-size: 14px;
-  color: #888; background: #1e1e2e; transition: all 0.2s;
+  color: #888; background: var(--sq-card); transition: all 0.2s;
 }
-.type-tag.active { background: #667eea; color: #fff; }
+.type-tag.active { background: var(--sq-blue); color: #fff; }
 
 .video-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 20px; padding: 0 32px 40px;
 }
-.video-card { background: #161625; border-radius: 12px; overflow: hidden; cursor: pointer; transition: transform 0.2s; }
+.video-card { background: var(--sq-deep); border-radius: 12px; overflow: hidden; cursor: pointer; transition: transform 0.2s; }
 .video-card:hover { transform: translateY(-4px); }
 .cover-wrap { position: relative; }
-.cover { width: 100%; height: 150px; object-fit: cover; display: block; background: #1a1a2e; }
+.cover { width: 100%; height: 150px; object-fit: cover; display: block; background: var(--sq-card); }
 .duration {
   position: absolute; bottom: 8px; right: 8px;
   background: rgba(0,0,0,0.7); color: #fff; font-size: 12px;
@@ -167,6 +167,6 @@ onMounted(async () => {
 .video-info { padding: 12px; }
 .video-title { font-size: 14px; color: #ddd; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .video-meta { display: flex; justify-content: space-between; font-size: 12px; color: #666; }
-.author { color: #667eea; }
+.author { color: var(--sq-blue); }
 .empty { grid-column: 1/-1; text-align: center; color: #444; padding: 60px 0; }
 </style>

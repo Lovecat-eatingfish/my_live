@@ -37,19 +37,19 @@ function handleSend() {
   gap: 8px;
   align-items: center;
   padding: 10px 12px;
-  border-top: 1px solid #222;
-  background: #161625;
+  border-top: 1px solid var(--sq-line);
+  background: var(--sq-deep);
 }
 .chat-input {
   flex: 1;
   padding: 8px 12px;
-  border: 1px solid #333;
+  border: 1px solid var(--sq-line);
   border-radius: 20px;
-  background: #1a1a2e;
+  background: var(--sq-card);
   color: #fff;
   font-size: 14px;
   outline: none;
 }
-.chat-input:focus { border-color: #667eea; }
+.chat-input:focus { border-color: var(--sq-blue); }
 .chat-input::placeholder { color: #555; }
 </style>

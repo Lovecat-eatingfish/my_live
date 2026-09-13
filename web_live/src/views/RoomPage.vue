@@ -726,7 +726,7 @@ onUnmounted(() => {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #0a0a0a;
+  background: var(--sq-abyss);
   color: #fff;
   overflow: hidden;
 }
@@ -736,17 +736,17 @@ onUnmounted(() => {
   align-items: center;
   gap: 16px;
   padding: 10px 16px;
-  background: #161625;
-  border-bottom: 1px solid #222;
+  background: var(--sq-deep);
+  border-bottom: 1px solid var(--sq-line);
   flex-shrink: 0;
 }
-.back { color: #667eea; cursor: pointer; font-size: 14px; }
+.back { color: var(--sq-blue); cursor: pointer; font-size: 14px; }
 .anchor-info { display: flex; align-items: center; gap: 10px; flex: 1; }
 .anchor-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
 .room-name { font-size: 15px; font-weight: bold; }
 .anchor-name { font-size: 12px; color: #888; }
 .top-actions { display: flex; gap: 10px; align-items: center; }
-.balance-chip {
+.balance-chip { font-family: var(--sq-font-mono);
   display: inline-flex; align-items: center; gap: 4px;
   background: linear-gradient(135deg, #3a2c00, #4a3a00);
   border: 1px solid #7a5c00; color: #ffd700;
@@ -761,8 +761,28 @@ onUnmounted(() => {
   border: 1px solid rgba(102, 126, 234, 0.4); color: #aab4ff;
   font-size: 13px; padding: 4px 12px; border-radius: 16px;
 }
-.viewer-dot { width: 7px; height: 7px; border-radius: 50%; background: #ff4d4f; animation: pulse 1.5s infinite; }
-@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+.viewer-dot {
+  width: 14px; height: 8px; position: relative;
+}
+/* 签名元素：鱼群游动——三个小鱼点依次穿行 */
+.viewer-dot::before, .viewer-dot::after {
+  content: ''; position: absolute; top: 50%; width: 5px; height: 5px;
+  border-radius: 50% 50% 50% 0; /* 鱼形：尾巴收尖 */
+  background: var(--sq-blue);
+  animation: fish-swim 2.6s linear infinite;
+}
+.viewer-dot::before { animation-delay: 0s; }
+.viewer-dot::after { width: 4px; height: 4px; opacity: 0.55; animation-delay: 0.5s; }
+@keyframes fish-swim {
+  0% { left: -4px; opacity: 0; transform: translateY(0); }
+  15% { opacity: 1; }
+  50% { transform: translateY(-2px); }
+  85% { opacity: 1; }
+  100% { left: 12px; opacity: 0; transform: translateY(1px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .viewer-dot::before, .viewer-dot::after { animation: none; opacity: 1; left: 3px; }
+}
 .coin-icon { font-size: 13px; }
 
 /* 三区主体：左视频 / 右聊天 */
@@ -790,18 +810,18 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   background: rgba(22, 22, 37, 0.92);
-  border-left: 1px solid #222;
+  border-left: 1px solid var(--sq-line);
   min-height: 0;
 }
 .chat-title {
   padding: 10px 14px;
   font-size: 13px;
   color: #8a8aa0;
-  border-bottom: 1px solid #222;
+  border-bottom: 1px solid var(--sq-line);
   flex-shrink: 0;
 }
 .chat-section { flex: 1; overflow: hidden; min-height: 0; }
-.chat-input-wrap { padding: 10px; border-top: 1px solid #222; flex-shrink: 0; }
+.chat-input-wrap { padding: 10px; border-top: 1px solid var(--sq-line); flex-shrink: 0; }
 .chat-input-wrap :deep(.chat-input-row) { border-top: none; background: transparent; padding: 0; }
 
 /* 底部功能条 */
@@ -809,14 +829,14 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   padding: 8px 16px;
-  background: #161625;
-  border-top: 1px solid #222;
+  background: var(--sq-deep);
+  border-top: 1px solid var(--sq-line);
   flex-shrink: 0;
 }
 .action-btns { display: flex; gap: 14px; }
 .action-btn {
   display: flex; align-items: center; gap: 6px;
-  background: #1e1e2e;
+  background: var(--sq-card);
   border: 1px solid #2c2c44;
   color: #ddd;
   font-size: 13px;
@@ -825,7 +845,7 @@ onUnmounted(() => {
   cursor: pointer;
   transition: all 0.2s;
 }
-.action-btn:hover { border-color: #667eea; color: #fff; }
+.action-btn:hover { border-color: var(--sq-blue); color: #fff; }
 .action-btn.gift:hover { border-color: #ff7a45; }
 .action-btn.redpacket:hover { border-color: #f5222d; }
 .action-btn.start { border-color: #2ba471; color: #6ee7b7; }
@@ -944,9 +964,9 @@ onUnmounted(() => {
 }
 .pk-side { flex: 1; font-size: 12px; }
 .pk-side span { display: block; margin-bottom: 3px; }
-.pk-progress { height: 6px; background: #333; border-radius: 3px; overflow: hidden; }
+.pk-progress { height: 6px; background: var(--sq-line); border-radius: 3px; overflow: hidden; }
 .pk-fill { height: 100%; transition: width 0.5s; }
-.pk-side.left .pk-fill { background: #667eea; }
+.pk-side.left .pk-fill { background: var(--sq-blue); }
 .pk-side.right .pk-fill { background: #f56c6c; margin-left: auto; }
 .pk-center { font-size: 12px; color: #888; flex-shrink: 0; }
 </style>

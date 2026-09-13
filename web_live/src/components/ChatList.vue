@@ -71,11 +71,11 @@ watch(() => props.messages.length, () => {
   align-items: center;
   margin-bottom: 2px;
 }
-.chat-name { font-size: 12px; color: #667eea; }
+.chat-name { font-size: 12px; color: var(--sq-blue); }
 .is-self .chat-name { color: #ffd700; }
 .chat-time { font-size: 11px; color: #555; }
 .chat-bubble {
-  background: #1e1e2e;
+  background: var(--sq-card);
   padding: 8px 12px;
   border-radius: 8px;
   font-size: 14px;

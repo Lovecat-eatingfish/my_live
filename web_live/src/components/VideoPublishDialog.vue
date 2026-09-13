@@ -224,16 +224,16 @@ async function handlePublish() {
 <style scoped>
 .publish-form { display: flex; flex-direction: column; gap: 14px; }
 .video-pick {
-  border: 1px dashed #3a3a55; border-radius: 12px;
+  border: 1px dashed var(--sq-line); border-radius: 12px;
   padding: 28px 0; text-align: center; cursor: pointer;
   background: #12121f; transition: border-color 0.2s;
 }
-.video-pick:hover { border-color: #667eea; }
+.video-pick:hover { border-color: var(--sq-blue); }
 .pick-icon { font-size: 32px; margin-bottom: 8px; }
 .pick-text { font-size: 14px; color: #888; }
 .pick-hint { font-size: 12px; color: #444; margin-top: 4px; }
 .video-done { font-size: 13px; color: #6ee7b7; background: #12241c; border-radius: 8px; padding: 12px 14px; }
-.re-pick { color: #667eea; cursor: pointer; margin-left: 8px; }
+.re-pick { color: var(--sq-blue); cursor: pointer; margin-left: 8px; }
 .cover-row { display: flex; align-items: center; gap: 12px; }
 .cover-thumb {
   width: 128px; height: 72px; object-fit: cover; border-radius: 8px;
@@ -245,15 +245,15 @@ async function handlePublish() {
 .cover-tip { font-size: 12px; color: #555; }
 .title-input {
   width: 100%; box-sizing: border-box;
-  padding: 10px 14px; border: 1px solid #333; border-radius: 10px;
-  background: #1a1a2e; color: #fff; font-size: 14px; outline: none;
+  padding: 10px 14px; border: 1px solid var(--sq-line); border-radius: 10px;
+  background: var(--sq-card); color: #fff; font-size: 14px; outline: none;
 }
-.title-input:focus { border-color: #667eea; }
+.title-input:focus { border-color: var(--sq-blue); }
 .title-input::placeholder { color: #555; }
 .tag-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .tag-chip {
   padding: 4px 14px; border-radius: 14px; font-size: 13px;
-  color: #888; background: #1e1e2e; cursor: pointer; border: 1px solid transparent;
+  color: #888; background: var(--sq-card); cursor: pointer; border: 1px solid transparent;
 }
-.tag-chip.active { color: #fff; background: #667eea; }
+.tag-chip.active { color: #fff; background: var(--sq-blue); }
 </style>
