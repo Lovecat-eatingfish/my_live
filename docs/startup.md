@@ -1,6 +1,22 @@
-# 旗鱼直播 · 服务依赖关系与启动顺序指南
+# 启动手册：依赖原理 · 启动顺序 · 验证 · 排错（合并版）
 
-> 生成日期：2026-09-13（基于全量代码扫描：15 个可启动模块的 `@DubboReference` 逐一核对）
+> 由原 `startup-guide.md`（操作向）与 `startup-order.md`（原理向）合并而成。
+> 端口一律以 [ports.md](ports.md) 为准；停止服务用 `scripts\stop-all.bat`（只停 Java，不动中间件）。
+
+## 〇、快速开始（3 条命令）
+
+```powershell
+# 前提：Docker Desktop 已启动（中间件容器由脚本自动拉起/跳过）
+scripts\start-all.bat            # 中间件 + 15 个 Java 服务按波次全起（缺 jar 自动构建）
+scripts\start-all.bat status     # 查看状态
+# 前端（另开终端，两个目录各跑一个 npm run dev）：web_live→3000，web_admin→3005
+# 直播推流另需 srs.exe（见 docker/srs-native.conf 头部说明），已启动则忽略
+```
+
+---
+
+# Part A：依赖原理与启动顺序
+
 > 解决的问题：**A 服务依赖 B 服务的 Dubbo RPC，如果 B（提供者）没先启动，A 启动时会因引用校验失败退出或运行时报 no provider**。
 > 本文档给出：依赖关系图 → 分层启动顺序 → 每一步的具体启动命令 → 失败排查。
 
@@ -77,7 +93,7 @@
 | qiyu-live-gateway | account-provider | `IAccountTokenRPC`（token 鉴权） |
 | qiyu-live-api | **几乎全部** | user、account、msg、living、stream、bank、gift、video、im-provider 的 RPC |
 
-> ⚠️ **与现有 `scripts/start-all.ps1` / `docs/startup-guide.md` 的差异**：脚本把 `stream-provider` 放在 Wave0（声称无依赖），
+> ⚠️ 波次已在 2026-09-13 修正（stream-provider 移至 Wave4c，admin-api 加入 Wave5），`start-all.sh/ps1/bat` 与本文一致。历史差异备注：
 > 但代码里它引用了 `ILivingRoomRpc` 和 `ImRouterRpc`（`ImBroadcastServiceImpl.java:31-33`）。在启动自检 strict 模式开启时，
 > living/im-router 未起它会直接退出。**正确位置是 Wave5（living 和 im-router 之后）**，建议修正脚本。
 
@@ -258,6 +274,52 @@ java -jar qiyu-live-living-provider/target/qiyu-live-living-provider.jar
 | im-core-server 起了但弹幕收不到 | Redis 里绑定的机器地址不对 | 确认带了 `DUBBO_IP_TO_REGISTRY`/`DUBBO_PORT_TO_REGISTRY` 环境变量 |
 | bank-api 回调 404 | SRS/支付回调配置的地址与 context-path 不符 | 回调地址应为 `http://127.0.0.1:38201/live/bank/payNotify/wxNotify`、SRS 回调 `http://127.0.0.1:38101/api/stream/on_publish` |
 | Redis 检查导致退出 | 自检的 Redis ping（当前代码里该检查已被注释，正常不会触发） | 若恢复后误伤，`--qiyu.startup.verify=false` 临时绕过 |
+
+---
+
+# Part B：操作补充（验证细节 / 排错表 / 手动单个启动）
+
+## 四、验证启动成功
+
+1. **进程状态**：`scripts\start-all.bat status`，14 个都显示 `running`。
+2. **Nacos 服务列表**：打开 `http://127.0.0.1:8848/nacos`（nacos/nacos），「服务管理 → 服务列表」，命名空间选 `ef63e53e-...`，应能看到 14 个服务名（qiyu-live-*）均有 1 个实例。
+3. **HTTP 入口**：
+   - 网关：`http://127.0.0.1:38080/live/api/living/list` （应返回 JSON）
+   - API：`http://127.0.0.1:38100/live/api/living/list`
+4. **日志**：`scripts\start-all.bat logs qiyu-live-api`，看到 `Started ApiWebApplication` 且无异常即成功。其余模块同理。
+
+---
+
+## 五、常见问题排查
+
+| 现象 | 原因 / 解决 |
+|------|------------|
+| 启动卡住 / Dubbo 报 `no provider` | 上游 provider 未起全。按 Wave 顺序确认；或忽略，Dubbo 会自动重连重试 |
+| `Address already in use: 3000x` | 端口被旧进程占用。`start-all.bat stop` 后再启动；或 `netstat -ano\|findstr 3000x` 查 pid 杀掉 |
+| Nacos 里看不到某服务 | bootstrap.yaml 的 namespace 与建的不一致；或 Nacos 未启动 |
+| 报 `Could not autowire ... @DubboReference` | 对应 provider 模块没起来，或其 jar 未构建（先 `build`） |
+| MySQL 报 `Access denied` / 库不存在 | 确认 root/123456，并建好 `qiyu_live_gift/bank/living/msg/user/common` 库 |
+| RocketMQ 消费者启动失败 | NameServer 未起，或 Broker 没注册；确认 `127.0.0.1:9876` 可达 |
+| Redis 连接失败 | 确认 6379 已起且无密码 |
+| 内存不足 / 启动很慢 | 14 个 JVM 吃内存，用 `JAVA_OPTS=-Xms64m -Xmx256m` 调小，或关掉不用的模块 |
+
+---
+
+## 六、手动单个启动（调试用）
+
+```bat
+:: 先构建一次（生成各模块 jar）
+mvn clean install -DskipTests
+
+:: 单独启动某模块（PowerShell，注意用 JDK17；im-core-server 还需注入注册地址环境变量）
+& "D:\enviroment\javaenviroment\jdk17\bin\java.exe" -jar qiyu-live-api\target\qiyu-live-api.jar
+
+:: im-core-server 必须先设置（否则启动直接抛异常）：
+$env:DUBBO_IP_TO_REGISTRY = "127.0.0.1"; $env:DUBBO_PORT_TO_REGISTRY = "30035"
+```
+> 所有模块 jar 名统一为 `模块名.jar`（如 `qiyu-live-api.jar`）。`logs/` 下脚本会自动识别。
+
+---
 
 ## 六、一键启动（推荐日常使用）
 

@@ -1,7 +1,6 @@
 # 需求待办清单（Backlog）
 
-> 更新时间：2026-09-12。对照最初的 `todo.md` 整理，已完成项标注状态和对应提交，未完成项按优先级排列。
-> 已完成的详细设计见 `docs/iteration-2026-09-12-design.md`。
+> 更新时间：2026-09-13。最初需求原文见 [archive/todo-origin.md](archive/todo-origin.md)（已完成），历史迭代设计见 [archive/iterations-2026-09.md](archive/iterations-2026-09.md)。
 
 ## 一、状态总览
 

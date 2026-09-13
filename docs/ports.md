@@ -1,7 +1,7 @@
 # 旗鱼直播平台 —— 全项目端口总表
 
 > 更新日期：2026-09-13（第二轮编排：全部自研服务端口按**步长 5** 重新编号，有规律可循、预留扩展空隙）
-> 配套文档：启动顺序详见 [startup-order.md](startup-order.md)，启动操作详见 [startup-guide.md](startup-guide.md)。
+> 配套文档：启动详见 [startup.md](startup.md)（依赖原理/顺序/验证/排错），停止用 `scripts/stop-all.bat`。
 
 ## 〇、一图速查
 
