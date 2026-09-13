@@ -381,3 +381,16 @@ if (StringUtils.isEmpty(imMsgBody.getMsgId())) {
 **修复**：`mvn clean install`（必须 clean）受影响模块；排查手段：对可疑 class 执行 `unzip -p xx.jar 路径/Class.class | od -c | grep -i "U n r e s"`（od 输出字节间是多空格，grep 二进制不可靠，用 od）。
 
 **教训**：IDE 与 maven 混用同一 target 目录是隐患源；遇到"构建成功但运行时 Unresolved compilation problems"，第一反应查 target/classes 里是否有 ECJ 产物，clean 重编即可。另注意：`mvn ... | grep ERROR; echo $?` 的 `$?` 是管道最后一个命令的退出码，判断 maven 成败要看真实输出。
+
+## 21. SRS hooks 未生效 + @EnableScheduling 只 import 未标注 + lavfi 推流忘加 -re（批次五三连）
+
+**现象**：截帧巡查 E2E 推流后 stream_status 永远为 0、快照表无记录；且推流常"莫名被断"（-10054）。
+
+**根因（三个叠加，逐层排查）**：
+1. **srs.exe 启动早于 conf 修改**：SRS 只在启动时读配置，9/12 启动的进程加载不到 9/13 才加入的 http_hooks 配置 → on_publish/on_unpublish 回调从未触发 → stream_status 永远为 0。**改 conf 后必须重启 SRS**。
+2. **@EnableScheduling 只 import 未标注**：启动类 import 了注解但类上没写，@Scheduled 任务从未调度且无任何报错。注解类必须真正标注才生效。
+3. **lavfi 推流忘加 -re**：`ffmpeg -f lavfi -i testsrc=duration=180` 以编码器全速推流（实测 52 倍速），3 秒推完 180 秒内容即正常退出 → 观察者看到的是"推流莫名秒断"。**模拟真实直播必须加 -re**。
+
+**排查手段**：SRS HTTP API `curl http://127.0.0.1:1985/api/v1/streams/` 看流是否注册；SRS 日志（log_tank=console 时重定向到文件）grep on_publish；wmic process get CreationDate 对比 conf 修改时间。
+
+**教训**：环境级故障（配置没生效、注解没标注）的表现是"功能静默失效"，比代码错误更难查——先确认链路上每个组件的配置加载时间线，再怀疑代码。

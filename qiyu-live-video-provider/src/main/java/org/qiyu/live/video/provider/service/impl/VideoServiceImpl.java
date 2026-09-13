@@ -54,6 +54,8 @@ public class VideoServiceImpl implements IVideoService {
     private static final Logger LOGGER = LoggerFactory.getLogger(VideoServiceImpl.class);
 
     private static final int STATUS_ONLINE = 1;
+    /** 审核中（发布默认态，admin 通过置 1 / 驳回置 3） */
+    private static final int STATUS_REVIEW = 2;
     private static final int STATUS_DELETED = 0;
     private static final int PAGE_SIZE_MAX = 50;
 
@@ -90,7 +92,8 @@ public class VideoServiceImpl implements IVideoService {
         po.setTagId(videoDTO.getTagId() == null ? 0 : videoDTO.getTagId());
         po.setDuration(videoDTO.getDuration() == null ? 0 : videoDTO.getDuration());
         po.setSize(videoDTO.getSize() == null ? 0 : videoDTO.getSize());
-        po.setStatus(STATUS_ONLINE);
+        // 审核流：发布默认进入"审核中"(2)，admin 审核通过置 1 上线 / 驳回置 3
+        po.setStatus(STATUS_REVIEW);
         // 发布即置"处理中"，转码完成(1)/失败(2)后可见；发布立即返回
         po.setTranscodeStatus(0);
         videoInfoMapper.insert(po);
@@ -176,6 +179,29 @@ public class VideoServiceImpl implements IVideoService {
     }
 
     @Override
+    public PageWrapper<VideoDTO> listRelated(Long videoId, Long viewerUserId, int size) {
+        size = Math.min(Math.max(size, 1), 20);
+        PageWrapper<VideoDTO> wrapper = new PageWrapper<>();
+        VideoInfoPO po = videoInfoMapper.selectById(videoId);
+        if (po == null) {
+            wrapper.setList(Collections.emptyList());
+            return wrapper;
+        }
+        // 同标签上架视频（无标签则同作者），排除自身，id 倒序
+        LambdaQueryWrapper<VideoInfoPO> qw = new LambdaQueryWrapper<VideoInfoPO>()
+                .eq(VideoInfoPO::getStatus, STATUS_ONLINE)
+                .ne(VideoInfoPO::getTranscodeStatus, 0)
+                .ne(VideoInfoPO::getId, videoId)
+                .eq(po.getTagId() != null && po.getTagId() > 0,
+                        VideoInfoPO::getTagId, po.getTagId() == null ? 0 : po.getTagId())
+                .eq(po.getTagId() == null || po.getTagId() <= 0, VideoInfoPO::getUserId, po.getUserId())
+                .orderByDesc(VideoInfoPO::getId);
+        qw.last("LIMIT " + size);
+        wrapper.setList(enrich(videoInfoMapper.selectList(qw), viewerUserId));
+        return wrapper;
+    }
+
+    @Override
     public void playReport(Long videoId, Long userId, int watchedSeconds, int duration) {
         VideoPlayLogPO log = new VideoPlayLogPO();
         log.setVideoId(videoId);
@@ -190,7 +216,11 @@ public class VideoServiceImpl implements IVideoService {
     @Override
     public VideoDTO detail(Long videoId, Long viewerUserId) {
         VideoInfoPO po = videoInfoMapper.selectById(videoId);
-        if (po == null || po.getStatus() != STATUS_ONLINE || Integer.valueOf(0).equals(po.getTranscodeStatus())) {
+        if (po == null || Integer.valueOf(0).equals(po.getTranscodeStatus())) {
+            return null;
+        }
+        // 上架视频所有人可见；审核中/驳回/下架仅作者本人可见
+        if (po.getStatus() != STATUS_ONLINE && !po.getUserId().equals(viewerUserId)) {
             return null;
         }
         List<VideoDTO> dtoList = enrich(Collections.singletonList(po), viewerUserId);
@@ -370,6 +400,19 @@ public class VideoServiceImpl implements IVideoService {
     }
 
     @Override
+    public PageWrapper<VideoDTO> adminReviewList(int page, int pageSize) {
+        page = Math.max(page, 1);
+        pageSize = Math.min(Math.max(pageSize, 1), PAGE_SIZE_MAX);
+        LambdaQueryWrapper<VideoInfoPO> qw = new LambdaQueryWrapper<VideoInfoPO>()
+                .eq(VideoInfoPO::getStatus, STATUS_REVIEW)
+                .orderByAsc(VideoInfoPO::getId);
+        Page<VideoInfoPO> poPage = videoInfoMapper.selectPage(new Page<>(page, pageSize), qw);
+        PageWrapper<VideoDTO> wrapper = new PageWrapper<>();
+        wrapper.setList(enrich(poPage.getRecords(), null));
+        wrapper.setHasNext(poPage.getRecords().size() == pageSize);
+        return wrapper;
+    }
+
     public boolean setVideoStatus(Long videoId, int status) {
         VideoInfoPO po = new VideoInfoPO();
         po.setId(videoId);

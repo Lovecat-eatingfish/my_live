@@ -53,6 +53,9 @@ public interface IVideoRpc {
     /** 我的观看历史 */
     PageWrapper<VideoDTO> listHistory(Long userId, int page, int pageSize);
 
+    /** 相关推荐：同标签的上架视频（排除自身，id 倒序） */
+    PageWrapper<VideoDTO> listRelated(Long videoId, Long viewerUserId, int size);
+
     /** 沉浸式 Feed 游标分页：热度分(play*0.4+like*0.3)排序，lastId=上一页最后一条视频id（首页传 null） */
     PageWrapper<VideoDTO> feed(Long lastId, Long viewerUserId, int size);
 
@@ -69,6 +72,9 @@ public interface IVideoRpc {
 
     /** 管理端视频列表（含未上架，adminView=true 时不过滤状态） */
     PageWrapper<VideoDTO> adminListVideos(int page, int pageSize);
+
+    /** 审核队列：status=2 审核中的视频，按提交时间正序 */
+    PageWrapper<VideoDTO> adminReviewList(int page, int pageSize);
 
     /** 上架/下架视频（status: 1上架 0下架） */
     boolean setVideoStatus(Long videoId, int status);

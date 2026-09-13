@@ -46,6 +46,11 @@ public class VideoRpcImpl implements IVideoRpc {
     }
 
     @Override
+    public PageWrapper<VideoDTO> listRelated(Long videoId, Long viewerUserId, int size) {
+        return videoService.listRelated(videoId, viewerUserId, size);
+    }
+
+    @Override
     public VideoDTO detail(Long videoId, Long viewerUserId) {
         return videoService.detail(videoId, viewerUserId);
     }
@@ -93,6 +98,12 @@ public class VideoRpcImpl implements IVideoRpc {
     @Override
     public org.qiyu.live.common.interfaces.dto.PageWrapper<org.qiyu.live.video.dto.VideoDTO> adminListVideos(int page, int pageSize) {
         return videoService.adminListVideos(page, pageSize);
+
+    }
+
+    @Override
+    public PageWrapper<VideoDTO> adminReviewList(int page, int pageSize) {
+        return videoService.adminReviewList(page, pageSize);
     }
 
     @Override

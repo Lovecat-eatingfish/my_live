@@ -124,6 +124,11 @@ public class VideoApiServiceImpl implements IVideoApiService {
     }
 
     @Override
+    public List<VideoItemRespVO> related(Long videoId, int size) {
+        return toItems(videoRpc.listRelated(videoId, QiyuRequestContext.getUserId(), size));
+    }
+
+    @Override
     public void playReport(Long videoId, int watchedSeconds, int duration) {
         videoRpc.playReport(videoId, QiyuRequestContext.getUserId(), watchedSeconds, duration);
     }
@@ -275,6 +280,7 @@ public class VideoApiServiceImpl implements IVideoApiService {
         vo.setId(dto.getId());
         vo.setTranscodeStatus(dto.getTranscodeStatus());
         vo.setSize(dto.getSize());
+        vo.setStatus(dto.getStatus());
         vo.setUserId(dto.getUserId());
         vo.setNickName(dto.getNickName());
         vo.setAvatar(dto.getAvatar());

@@ -23,7 +23,11 @@ import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const menus = [
+  { path: '/dash', label: '运营仪表盘', icon: '▩' },
   { path: '/recon', label: '对账中心', icon: '▦' },
+  { path: '/audit', label: '视频审核', icon: '✓' },
+  { path: '/snapshot', label: '直播巡查', icon: '◎' },
+  { path: '/risk', label: '敏感词管理', icon: '⚑' },
   { path: '/tag', label: '标签管理', icon: '◈' },
   { path: '/video', label: '内容管理', icon: '▶' },
   { path: '/user', label: '用户管理', icon: '☰' },

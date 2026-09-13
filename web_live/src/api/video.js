@@ -66,6 +66,10 @@ export const feedVideos = (lastId = null, size = 10) =>
 export const playReport = (videoId, watchedSeconds, duration) =>
   request.post('/video/playReport', null, { params: { videoId, watchedSeconds, duration } })
 
+// 相关推荐（同标签）
+export const relatedVideos = (videoId, size = 6) =>
+  request.post('/video/related', null, { params: { videoId, size } })
+
 // 视频详情（播放量+1）
 export const videoDetail = (id) => request.post('/video/detail', null, { params: { id } })
 

@@ -32,6 +32,8 @@ public class VideoItemRespVO implements Serializable {
     private Boolean favorited;
     /** 转码状态（0处理中 1完成 2失败/未转码） */
     private Integer transcodeStatus;
+    /** 审核状态（0下架 1上线 2审核中 3驳回） */
+    private Integer status;
     /** 文件大小（字节，转码后修正） */
     private Long size;
     private String createTime;

@@ -38,6 +38,9 @@ public interface IVideoApiService {
     /** 沉浸式 Feed 游标分页（热度分排序） */
     List<VideoItemRespVO> feed(Long lastId, int size);
 
+    /** 相关推荐（同标签） */
+    List<VideoItemRespVO> related(Long videoId, int size);
+
     /** 完播上报 */
     void playReport(Long videoId, int watchedSeconds, int duration);
 

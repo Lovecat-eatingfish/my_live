@@ -25,6 +25,9 @@ public interface IVideoService {
     /** 完播上报 */
     void playReport(Long videoId, Long userId, int watchedSeconds, int duration);
 
+    /** 相关推荐：同标签上架视频 */
+    PageWrapper<VideoDTO> listRelated(Long videoId, Long viewerUserId, int size);
+
     VideoDTO detail(Long videoId, Long viewerUserId);
 
     boolean incPlayCount(Long videoId);
@@ -57,6 +60,9 @@ public interface IVideoService {
 
     /** 管理端视频列表（含下架） */
     PageWrapper<VideoDTO> adminListVideos(int page, int pageSize);
+
+    /** 审核队列：status=2 审核中的视频 */
+    PageWrapper<VideoDTO> adminReviewList(int page, int pageSize);
 
     /** 上架/下架视频 */
     boolean setVideoStatus(Long videoId, int status);

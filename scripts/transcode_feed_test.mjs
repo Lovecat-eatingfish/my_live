@@ -103,6 +103,14 @@ const run = async () => {
   log('remux后duration被修正', t2.duration === 6, `duration=${t2.duration}（原上报999）`)
   log('remux后size被修正', t2.size > 1000, `size=${t2.size}`)
 
+  // ---- 审核流：发布默认审核中(2)，admin 通过后进 feed ----
+  const AL = await fetch('http://localhost:38100/live/admin/auth/login?username=admin&password=admin123', { method: 'POST' }).then(r => r.json())
+  const adminToken = AL.data?.token || AL.data
+  const rev = async (vid, pass) => fetch(`http://localhost:38100/live/admin/video/review?id=${vid}&pass=${pass}`,
+    { method: 'POST', headers: { adminToken } }).then(r => r.json())
+  await rev(v1, true)
+  await rev(v2, true)
+
   // ---- 3. feed 热度排序 + 游标分页 ----
   const page1 = await api('/video/feed', A.token, { query: { size: 8 } })
   const p1 = page1.data || []

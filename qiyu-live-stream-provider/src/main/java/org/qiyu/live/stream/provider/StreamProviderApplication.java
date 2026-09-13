@@ -11,6 +11,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  */
 @SpringBootApplication
 @EnableDubbo
+@EnableScheduling
+@EnableAsync
 public class StreamProviderApplication {
 
     public static void main(String[] args) {

@@ -38,6 +38,18 @@
         <p class="desc" v-if="video.description">{{ video.description }}</p>
 
         <!-- 评论区 -->
+        <!-- 相关推荐（同标签） -->
+        <div class="related-section" v-if="related.length">
+          <div class="comment-title">相关推荐</div>
+          <div class="related-list">
+            <div class="related-card" v-for="r in related" :key="r.id" @click="goRelated(r.id)">
+              <img :src="r.coverUrl || defaultCover" class="related-cover" loading="lazy" />
+              <div class="related-title">{{ r.title }}</div>
+              <div class="related-meta">{{ r.nickName || '未知用户' }} · ▶ {{ r.playCount }}</div>
+            </div>
+          </div>
+        </div>
+
         <div class="comment-section">
           <div class="comment-title">全部评论（{{ formatCount(video.commentCount) }}）</div>
           <div class="comment-input-row">
@@ -80,7 +92,7 @@
 import { ref, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { videoDetail, likeVideo, favoriteVideo, shareVideo, listComments, addComment, deleteComment, recordHistory } from '@/api/video'
+import { videoDetail, likeVideo, favoriteVideo, shareVideo, listComments, addComment, deleteComment, recordHistory, relatedVideos } from '@/api/video'
 import { ElMessage } from 'element-plus'
 
 const route = useRoute()
@@ -92,6 +104,7 @@ const comments = ref([])
 const commentText = ref('')
 const commentInputRef = ref(null)
 const loadError = ref('')
+const related = ref([])
 const defaultAvatar = 'https://via.placeholder.com/40/667eea/fff?text=U'
 
 const formatBalance = (n) => (Number(n) || 0).toLocaleString()
@@ -104,6 +117,7 @@ async function fetchDetail() {
   try {
     const vo = await videoDetail(route.params.id)
     video.value = vo.data?.item || null
+    relatedVideos(route.params.id).then(r => { related.value = r.data || [] }).catch(() => {})
     if (!video.value) loadError.value = '视频不存在或已下架'
   } catch (e) {
     loadError.value = e?.msg || '加载失败'
@@ -185,6 +199,12 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.related-section { margin-top: 20px; }
+.related-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.related-card { cursor: pointer; }
+.related-cover { width: 100%; height: 90px; object-fit: cover; border-radius: 6px; background: #000; }
+.related-title { font-size: 13px; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.related-meta { font-size: 12px; color: #888; }
 .video-detail-page { min-height: 100vh; background: var(--sq-abyss); color: #fff; }
 .nav-bar {
   display: flex; align-items: center; justify-content: space-between;

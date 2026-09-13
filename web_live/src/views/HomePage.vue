@@ -45,10 +45,18 @@
     </div>
 
     <!-- 直播间列表 -->
-    <div class="room-grid">
+    <div class="room-grid" v-if="loading">
+      <el-skeleton v-for="i in 8" :key="i" class="room-skeleton" animated>
+        <template #template>
+          <el-skeleton-item variant="image" style="width: 100%; height: 140px" />
+          <div style="padding: 10px"><el-skeleton-item variant="text" style="width: 60%" /></div>
+        </template>
+      </el-skeleton>
+    </div>
+    <div class="room-grid" v-else>
       <div v-for="room in rooms" :key="room.id" class="room-card" @click="$router.push(`/room/${room.id}`)">
         <div class="cover-wrap">
-          <img :src="room.covertImg || defaultCover" class="cover" />
+          <img :src="room.covertImg || defaultCover" class="cover" loading="lazy" />
           <span class="watch-num">👁 {{ room.watchNum }}</span>
           <span class="good-num">👍 {{ room.goodNum }}</span>
         </div>
@@ -112,9 +120,15 @@ const roomTypes = [
 const defaultAvatar = 'https://via.placeholder.com/40/667eea/fff?text=U'
 const defaultCover = 'https://via.placeholder.com/320x180/1a1a2e/667eea?text=Live'
 
+const loading = ref(false)
 async function fetchRooms() {
-  const vo = await listRoom({ type: currentType.value, page: 1, pageSize: 20 })
-  rooms.value = vo.data?.list || []
+  loading.value = true
+  try {
+    const vo = await listRoom({ type: currentType.value, page: 1, pageSize: 20 })
+    rooms.value = vo.data?.list || []
+  } finally {
+    loading.value = false
+  }
 }
 
 // 类型切换时自动请求
@@ -221,6 +235,7 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.room-skeleton { background: var(--sq-deep); border-radius: 12px; overflow: hidden; }
 .home-page { min-height: 100vh; background: var(--sq-abyss); }
 .nav-bar {
   display: flex; justify-content: space-between; align-items: center;

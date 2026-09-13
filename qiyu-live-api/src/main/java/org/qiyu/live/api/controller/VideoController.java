@@ -120,6 +120,12 @@ public class VideoController {
         return WebResponseVO.success(videoApiService.feed(lastId, size == null || size < 1 || size > 20 ? 10 : size));
     }
 
+    /** 相关推荐（同标签上架视频） */
+    @PostMapping("/related")
+    public WebResponseVO related(Long videoId, Integer size) {
+        return WebResponseVO.success(videoApiService.related(videoId, size == null || size < 1 || size > 20 ? 6 : size));
+    }
+
     /** 完播上报（ended 或离开时上报已观看秒数，≥90% 记完播） */
     @PostMapping("/playReport")
     public WebResponseVO playReport(Long videoId, Integer watchedSeconds, Integer duration) {

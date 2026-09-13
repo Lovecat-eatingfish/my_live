@@ -160,7 +160,15 @@
 
 **验证**：用用户真实 HEVC .mov（【哲风壁纸】侧脸.mp4 那类）上传 → 转码后 Windows Chrome 可播、进度条可拖；失败注入播原文件。
 
-### 批次五：admin 补全 + 点睛清单
+### 批次五：admin 补全 + 点睛清单 ✅ 已完成（2026-09-13）
+
+> 实施偏差：
+> ① 仪表盘四卡 = 今日新增用户/开播场次/充值额(元)/交易流水笔数，直连跨库 SQL（同 MySQL 实例），未新增 provider RPC；GMV 以充值额+流水笔数代替（送礼消耗金币的流水 type 语义未明确，留远期）；
+> ② 审核流：status 扩值 2审核中/3驳回，publish 默认 2，/video/reviewList + /review（通过置1/驳回置3），detail 作者本人放行；**存量数据无需 UPDATE**（0/1 语义未变）；
+> ③ 截帧审阅：risk_room_snapshot 建在 qiyu_live_common（admin 数据源同库直读，stream-provider 跨库 INSERT），RoomSnapshotJob 每 30s 对 stream_status=1 房间 ffmpeg 拉 RTMP 截帧传 MinIO；处置四动作 = 警告(5566 单发主播)/强关(复用 closeLiving)/封号(24h)/标记正常；
+> ④ 敏感词管理页复用批次一 /riskWord 接口；礼物/充值档位配置页留下一轮；
+> ⑤ 点睛：视频详情页相关推荐（同标签一条 SQL）+ 首页骨架屏 + 封面 loading=lazy；进场特效/分享卡片/深色模式/主播看板留下一轮。
+> E2E：scripts/admin_audit_test.mjs 10/10 全过（仪表盘、审核队列→通过上线→驳回不可见、ffmpeg -re 真实推流→30s 截帧落库→警告/强关处置、敏感词增删查）；批次四 transcode_feed_test 回归 12/12 全过（审核步骤已并入）。
 
 **admin 补全**：
 - 仪表盘：今日新增用户/开播场次/GMV/充值额四张卡（4 条 COUNT）；
@@ -191,4 +199,4 @@
 | 二 | ✅ 已完成 | 见 2026-09-13 提交 | ① 发现 IDE(Eclipse)带错误编译的 class 残留在 target/classes，maven 增量编译跳过重编直接打进 jar → 运行时 "Unresolved compilation problems"（troubleshooting §20）；② MyBatis-Plus `apply()` 是拼 WHERE 不是 SET，计数更新要用 `setSql()`；③ 经验结算"读-算-写"在弹幕并发下互相覆盖丢经验，改原子 `exp = exp + ?`；④ IM 连接是 RoomPage 作用域，5567 开播推送只有粉丝在别的直播间在线时能收到（浏览器无全局 IM 连接），主页挂机收不到属预期 |
 | 三 | ✅ 已完成 | 见 2026-09-13 提交 | ① 排行榜 key 前缀固定在 RankConstants（跨模块读写，RedisKeyBuilder 按应用名拼前缀的坑同批次二等级 key）；② ZSET member/score 一律走 StringRedisTemplate，规避各应用 RedisTemplate JSON 序列化器差异；③ 人气榜去重复用进房 Set 的 add 返回值（==1 才自增），不加新链路；④ E2E 坑：房间搜索必须在关播前（只搜开播中），用户搜索需用唯一后缀（全员昵称同前缀，LIKE 第一页轮不到目标） |
 | 四 | ✅ 已完成 | 见 2026-09-13 提交 | ① ffmpeg/ffprobe 用宿主机 winget 安装版（8.1.2 gyan full），consumer 以 ProcessBuilder 调用，转码工作目录用系统临时目录；② 幂等用 DB transcode_status 状态机（==1 跳过）而非 Redis setIfAbsent——单实例消费无并发重复，且不会被重试挡死；③ 可见条件是 transcode_status != 0 而非"只出 =1"：plan 原文会让转码失败的视频直接消失，与"失败回退播原文件"矛盾；④ 顺带发现并修复 video-provider 缺 MyBatis-Plus 分页插件（listByUser/feed 等 selectPage 一直全量返回）；⑤ E2E 校验转码产物要先从 MinIO 下载再 ffprobe（URL 直探不稳） |
-| 五 | 未开始 | — | — |
+| 五 | ✅ 已完成 | 见 2026-09-13 提交 | ① 仪表盘用 admin-api 既有数据源 + JdbcTemplate 同实例跨库 SQL（qiyu_live_user.t_user 等 4 条 COUNT），零新 RPC；② 审核流：publish 默认 status=2，存量 0/1 语义不变无需 UPDATE 迁移（plan 里的迁移只对"publish 改默认值"而言不需要）；detail 对作者本人放行（否则发布者自己看不到审核中/驳回视频）；③ 截帧审阅挖出两个环境级大坑：SRS hooks 未生效（srs.exe 早于 conf 修改启动，重启后恢复）+ stream-provider @EnableScheduling 只 import 未标注（schedule 从未执行），ffmpeg lavfi 推流必须加 -re 否则以 50 倍速秒推完（E2E 模拟真实推流的正确姿势）；④ 礼物/充值档位配置页 + 点睛清单的进场特效/分享卡片/深色模式/主播看板留下一轮，本批点睛做了相关推荐+首页骨架屏懒加载 |
