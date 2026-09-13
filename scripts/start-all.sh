@@ -40,9 +40,18 @@ WAVE5=(qiyu-live-api qiyu-live-admin-api)
 ALL_MODULES=("${WAVE0[@]}" "${WAVE1[@]}" "${WAVE2[@]}" "${WAVE3[@]}" "${WAVE4[@]}" "${WAVE4B[@]}" "${WAVE4C[@]}" "${WAVE5[@]}")
 
 # ---------- 工具函数 ----------
-# 优先用 JAVA_HOME 的 JDK17（PATH 里的 java 可能是 JDK8，跑不了 Spring Boot 3）
-JAVA_CMD="${JAVA_HOME:+$JAVA_HOME/bin/java}"
-JAVA_CMD="${JAVA_CMD:-java}"
+# 本项目必须 JDK17（Spring Boot 3）。取值优先级：
+#   QIYU_JAVA_HOME > 本机已知 jdk17 路径 > JAVA_HOME > PATH 的 java
+# 注意不能盲信 JAVA_HOME——本机 JAVA_HOME 可能指向 jdk8
+if [[ -n "$QIYU_JAVA_HOME" && -x "$QIYU_JAVA_HOME/bin/java" ]]; then
+  JAVA_CMD="$QIYU_JAVA_HOME/bin/java"
+elif [[ -x "/d/enviroment/javaenviroment/jdk17/bin/java" ]]; then
+  JAVA_CMD="/d/enviroment/javaenviroment/jdk17/bin/java"
+elif [[ -n "$JAVA_HOME" && -x "$JAVA_HOME/bin/java" ]]; then
+  JAVA_CMD="$JAVA_HOME/bin/java"
+else
+  JAVA_CMD="java"
+fi
 find_jar() {  # $1=模块目录 -> 输出可执行 jar 路径(可能为空)
   # target 里可能同时存在新旧两个 fatjar（finalName 变更的历史残留），按修改时间取最新
   ls -t "$1"/target/*.jar 2>/dev/null | grep -vE '(-sources\.jar|-javadoc\.jar|\.jar\.original)$' | head -1 || true
