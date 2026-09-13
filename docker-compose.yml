@@ -77,6 +77,11 @@ services:
     image: ossrs/srs:5    # 本地已有
     container_name: qiyu-srs
     restart: unless-stopped
+    # ⚠️ 默认不随 compose up 启动（profiles 隔离）：Windows 本机用原生 srs.exe，
+    # 容器若同时启动会与 srs.exe 抢 1935/1985/8080/8000 端口。
+    # Linux 服务器部署时显式启动：docker compose --profile linux-full up -d srs
+    profiles:
+      - linux-full
     # ⚠️ 本机 Windows 开发环境默认不用本服务：Docker Desktop 的 UDP 端口转发丢包严重，
     #    浏览器 WebRTC 推拉流会握手超时；host 网络模式对 Windows 侧又不可达（实测无效）。
     #    本机开发请用原生 srs.exe + docker/srs-native.conf（真实 UDP 套接字），见该文件头部说明。
