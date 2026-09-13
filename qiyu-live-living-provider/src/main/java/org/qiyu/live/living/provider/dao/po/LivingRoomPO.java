@@ -20,6 +20,8 @@ public class LivingRoomPO {
     private String roomName;
     private String covertImg;
     private Integer status;
+    /** SRS 推流状态（0未推流 1推流中，由 stream-provider 回调维护） */
+    private Integer streamStatus;
     private Integer watchNum;
     private Integer goodNum;
     private Date startTime;
@@ -104,6 +106,14 @@ public class LivingRoomPO {
 
     public void setStatus(Integer status) {
         this.status = status;
+    }
+
+    public Integer getStreamStatus() {
+        return streamStatus;
+    }
+
+    public void setStreamStatus(Integer streamStatus) {
+        this.streamStatus = streamStatus;
     }
 
     @Override

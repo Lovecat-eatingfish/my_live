@@ -102,6 +102,12 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     }
 
     @Override
+    public Integer myLivingRoom() {
+        org.qiyu.live.living.interfaces.dto.LivingRoomRespDTO room = livingRoomRpc.queryByAnchorId(QiyuRequestContext.getUserId());
+        return room == null ? null : room.getId();
+    }
+
+    @Override
     public Integer onlineCount(Integer roomId) {
         ErrorAssert.isNotNull(roomId, BizBaseErrorEnum.PARAM_ERROR);
         LivingRoomReqDTO reqDTO = new LivingRoomReqDTO();

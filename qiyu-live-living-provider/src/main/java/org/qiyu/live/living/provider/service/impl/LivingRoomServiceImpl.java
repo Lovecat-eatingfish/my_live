@@ -1,7 +1,11 @@
 package org.qiyu.live.living.provider.service.impl;
 
+import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import org.apache.rocketmq.client.producer.MQProducer;
+import org.apache.rocketmq.common.message.Message;
+import org.qiyu.live.common.interfaces.topic.ImCoreServerProviderTopicNames;
 import jakarta.annotation.Resource;
 import org.apache.dubbo.config.annotation.DubboReference;
 import org.idea.qiyu.live.framework.redis.starter.key.LivingProviderCacheKeyBuilder;
@@ -58,6 +62,8 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     private LivingProviderCacheKeyBuilder cacheKeyBuilder;
     @Resource
     private ILivingRoomTxService livingRoomTxService;
+    @Resource
+    private MQProducer mqProducer;
     @DubboReference(check = false)
     private ImRouterRpc imRouterRpc;
 
@@ -90,8 +96,67 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
         roomReqDTO.setPkObjId(imOfflineDTO.getUserId());
         roomReqDTO.setAnchorId(imOfflineDTO.getUserId());
         this.offlinePk(roomReqDTO);
-        //当主播断开im服务器的时候，也要监听它的动作，然后将直播间的状态修改为关闭状态
-        livingRoomTxService.closeLiving(roomReqDTO);
+        //主播断开IM不再直接关播：刷新浏览器也会触发IM断线，直接关播体验很差。
+        //投递30秒延迟消息做关播检查，到期时校验：主播已回房 or 推流仍存活（OBS场景）则放行
+        LambdaQueryWrapper<LivingRoomPO> anchorRoomWrapper = new LambdaQueryWrapper<>();
+        anchorRoomWrapper.eq(LivingRoomPO::getAnchorId, userId)
+                .eq(LivingRoomPO::getStatus, CommonStatusEum.VALID_STATUS.getCode())
+                .last("limit 1");
+        LivingRoomPO anchorRoom = livingRoomMapper.selectOne(anchorRoomWrapper);
+        if (anchorRoom == null) {
+            return;
+        }
+        Message closeCheckMsg = new Message();
+        closeCheckMsg.setTopic(ImCoreServerProviderTopicNames.LIVING_ROOM_CLOSE_CHECK);
+        closeCheckMsg.setBody(JSON.toJSONBytes(roomReqDTO));
+        closeCheckMsg.setDelayTimeLevel(4); // 30s 宽限期
+        try {
+            mqProducer.send(closeCheckMsg);
+            LOGGER.info("[userOfflineHandler] 主播断线，已投递关播检查, roomId={}, anchorId={}", roomId, userId);
+        } catch (Exception e) {
+            LOGGER.error("[userOfflineHandler] 关播检查消息发送失败，兜底直接关播, roomId={}", roomId, e);
+            livingRoomTxService.closeLiving(roomReqDTO);
+        }
+    }
+
+    @Override
+    public LivingRoomRespDTO queryByAnchorId(Long anchorId) {
+        LambdaQueryWrapper<LivingRoomPO> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(LivingRoomPO::getAnchorId, anchorId)
+                .eq(LivingRoomPO::getStatus, CommonStatusEum.VALID_STATUS.getCode())
+                .orderByDesc(LivingRoomPO::getId)
+                .last("limit 1");
+        LivingRoomPO roomPO = livingRoomMapper.selectOne(wrapper);
+        return roomPO == null ? null : ConvertBeanUtils.convert(roomPO, LivingRoomRespDTO.class);
+    }
+
+    @Override
+    public void closeLivingCheck(ImOfflineDTO imOfflineDTO) {
+        Integer roomId = imOfflineDTO.getRoomId();
+        LivingRoomPO roomPO = livingRoomMapper.selectById(roomId);
+        if (roomPO == null || roomPO.getStatus() == null
+                || roomPO.getStatus() != CommonStatusEum.VALID_STATUS.getCode()) {
+            return; // 房间已关闭，无需处理
+        }
+        Long anchorId = roomPO.getAnchorId();
+        //条件1：主播已回到房间（IM重连）→ 放行
+        String userSetKey = cacheKeyBuilder.buildLivingRoomUserSet(roomId, imOfflineDTO.getAppId() == null
+                ? AppIdEnum.QIYU_LIVE_BIZ.getCode() : imOfflineDTO.getAppId());
+        if (Boolean.TRUE.equals(redisTemplate.opsForSet().isMember(userSetKey, anchorId))) {
+            LOGGER.info("[closeLivingCheck] 主播已回房，放行, roomId={}", roomId);
+            return;
+        }
+        //条件2：推流仍存活（OBS推流不依赖主播浏览器）→ 放行
+        if (roomPO.getStreamStatus() != null && roomPO.getStreamStatus() == 1) {
+            LOGGER.info("[closeLivingCheck] 推流存活，放行, roomId={}", roomId);
+            return;
+        }
+        LOGGER.info("[closeLivingCheck] 主播离线且推流已断，执行关播, roomId={}", roomId);
+        LivingRoomReqDTO closeReq = new LivingRoomReqDTO();
+        closeReq.setRoomId(roomId);
+        closeReq.setAppId(imOfflineDTO.getAppId());
+        closeReq.setAnchorId(imOfflineDTO.getUserId());
+        livingRoomTxService.closeLiving(closeReq);
     }
 
     @Override

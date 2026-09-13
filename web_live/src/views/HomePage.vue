@@ -15,6 +15,7 @@
             <span class="coin-icon">🪙</span>{{ formatBalance }}
           </span>
           <el-button v-if="userStore.userInfo.showStartLivingBtn" size="small" type="success" @click="startVisible = true">开播</el-button>
+          <el-button v-if="livingRoomId" size="small" type="warning" @click="$router.push(`/room/${livingRoomId}`)">回到我的直播间</el-button>
           <el-button size="small" @click="$router.push('/wallet')">钱包</el-button>
           <el-button size="small" @click="$router.push('/recon')">对账</el-button>
           <el-button size="small" type="danger" @click="handleLogout">退出</el-button>
@@ -59,7 +60,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { listRoom, startLiving } from '@/api/room'
+import { listRoom, startLiving, myLivingRoom } from '@/api/room'
 import StartLivingDialog from '@/components/StartLivingDialog.vue'
 import UserProfileDialog from '@/components/UserProfileDialog.vue'
 import { ElMessage } from 'element-plus'
@@ -99,6 +100,14 @@ const formatBalance = computed(() => {
 // 开播：由 StartLivingDialog 收集名称与封面后回调，创建直播间并跳转主播端
 const startVisible = ref(false)
 const profileVisible = ref(false)
+// 我进行中的直播间（主播刷新浏览器后一键回到直播间）
+const livingRoomId = ref(null)
+async function refreshMyLivingRoom() {
+  try {
+    const vo = await myLivingRoom()
+    livingRoomId.value = vo.data || null
+  } catch { /* 静默 */ }
+}
 const startDialogRef = ref(null)
 async function handleStartLiving({ roomName, covertImg, type }) {
   try {
@@ -121,6 +130,7 @@ onMounted(async () => {
   await userStore.fetchUserInfo()
   userStore.refreshBalance()
   await fetchRooms()
+  refreshMyLivingRoom()
 })
 </script>
 

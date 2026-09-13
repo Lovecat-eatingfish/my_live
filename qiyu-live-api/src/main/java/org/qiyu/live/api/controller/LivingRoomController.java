@@ -63,6 +63,14 @@ public class LivingRoomController {
     }
 
     /**
+     * 查询我进行中的直播间（主播刷新浏览器后回到直播间用）
+     */
+    @PostMapping("/myLivingRoom")
+    public WebResponseVO myLivingRoom() {
+        return WebResponseVO.success(livingRoomService.myLivingRoom());
+    }
+
+    /**
      * 查询直播间在线观众数
      */
     @PostMapping("/onlineCount")

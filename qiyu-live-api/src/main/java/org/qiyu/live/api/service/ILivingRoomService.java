@@ -60,6 +60,11 @@ public interface ILivingRoomService {
     Integer onlineCount(Integer roomId);
 
     /**
+     * 查询我（当前用户）进行中的直播间，返回 roomId，无则返回 null
+     */
+    Integer myLivingRoom();
+
+    /**
      * 根据用户id返回当前直播间相关信息
      *
      * @param userId

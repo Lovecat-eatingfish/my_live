@@ -26,4 +26,9 @@ public class ImCoreServerProviderTopicNames {
      * 用户断开im服务发送mq
      */
     public static final String IM_OFFLINE_TOPIC = "im_offline_topic";
+
+    /**
+     * 主播IM断线后的关播检查（延迟消息：主播刷新浏览器不应立即关播）
+     */
+    public static final String LIVING_ROOM_CLOSE_CHECK = "living_room_close_check";
 }

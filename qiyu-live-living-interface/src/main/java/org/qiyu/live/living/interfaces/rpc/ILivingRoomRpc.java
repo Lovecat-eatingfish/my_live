@@ -79,4 +79,9 @@ public interface ILivingRoomRpc {
      * @return
      */
     boolean offlinePk(LivingRoomReqDTO livingRoomReqDTO);
+
+    /**
+     * 查询主播当前进行中的直播间（无则返回null）
+     */
+    LivingRoomRespDTO queryByAnchorId(Long anchorId);
 }

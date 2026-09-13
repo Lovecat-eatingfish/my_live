@@ -13,6 +13,9 @@ export const closeLiving = (roomId) => request.post('/living/closeLiving', null,
 // 在线观众数
 export const onlineCount = (roomId) => request.post('/living/onlineCount', null, { params: { roomId } })
 
+// 我进行中的直播间（主播刷新浏览器后恢复用）
+export const myLivingRoom = () => request.post('/living/myLivingRoom')
+
 // 获取IM配置
 export const getImConfig = () => request.post('/im/getImConfig')
 

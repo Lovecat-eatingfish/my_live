@@ -32,6 +32,16 @@ public interface ILivingRoomService {
     void userOfflineHandler(ImOfflineDTO imOfflineDTO);
 
     /**
+     * 主播断线后的延迟关播检查：主播已回房或推流存活则放行，否则关播
+     */
+    void closeLivingCheck(ImOfflineDTO imOfflineDTO);
+
+    /**
+     * 查询主播当前进行中的直播间（无则返回null）
+     */
+    LivingRoomRespDTO queryByAnchorId(Long anchorId);
+
+    /**
      * 用户上线处理
      *
      * @param imOnlineDTO
