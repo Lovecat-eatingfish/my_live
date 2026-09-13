@@ -119,6 +119,11 @@ public class VideoApiServiceImpl implements IVideoApiService {
     }
 
     @Override
+    public List<VideoItemRespVO> search(String keyword, int page, int pageSize) {
+        return toItems(videoRpc.searchVideos(keyword, QiyuRequestContext.getUserId(), page, pageSize));
+    }
+
+    @Override
     public List<VideoItemRespVO> listByUser(Long targetUserId, int page, int pageSize) {
         return toItems(videoRpc.listByUser(targetUserId, page, pageSize));
     }

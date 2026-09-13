@@ -31,6 +31,11 @@ public class VideoRpcImpl implements IVideoRpc {
     }
 
     @Override
+    public PageWrapper<VideoDTO> searchVideos(String keyword, Long viewerUserId, int page, int pageSize) {
+        return videoService.searchVideos(keyword, viewerUserId, page, pageSize);
+    }
+
+    @Override
     public VideoDTO detail(Long videoId, Long viewerUserId) {
         return videoService.detail(videoId, viewerUserId);
     }

@@ -17,6 +17,9 @@ public interface IVideoRpc {
     /** 视频流列表（tagId=0 查全部；带作者信息与当前用户点赞/收藏状态） */
     PageWrapper<VideoDTO> listVideos(Integer tagId, Long viewerUserId, int page, int pageSize);
 
+    /** 按标题模糊搜索上架视频（搜索中心用） */
+    PageWrapper<VideoDTO> searchVideos(String keyword, Long viewerUserId, int page, int pageSize);
+
     /** 视频详情 */
     VideoDTO detail(Long videoId, Long viewerUserId);
 

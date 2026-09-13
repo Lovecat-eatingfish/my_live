@@ -120,7 +120,14 @@
 
 **验证**：A 关注 B → B 开播 A 收到 Toast；主页三 tab 数据正确；送礼后等级跨级有特效。
 
-### 批次三：发现与分发
+### 批次三：发现与分发 ✅ 已完成（2026-09-13）
+
+> 实施偏差：
+> ① 排行榜读侧 **api 直读 Redis**（web-starter 传递依赖 redis-starter，零新链路），未建 RankRpc；写侧 gift-provider（主播日榜/周榜源数据 + 本场贡献榜）、living-provider（人气榜，复用进房 Set 的 add 返回值==1 去重）；
+> ② 搜索三分栏一次返回各 10 条（无分页 UI），新增 ILivingRoomRpc.searchRooms / IVideoRpc.searchVideos，用户搜索复用现有 listUsers；
+> ③ 通知写入点：关注（user-provider 内部直调）+ 首次点赞（video-provider like 内 Dubbo 调 INotifyRpc）+ 开播（批次二已埋 type=4）；私信 5568/5569 信令预留未做，会话 UI 留批次五；
+> ④ 房间贡献榜按计划：初始 Redis 拉一次 + 5556 到达本地增量刷新，不轮询。
+> E2E：scripts/rank_search_notify_test.mjs 15/15 全过（人气榜、本场贡献榜、主播日榜/周榜聚合、搜索三分栏、关注/点赞通知、未读数/单条已读/全部已读）。
 
 **排行榜（纯 Redis，零新依赖，先做）**：
 - gift-provider `SendGiftConsumer` 扣费成功后 `ZINCRBY rank:gift:anchor:{yyyyMMdd} {price} {anchorId}` + `rank:gift:room:{roomId}`，TTL 8 天；日榜 ZREVRANGE，周榜 7 日 key ZUNIONSTORE；
@@ -175,6 +182,6 @@
 | 零 | ✅ 已完成 | 见 2026-09-13 提交 | ① start-all.sh `set -u` 未绑定变量 bug（已修）；② 全量重启时 Nacos 过载，5 个服务注册失败退出 + user-provider 成"僵尸"需手杀重启，错峰重启后恢复；③ E2E 登录撞上验证码 60s TTL 冷却（sendLoginCode 限频），等 60s 再跑即可 |
 | 一 | ✅ 已完成 | 见 2026-09-13 提交 | ① E2E 弹幕全丢排查 3 小时，根因是 JDK17+中文 Windows 默认 GBK 编码坑（troubleshooting §19），顺带修复了潜伏已久的弹幕中文乱码；② 开播接口有频控，E2E 脚本需带重试；③ WS 测试连上后必须先发 1001 登录包且等 ≥3s（进房走 MQ 异步），appId 用 10001 非 URL 里的 1001 |
 | 二 | ✅ 已完成 | 见 2026-09-13 提交 | ① 发现 IDE(Eclipse)带错误编译的 class 残留在 target/classes，maven 增量编译跳过重编直接打进 jar → 运行时 "Unresolved compilation problems"（troubleshooting §20）；② MyBatis-Plus `apply()` 是拼 WHERE 不是 SET，计数更新要用 `setSql()`；③ 经验结算"读-算-写"在弹幕并发下互相覆盖丢经验，改原子 `exp = exp + ?`；④ IM 连接是 RoomPage 作用域，5567 开播推送只有粉丝在别的直播间在线时能收到（浏览器无全局 IM 连接），主页挂机收不到属预期 |
-| 三 | 未开始 | — | — |
+| 三 | ✅ 已完成 | 见 2026-09-13 提交 | ① 排行榜 key 前缀固定在 RankConstants（跨模块读写，RedisKeyBuilder 按应用名拼前缀的坑同批次二等级 key）；② ZSET member/score 一律走 StringRedisTemplate，规避各应用 RedisTemplate JSON 序列化器差异；③ 人气榜去重复用进房 Set 的 add 返回值（==1 才自增），不加新链路；④ E2E 坑：房间搜索必须在关播前（只搜开播中），用户搜索需用唯一后缀（全员昵称同前缀，LIKE 第一页轮不到目标） |
 | 四 | 未开始 | — | — |
 | 五 | 未开始 | — | — |

@@ -82,6 +82,15 @@
       <!-- 右侧聊天栏 -->
       <aside class="chat-sidebar">
         <div class="chat-title">💬 互动区</div>
+        <div class="contrib-panel" v-if="contribList.length">
+          <div class="contrib-title">🪙 本场贡献榜</div>
+          <div class="contrib-row" v-for="c in contribList" :key="c.userId">
+            <span :class="['contrib-no', { top1: c.rank === 1, top2: c.rank === 2, top3: c.rank === 3 }]">{{ c.rank }}</span>
+            <img :src="c.avatar || defaultAvatar" class="contrib-avatar" />
+            <span class="contrib-name" @click="$router.push(`/profile/${c.userId}`)">{{ c.nickName || ('用户' + c.userId) }}</span>
+            <span class="contrib-score">🪙 {{ c.score }}</span>
+          </div>
+        </div>
         <ChatList :messages="chatMessages" class="chat-section" />
         <div class="chat-input-wrap">
           <ChatInput placeholder="说点什么..." @send="handleSendChat" />
@@ -190,6 +199,7 @@ import { anchorConfig, startLiving, closeLiving, getImConfig , onlineCount } fro
 import { createPushUrl, getStreamStatus, getPlayUrl, getRecordList } from '@/api/stream'
 import { sendGift, listGift, createRedPacket, prepareRedPacket, sendRedPacket } from '@/api/gift'
 import { followUser, unfollowUser, isFollowUser } from '@/api/user'
+import { roomGiftRank } from '@/api/rank'
 import { IMConnection } from '@/utils/im/connection'
 import ChatList from '@/components/ChatList.vue'
 import ChatInput from '@/components/ChatInput.vue'
@@ -210,6 +220,31 @@ const userStore = useUserStore()
 const roomId = computed(() => Number(route.params.id))
 const roomInfo = ref({})
 const isFollow = ref(false)
+// 本场贡献榜：初始从 Redis 拉一次，5556 到达时本地增量刷新（不轮询）
+const contribList = ref([])
+const contribMap = reactive({})
+async function loadContribution() {
+  try {
+    const vo = await roomGiftRank(roomId.value)
+    contribList.value = vo.data || []
+    contribList.value.forEach(c => { contribMap[c.userId] = c.score })
+  } catch { contribList.value = [] }
+}
+function bumpContribution(senderId, senderName, price) {
+  const key = String(senderId)
+  contribMap[key] = (Number(contribMap[key]) || 0) + (Number(price) || 0)
+  const list = Object.entries(contribMap)
+    .map(([uid, score]) => ({ userId: uid, score, nickName: key === String(senderId) && senderName ? senderName : undefined }))
+    .sort((x, y) => y.score - x.score)
+    .slice(0, 10)
+    .map((item, i) => ({
+      rank: i + 1, userId: item.userId, score: item.score,
+      nickName: item.userId === String(senderId) && senderName ? senderName
+        : (contribList.value.find(c => String(c.userId) === String(item.userId))?.nickName || '用户' + item.userId),
+      avatar: contribList.value.find(c => String(c.userId) === String(item.userId))?.avatar || ''
+    }))
+  contribList.value = list
+}
 
 // 关注/取关当前房间主播
 async function toggleFollow() {
@@ -489,6 +524,7 @@ async function fetchRoomInfo() {
     const f = await isFollowUser(roomInfo.value.anchorId)
     isFollow.value = !!f.data
   }
+  loadContribution()
 }
 
 // 获取IM配置并建立连接
@@ -551,6 +587,7 @@ function handleIMMessage(msg) {
         // 送礼成功：播放礼物特效；送礼人自己顺带刷新余额（扣费后）
         const data = JSON.parse(body.data)
         giftAnimRef.value?.play(data)
+        bumpContribution(data.senderId, data.senderName, data.price)
         if (Number(data.senderId) === Number(userStore.userInfo.userId)) {
           userStore.refreshBalance()
         }
@@ -1024,4 +1061,20 @@ onUnmounted(() => {
 .pk-side.left .pk-fill { background: var(--sq-blue); }
 .pk-side.right .pk-fill { background: #f56c6c; margin-left: auto; }
 .pk-center { font-size: 12px; color: #888; flex-shrink: 0; }
+
+/* 本场贡献榜 */
+.contrib-panel {
+  padding: 8px 10px; border-bottom: 1px solid var(--sq-line, #222);
+  max-height: 180px; overflow-y: auto;
+}
+.contrib-title { font-size: 12px; color: #888; margin-bottom: 6px; }
+.contrib-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+.contrib-no { width: 18px; text-align: center; font-size: 12px; font-weight: bold; color: #666; }
+.contrib-no.top1 { color: #ffd700; }
+.contrib-no.top2 { color: #c0c0c0; }
+.contrib-no.top3 { color: #cd7f32; }
+.contrib-avatar { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; }
+.contrib-name { flex: 1; font-size: 12px; color: #ccc; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.contrib-name:hover { color: #667eea; }
+.contrib-score { font-size: 12px; color: #e6a23c; }
 </style>

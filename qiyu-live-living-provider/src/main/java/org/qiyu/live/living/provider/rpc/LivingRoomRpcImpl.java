@@ -36,6 +36,11 @@ public class LivingRoomRpcImpl implements ILivingRoomRpc {
     }
 
     @Override
+    public PageWrapper<LivingRoomRespDTO> searchRooms(String keyword, int page, int pageSize) {
+        return livingRoomService.searchRooms(keyword, page, pageSize);
+    }
+
+    @Override
     public LivingRoomRespDTO queryByRoomId(Integer roomId) {
         return livingRoomService.queryByRoomId(roomId);
     }

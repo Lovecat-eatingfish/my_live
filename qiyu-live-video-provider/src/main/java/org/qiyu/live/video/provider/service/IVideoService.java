@@ -16,6 +16,9 @@ public interface IVideoService {
 
     PageWrapper<VideoDTO> listVideos(Integer tagId, Long viewerUserId, int page, int pageSize);
 
+    /** 按标题模糊搜索上架视频（搜索中心用） */
+    PageWrapper<VideoDTO> searchVideos(String keyword, Long viewerUserId, int page, int pageSize);
+
     VideoDTO detail(Long videoId, Long viewerUserId);
 
     boolean incPlayCount(Long videoId);

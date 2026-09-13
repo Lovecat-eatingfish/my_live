@@ -65,6 +65,11 @@ public interface ILivingRoomService {
     PageWrapper<LivingRoomRespDTO> list(LivingRoomReqDTO livingRoomReqDTO);
 
     /**
+     * 按直播间名称模糊搜索（只搜开播中的房间）
+     */
+    PageWrapper<LivingRoomRespDTO> searchRooms(String keyword, int page, int pageSize);
+
+    /**
      * 根据roomId查询直播间
      *
      * @param roomId

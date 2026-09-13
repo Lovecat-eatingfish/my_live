@@ -64,6 +64,9 @@ public class VideoServiceImpl implements IVideoService {
     @DubboReference(check = false)
     private IUserRpc userRpc;
 
+    @DubboReference(check = false)
+    private org.qiyu.live.user.interfaces.rpc.INotifyRpc notifyRpc;
+
     @Override
     public VideoDTO publish(VideoDTO videoDTO) {
         VideoInfoPO po = new VideoInfoPO();
@@ -97,6 +100,23 @@ public class VideoServiceImpl implements IVideoService {
     }
 
     @Override
+    public PageWrapper<VideoDTO> searchVideos(String keyword, Long viewerUserId, int page, int pageSize) {
+        PageWrapper<VideoDTO> wrapper = new PageWrapper<>();
+        if (keyword == null || keyword.trim().isEmpty()) {
+            wrapper.setList(java.util.Collections.emptyList());
+            return wrapper;
+        }
+        LambdaQueryWrapper<VideoInfoPO> qw = new LambdaQueryWrapper<VideoInfoPO>()
+                .eq(VideoInfoPO::getStatus, STATUS_ONLINE)
+                .like(VideoInfoPO::getTitle, keyword.trim())
+                .orderByDesc(VideoInfoPO::getId);
+        Page<VideoInfoPO> poPage = videoInfoMapper.selectPage(new Page<>(page, pageSize), qw);
+        wrapper.setList(enrich(poPage.getRecords(), viewerUserId));
+        wrapper.setHasNext(poPage.getRecords().size() == pageSize);
+        return wrapper;
+    }
+
+    @Override
     public VideoDTO detail(Long videoId, Long viewerUserId) {
         VideoInfoPO po = videoInfoMapper.selectById(videoId);
         if (po == null || po.getStatus() != STATUS_ONLINE) {
@@ -116,7 +136,24 @@ public class VideoServiceImpl implements IVideoService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean like(Long videoId, Long userId, boolean isLike) {
-        return toggleAction(videoId, userId, VideoUserActionPO.ACTION_LIKE, "like_count", isLike);
+        boolean result = toggleAction(videoId, userId, VideoUserActionPO.ACTION_LIKE, "like_count", isLike);
+        // 互动通知：首次点赞时告诉视频作者（失败不影响点赞）
+        if (result && isLike) {
+            try {
+                VideoInfoPO video = videoInfoMapper.selectById(videoId);
+                if (video != null && video.getUserId() != null && !video.getUserId().equals(userId)) {
+                    org.qiyu.live.user.dto.UserDTO liker = userRpc.getByUserId(userId);
+                    notifyRpc.sendNotify(org.qiyu.live.user.dto.UserNotifyDTO.of(video.getUserId(), 2,
+                            "收到新的点赞",
+                            (liker == null || liker.getNickName() == null ? "用户" + userId : liker.getNickName())
+                                    + " 赞了你的视频《" + video.getTitle() + "》",
+                            "/video/" + videoId));
+                }
+            } catch (Exception e) {
+                LOGGER.error("[like] send notify error, videoId={}, userId={}", videoId, userId, e);
+            }
+        }
+        return result;
     }
 
     @Override

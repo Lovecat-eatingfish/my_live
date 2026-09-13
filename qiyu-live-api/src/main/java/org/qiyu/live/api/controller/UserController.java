@@ -10,7 +10,9 @@ import org.qiyu.live.common.interfaces.dto.RiskCheckRespDTO;
 import org.qiyu.live.common.interfaces.rpc.IRiskRpc;
 import org.qiyu.live.common.interfaces.vo.WebResponseVO;
 import org.qiyu.live.user.dto.UserDTO;
+import org.qiyu.live.user.dto.UserNotifyDTO;
 import org.qiyu.live.user.interfaces.IUserRpc;
+import org.qiyu.live.user.interfaces.rpc.INotifyRpc;
 import org.qiyu.live.web.starter.context.QiyuRequestContext;
 import org.qiyu.live.web.starter.error.BizBaseErrorEnum;
 import org.qiyu.live.web.starter.error.ErrorAssert;
@@ -32,6 +34,8 @@ public class UserController {
     private IRiskRpc riskRpc;
     @Resource
     private IUserApiService userApiService;
+    @DubboReference(check = false)
+    private INotifyRpc notifyRpc;
 
     /**
      * 修改昵称/头像（不传的字段保持不变）
@@ -93,6 +97,27 @@ public class UserController {
     @PostMapping("/profile")
     public WebResponseVO profile(Long targetUserId) {
         return WebResponseVO.success(userApiService.profile(targetUserId));
+    }
+
+    // ==================== 通知中心 ====================
+
+    /** 通知分页 */
+    @PostMapping("/notify/list")
+    public WebResponseVO notifyList(Integer page, Integer pageSize) {
+        return WebResponseVO.success(
+                notifyRpc.listNotify(QiyuRequestContext.getUserId(), pg(page), ps(pageSize)));
+    }
+
+    /** 标记已读（notifyId 不传=全部已读） */
+    @PostMapping("/notify/read")
+    public WebResponseVO notifyRead(Long notifyId) {
+        return WebResponseVO.success(notifyRpc.markRead(QiyuRequestContext.getUserId(), notifyId));
+    }
+
+    /** 未读数 */
+    @PostMapping("/notify/unreadCount")
+    public WebResponseVO notifyUnreadCount() {
+        return WebResponseVO.success(notifyRpc.unreadCount(QiyuRequestContext.getUserId()));
     }
 
     private int pg(Integer page) {

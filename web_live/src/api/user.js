@@ -35,3 +35,14 @@ export const fansList = (page = 1, pageSize = 20) => request.post('/user/fansLis
 // 个人主页聚合（targetUserId 不传=自己）
 export const getUserProfile = (targetUserId) =>
   request.post('/user/profile', null, { params: targetUserId ? { targetUserId } : {} })
+
+// ==================== 通知中心 ====================
+
+// 通知分页
+export const notifyList = (page = 1, pageSize = 20) => request.post('/user/notify/list', null, { params: { page, pageSize } })
+
+// 标记已读（notifyId 不传=全部已读）
+export const notifyRead = (notifyId) => request.post('/user/notify/read', null, { params: notifyId ? { notifyId } : {} })
+
+// 未读数
+export const notifyUnreadCount = () => request.post('/user/notify/unreadCount')

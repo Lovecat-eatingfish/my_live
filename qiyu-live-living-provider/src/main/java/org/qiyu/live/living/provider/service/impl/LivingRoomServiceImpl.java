@@ -59,6 +59,8 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     @Resource
     private RedisTemplate<String, Object> redisTemplate;
     @Resource
+    private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
+    @Resource
     private LivingProviderCacheKeyBuilder cacheKeyBuilder;
     @Resource
     private ILivingRoomTxService livingRoomTxService;
@@ -167,8 +169,20 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
         Integer appId = imOnlineDTO.getAppId();
         String cacheKey = cacheKeyBuilder.buildLivingRoomUserSet(roomId, appId);
         //set集合中
-        redisTemplate.opsForSet().add(cacheKey, userId);
+        Long added = redisTemplate.opsForSet().add(cacheKey, userId);
         redisTemplate.expire(cacheKey, 12, TimeUnit.HOURS);
+        // 人气榜：只在用户首次进房时 +1（Set 返回 1 表示新成员，天然去重）
+        if (added != null && added == 1) {
+            try {
+                stringRedisTemplate.opsForZSet().incrementScore(
+                        org.qiyu.live.common.interfaces.constants.RankConstants.ROOM_HEAT_KEY,
+                        String.valueOf(roomId), 1);
+                stringRedisTemplate.expire(org.qiyu.live.common.interfaces.constants.RankConstants.ROOM_HEAT_KEY,
+                        org.qiyu.live.common.interfaces.constants.RankConstants.RANK_TTL_DAYS, TimeUnit.DAYS);
+            } catch (Exception e) {
+                LOGGER.error("[userOnlineHandler] heat zincrby error, roomId={}", roomId, e);
+            }
+        }
     }
 
     @Override
@@ -200,6 +214,26 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
             pageWrapper.setHasNext(page * pageSize < total);
             return pageWrapper;
         }
+    }
+
+    @Override
+    public PageWrapper<LivingRoomRespDTO> searchRooms(String keyword, int page, int pageSize) {
+        PageWrapper<LivingRoomRespDTO> pageWrapper = new PageWrapper<>();
+        if (keyword == null || keyword.trim().isEmpty()) {
+            pageWrapper.setList(Collections.emptyList());
+            pageWrapper.setHasNext(false);
+            return pageWrapper;
+        }
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<LivingRoomPO> poPage =
+                livingRoomMapper.selectPage(
+                        new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, pageSize),
+                        new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<LivingRoomPO>()
+                                .eq(LivingRoomPO::getStatus, CommonStatusEum.VALID_STATUS.getCode())
+                                .like(LivingRoomPO::getRoomName, keyword.trim())
+                                .orderByDesc(LivingRoomPO::getId));
+        pageWrapper.setList(ConvertBeanUtils.convertList(poPage.getRecords(), LivingRoomRespDTO.class));
+        pageWrapper.setHasNext(poPage.getRecords().size() == pageSize);
+        return pageWrapper;
     }
 
     @Override

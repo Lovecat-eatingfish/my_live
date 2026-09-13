@@ -65,6 +65,25 @@
     <ShopManageDialog v-model="shopManageVisible" />
     <UserProfileDialog v-model="profileVisible" />
   </div>
+  <!-- 排行榜弹层 -->
+  <el-dialog v-model="rankVisible" title="🏆 排行榜" width="480px" class="rank-dialog">
+    <div class="rank-tabs">
+      <span :class="['rank-tab', { active: rankTab === 'day' }]" @click="switchRank('day')">收礼日榜</span>
+      <span :class="['rank-tab', { active: rankTab === 'week' }]" @click="switchRank('week')">收礼周榜</span>
+      <span :class="['rank-tab', { active: rankTab === 'heat' }]" @click="switchRank('heat')">人气榜</span>
+    </div>
+    <div class="rank-list">
+      <div class="rank-row" v-for="item in rankList" :key="item.rank">
+        <span :class="['rank-no', { top1: item.rank === 1, top2: item.rank === 2, top3: item.rank === 3 }]">{{ item.rank }}</span>
+        <img v-if="rankTab !== 'heat'" :src="item.avatar || defaultAvatar" class="rank-avatar" />
+        <span class="rank-name" v-if="rankTab !== 'heat'" @click="item.userId && $router.push(`/profile/${item.userId}`)">
+          {{ item.nickName || ('用户' + item.userId) }}</span>
+        <span class="rank-name" v-else @click="item.roomId && $router.push(`/room/${item.roomId}`)">{{ item.roomName }}</span>
+        <span class="rank-score">{{ rankTab === 'heat' ? '🔥 ' + (item.score || 0) : '🪙 ' + (item.score || 0) }}</span>
+      </div>
+      <div v-if="rankList.length === 0" class="rank-empty">暂无数据，快去播种吧~</div>
+    </div>
+  </el-dialog>
 </template>
 
 <script setup>
@@ -72,6 +91,8 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { listRoom, startLiving, myLivingRoom } from '@/api/room'
+import { anchorGiftRank, heatRank } from '@/api/rank'
+import { notifyList, notifyRead, notifyUnreadCount } from '@/api/user'
 import StartLivingDialog from '@/components/StartLivingDialog.vue'
 import UserProfileDialog from '@/components/UserProfileDialog.vue'
 import ShopManageDialog from '@/components/ShopManageDialog.vue'
@@ -115,6 +136,51 @@ const profileVisible = ref(false)
 const shopManageVisible = ref(false)
 // 我进行中的直播间（主播刷新浏览器后一键回到直播间）
 const livingRoomId = ref(null)
+
+// ==================== 搜索 / 排行榜 / 通知中心 ====================
+const searchKeyword = ref('')
+function goSearch() {
+  if (searchKeyword.value.trim()) router.push(`/search?keyword=${encodeURIComponent(searchKeyword.value.trim())}`)
+}
+
+const rankVisible = ref(false)
+const rankTab = ref('day')
+const rankList = ref([])
+async function switchRank(tab) {
+  rankTab.value = tab
+  try {
+    const vo = tab === 'heat' ? await heatRank() : await anchorGiftRank(tab)
+    rankList.value = vo.data || []
+  } catch { rankList.value = [] }
+}
+
+const notifyUnread = ref(0)
+const notifyListData = ref([])
+async function refreshUnread() {
+  if (!userStore.userInfo.loginStatus) return
+  try {
+    const vo = await notifyUnreadCount()
+    notifyUnread.value = Number(vo.data) || 0
+  } catch { /* 忽略 */ }
+}
+async function loadNotifyList() {
+  try {
+    const vo = await notifyList(1, 20)
+    notifyListData.value = vo.data?.list || []
+  } catch { notifyListData.value = [] }
+}
+async function handleNotifyCommand(n) {
+  if (n.jumpUrl) router.push(n.jumpUrl)
+  if (!n.isRead) {
+    await notifyRead(n.id)
+    refreshUnread()
+  }
+}
+async function markAllRead() {
+  await notifyRead()
+  refreshUnread()
+  notifyListData.value = notifyListData.value.map(n => ({ ...n, isRead: 1 }))
+}
 async function handleAvatarCommand(cmd) {
   if (cmd === 'center') router.push('/user/center')
   else if (cmd === 'myprofile') router.push('/profile')
@@ -150,6 +216,7 @@ onMounted(async () => {
   userStore.refreshBalance()
   await fetchRooms()
   refreshMyLivingRoom()
+  refreshUnread()
 })
 </script>
 
@@ -211,4 +278,41 @@ onMounted(async () => {
   font-weight: bold;
 }
 .start-btn:hover { filter: brightness(1.12); }
+
+/* 搜索 / 排行榜 / 通知 */
+.global-search {
+  width: 220px; padding: 7px 12px; border-radius: 6px; border: 1px solid #2a3040;
+  background: rgba(255,255,255,0.06); color: #fff; outline: none; font-size: 13px;
+}
+.global-search:focus { border-color: #667eea; }
+.global-search::placeholder { color: #666; }
+.rank-entry { cursor: pointer; font-size: 18px; }
+.bell { cursor: pointer; font-size: 16px; position: relative; outline: none; }
+.bell-badge {
+  position: absolute; top: -6px; right: -8px; background: #f56c6c; color: #fff;
+  font-size: 10px; line-height: 14px; padding: 0 4px; border-radius: 7px;
+}
+.notify-header {
+  display: flex; justify-content: space-between; padding: 8px 12px;
+  font-weight: bold; border-bottom: 1px solid #2a3040;
+}
+.notify-readall { color: #667eea; font-size: 12px; cursor: pointer; font-weight: normal; }
+.notify-empty { padding: 20px; text-align: center; color: #888; font-size: 13px; }
+.notify-item { line-height: 1.4; }
+.notify-title { font-size: 13px; font-weight: bold; }
+.notify-content { font-size: 12px; color: #888; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.notify-unread .notify-title::before { content: "●"; color: #f56c6c; font-size: 10px; margin-right: 4px; }
+.rank-tabs { display: flex; gap: 18px; margin-bottom: 14px; border-bottom: 1px solid #2a3040; }
+.rank-tab { cursor: pointer; color: #888; padding-bottom: 8px; }
+.rank-tab.active { color: #667eea; font-weight: bold; border-bottom: 2px solid #667eea; }
+.rank-row { display: flex; align-items: center; gap: 12px; padding: 8px 6px; }
+.rank-no { width: 24px; text-align: center; font-weight: bold; color: #888; }
+.rank-no.top1 { color: #ffd700; }
+.rank-no.top2 { color: #c0c0c0; }
+.rank-no.top3 { color: #cd7f32; }
+.rank-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+.rank-name { flex: 1; font-size: 14px; cursor: pointer; }
+.rank-name:hover { color: #667eea; }
+.rank-score { color: #e6a23c; font-size: 13px; }
+.rank-empty { text-align: center; color: #888; padding: 32px 0; }
 </style>

@@ -8,6 +8,9 @@ import org.qiyu.live.common.interfaces.dto.PageWrapper;
 import org.qiyu.live.user.dto.UserDTO;
 import org.qiyu.live.user.provider.dao.mapper.IUserRelationMapper;
 import org.qiyu.live.user.provider.dao.po.UserRelationPO;
+import org.qiyu.live.common.interfaces.constants.UserLevelConstants;
+import org.qiyu.live.user.dto.UserNotifyDTO;
+import org.qiyu.live.user.provider.service.INotifyService;
 import org.qiyu.live.user.provider.service.IProfileService;
 import org.qiyu.live.user.provider.service.IUserRelationService;
 import org.qiyu.live.user.provider.service.IUserService;
@@ -35,6 +38,8 @@ public class UserRelationServiceImpl implements IUserRelationService {
     private IUserService userService;
     @Resource
     private IProfileService profileService;
+    @Resource
+    private INotifyService notifyService;
 
     @Override
     public Boolean follow(Long userId, Long followUserId) {
@@ -60,6 +65,16 @@ public class UserRelationServiceImpl implements IUserRelationService {
         }
         profileService.changeCnt(userId, "follow_cnt", 1);
         profileService.changeCnt(followUserId, "fans_cnt", 1);
+        // 互动通知：告诉被关注的人"有新粉丝"（失败只记日志，不影响关注）
+        try {
+            UserDTO follower = userService.getByUserId(userId);
+            notifyService.sendNotify(UserNotifyDTO.of(followUserId, 2, "新的粉丝",
+                    (follower == null || follower.getNickName() == null ? "用户" + userId : follower.getNickName())
+                            + " 关注了你",
+                    "/profile/" + userId));
+        } catch (Exception e) {
+            LOGGER.error("[follow] send notify error, userId={}", userId, e);
+        }
         LOGGER.info("[follow] userId={} -> followUserId={}", userId, followUserId);
         return true;
     }

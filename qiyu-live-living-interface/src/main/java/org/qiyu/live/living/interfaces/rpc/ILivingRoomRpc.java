@@ -33,6 +33,11 @@ public interface ILivingRoomRpc {
     PageWrapper<LivingRoomRespDTO> list(LivingRoomReqDTO livingRoomReqDTO);
 
     /**
+     * 按直播间名称模糊搜索（只搜开播中的房间，搜索中心用）
+     */
+    PageWrapper<LivingRoomRespDTO> searchRooms(String keyword, int page, int pageSize);
+
+    /**
      * 根据用户id查询是否正在开播
      *
      * @param roomId

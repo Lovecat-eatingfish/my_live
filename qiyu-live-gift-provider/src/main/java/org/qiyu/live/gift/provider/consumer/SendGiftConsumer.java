@@ -3,6 +3,7 @@ package org.qiyu.live.gift.provider.consumer;
 import com.alibaba.fastjson.JSON;
 import org.apache.rocketmq.client.producer.MQProducer;
 import org.apache.rocketmq.common.message.Message;
+import org.qiyu.live.common.interfaces.constants.RankConstants;
 import org.qiyu.live.common.interfaces.constants.UserLevelConstants;
 import org.qiyu.live.common.interfaces.dto.UserExpChangeMqDTO;
 import org.qiyu.live.common.interfaces.topic.UserProviderTopicNames;
@@ -78,6 +79,8 @@ public class SendGiftConsumer implements InitializingBean {
     private GiftProviderCacheKeyBuilder cacheKeyBuilder;
     @Resource
     private MQProducer mqProducer;
+    @Resource
+    private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
     @DubboReference(check = false)
     private IQiyuCurrencyAccountRpc qiyuCurrencyAccountRpc;
     @DubboReference(check = false)
@@ -131,6 +134,25 @@ public class SendGiftConsumer implements InitializingBean {
                         // 获取直播间所有用户 进行批量 推动这个 svg 效果即可  实现全直播间 可见这个 svg特效
                         List<Long> userIdList = livingRoomRpc.queryUserIdByRoomId(reqDTO);
                         this.batchSendImMsg(userIdList, ImMsgBizCodeEnum.LIVING_ROOM_SEND_GIFT_SUCCESS, jsonObject);
+                        // 排行榜：主播收礼日榜 + 本场贡献榜（ZSET，StringRedisTemplate 读写）
+                        try {
+                            String day = java.time.LocalDate.now()
+                                    .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+                            String anchorKey = RankConstants.ANCHOR_GIFT_DAILY_PREFIX + day;
+                            stringRedisTemplate.opsForZSet().incrementScore(anchorKey,
+                                    String.valueOf(sendGiftMq.getReceiverId()),
+                                    sendGiftMq.getPrice() == null ? 0 : sendGiftMq.getPrice());
+                            stringRedisTemplate.expire(anchorKey, RankConstants.RANK_TTL_DAYS, java.util.concurrent.TimeUnit.DAYS);
+                            if (sendGiftMq.getRoomId() != null) {
+                                String roomKey = RankConstants.ROOM_GIFT_PREFIX + sendGiftMq.getRoomId();
+                                stringRedisTemplate.opsForZSet().incrementScore(roomKey,
+                                        String.valueOf(sendGiftMq.getUserId()),
+                                        sendGiftMq.getPrice() == null ? 0 : sendGiftMq.getPrice());
+                                stringRedisTemplate.expire(roomKey, RankConstants.RANK_TTL_DAYS, java.util.concurrent.TimeUnit.DAYS);
+                            }
+                        } catch (Exception e) {
+                            LOGGER.error("[SendGiftConsumer] rank zincrby error, roomId={}", sendGiftMq.getRoomId(), e);
+                        }
                         // 送礼经验：1 金币 +1（MQ 交 user-provider 单点结算）
                         try {
                             UserExpChangeMqDTO expDTO = UserExpChangeMqDTO.of(sendGiftMq.getUserId(),
