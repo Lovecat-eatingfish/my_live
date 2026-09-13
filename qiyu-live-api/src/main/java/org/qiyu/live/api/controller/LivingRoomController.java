@@ -57,6 +57,45 @@ public class LivingRoomController {
         return WebResponseVO.success(livingRoomService.followRooms(1, 20));
     }
 
+    /** 主播设置直播间公告 */
+    @PostMapping("/setAnnouncement")
+    public WebResponseVO setAnnouncement(Integer roomId, String announcement) {
+        ErrorAssert.isNotNull(roomId, BizBaseErrorEnum.PARAM_ERROR);
+        return WebResponseVO.success(livingRoomService.setAnnouncement(roomId, announcement));
+    }
+
+    /** 主播任命房间管理员 */
+    @PostMapping("/roomAdmin/appoint")
+    public WebResponseVO appointRoomAdmin(Integer roomId, Long adminUserId) {
+        ErrorAssert.isNotNull(roomId, BizBaseErrorEnum.PARAM_ERROR);
+        ErrorAssert.isNotNull(adminUserId, BizBaseErrorEnum.PARAM_ERROR);
+        return WebResponseVO.success(livingRoomService.appointRoomAdmin(roomId, adminUserId));
+    }
+
+    /** 主播移除房间管理员 */
+    @PostMapping("/roomAdmin/remove")
+    public WebResponseVO removeRoomAdmin(Integer roomId, Long adminUserId) {
+        ErrorAssert.isNotNull(roomId, BizBaseErrorEnum.PARAM_ERROR);
+        ErrorAssert.isNotNull(adminUserId, BizBaseErrorEnum.PARAM_ERROR);
+        return WebResponseVO.success(livingRoomService.removeRoomAdmin(roomId, adminUserId));
+    }
+
+    /** 主播或管理员禁言观众（房间维度，默认 30 分钟） */
+    @PostMapping("/roomAdmin/mute")
+    public WebResponseVO muteRoomUser(Integer roomId, Long muteUserId, Integer minutes) {
+        ErrorAssert.isNotNull(roomId, BizBaseErrorEnum.PARAM_ERROR);
+        ErrorAssert.isNotNull(muteUserId, BizBaseErrorEnum.PARAM_ERROR);
+        return WebResponseVO.success(livingRoomService.muteRoomUser(roomId, muteUserId, minutes));
+    }
+
+    /** 解除房间禁言 */
+    @PostMapping("/roomAdmin/unmute")
+    public WebResponseVO unmuteRoomUser(Integer roomId, Long muteUserId) {
+        ErrorAssert.isNotNull(roomId, BizBaseErrorEnum.PARAM_ERROR);
+        ErrorAssert.isNotNull(muteUserId, BizBaseErrorEnum.PARAM_ERROR);
+        return WebResponseVO.success(livingRoomService.unmuteRoomUser(roomId, muteUserId));
+    }
+
     /** 口令抽奖：主播发起 */
     @PostMapping("/lottery/create")
     public WebResponseVO lotteryCreate(Integer roomId, String keyword, Integer durationSec,

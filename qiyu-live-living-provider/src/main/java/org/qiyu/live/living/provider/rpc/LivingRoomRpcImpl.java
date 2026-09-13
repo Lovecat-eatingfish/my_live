@@ -107,4 +107,39 @@ public class LivingRoomRpcImpl implements ILivingRoomRpc {
     public String createLottery(Integer roomId, Long userId, String keyword, int durationSec, int winnerCount, int rewardCoins) {
         return livingRoomService.createLottery(roomId, userId, keyword, durationSec, winnerCount, rewardCoins);
     }
+
+    @Override
+    public String setAnnouncement(Integer roomId, Long userId, String announcement) {
+        return livingRoomService.setAnnouncement(roomId, userId, announcement);
+    }
+
+    @Override
+    public String appointRoomAdmin(Integer roomId, Long anchorId, Long adminUserId) {
+        return livingRoomService.appointRoomAdmin(roomId, anchorId, adminUserId);
+    }
+
+    @Override
+    public boolean removeRoomAdmin(Integer roomId, Long anchorId, Long adminUserId) {
+        return livingRoomService.removeRoomAdmin(roomId, anchorId, adminUserId);
+    }
+
+    @Override
+    public boolean isRoomAdmin(Integer roomId, Long userId) {
+        return livingRoomService.isRoomAdmin(roomId, userId);
+    }
+
+    @Override
+    public java.util.List<Long> listRoomAdmins(Integer roomId) {
+        return livingRoomService.listRoomAdmins(roomId);
+    }
+
+    @Override
+    public String muteRoomUser(Integer roomId, Long operatorId, Long muteUserId, int minutes) {
+        return livingRoomService.muteRoomUser(roomId, operatorId, muteUserId, minutes);
+    }
+
+    @Override
+    public boolean unmuteRoomUser(Integer roomId, Long operatorId, Long muteUserId) {
+        return livingRoomService.unmuteRoomUser(roomId, operatorId, muteUserId);
+    }
 }

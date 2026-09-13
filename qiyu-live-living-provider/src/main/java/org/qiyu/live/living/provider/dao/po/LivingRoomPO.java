@@ -29,7 +29,9 @@ public class LivingRoomPO {
     /** 门票价格（金币） */
     private Integer ticketPrice;
     private Integer recordEnabled;
-    private Date startTime;
+    /** 直播间公告 */
+    private String announcement;
+        private Date startTime;
     private Date updateTime;
 
     public Integer getId() {
@@ -151,4 +153,12 @@ public class LivingRoomPO {
     public void setTicketPrice(Integer ticketPrice) {
         this.ticketPrice = ticketPrice;
     }
+    public String getAnnouncement() {
+        return announcement;
+    }
+
+    public void setAnnouncement(String announcement) {
+        this.announcement = announcement;
+    }
+
 }

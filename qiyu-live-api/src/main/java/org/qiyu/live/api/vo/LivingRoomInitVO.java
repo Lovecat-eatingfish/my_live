@@ -20,6 +20,12 @@ public class LivingRoomInitVO {
     private String watcherAvatar;
     //默认背景图，为了方便讲解使用
     private String defaultBgImg;
+    /** 直播间公告（主播设置） */
+    private String announcement;
+    /** 当前用户是否本房间管理员 */
+    private Boolean isRoomAdmin;
+    /** 房间管理员 userId 列表 */
+    private java.util.List<Long> roomAdmins;
     private Long pkObjId;
 
     public Long getPkObjId() {
@@ -135,4 +141,28 @@ public class LivingRoomInitVO {
                 ", pkObjId=" + pkObjId +
                 '}';
     }
+    public String getAnnouncement() {
+        return announcement;
+    }
+
+    public void setAnnouncement(String announcement) {
+        this.announcement = announcement;
+    }
+
+    public Boolean getIsRoomAdmin() {
+        return isRoomAdmin;
+    }
+
+    public void setIsRoomAdmin(Boolean isRoomAdmin) {
+        this.isRoomAdmin = isRoomAdmin;
+    }
+
+    public java.util.List<Long> getRoomAdmins() {
+        return roomAdmins;
+    }
+
+    public void setRoomAdmins(java.util.List<Long> roomAdmins) {
+        this.roomAdmins = roomAdmins;
+    }
+
 }

@@ -82,6 +82,10 @@ public class SingleMessageHandlerImpl implements MessageHandler {
                 sendBlockedNotice(imMsgBody, roomId, "您已被禁言，暂时无法发言");
                 return;
             }
+            if (isRoomMuted(roomId, imMsgBody.getUserId())) {
+                sendBlockedNotice(imMsgBody, roomId, "您在本直播间已被禁言");
+                return;
+            }
             if (!riskCheckService.checkDanmuFreq(imMsgBody.getUserId())) {
                 return;
             }
@@ -187,6 +191,20 @@ public class SingleMessageHandlerImpl implements MessageHandler {
             routerRpc.batchSendMsg(java.util.Arrays.asList(toMsg, echoMsg));
         } catch (Exception e) {
             LOGGER.error("[handleDmUp] persist/send error, from={}, to={}", fromUid, toUid, e);
+        }
+    }
+
+    /** 房间维度禁言（管理员/主播设置），与全局禁言分 key */
+    private boolean isRoomMuted(Integer roomId, Long userId) {
+        if (roomId == null) {
+            return false;
+        }
+        try {
+            return Boolean.TRUE.equals(stringRedisTemplate.hasKey(
+                    RiskConstants.ROOM_MUTE_KEY_PREFIX + roomId + ":" + userId));
+        } catch (Exception e) {
+            LOGGER.error("[isRoomMuted] redis error, roomId={}, userId={}", roomId, userId, e);
+            return false;
         }
     }
 

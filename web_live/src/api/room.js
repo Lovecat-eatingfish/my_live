@@ -19,6 +19,17 @@ export const myLivingRoom = () => request.post('/living/myLivingRoom')
 // 获取IM配置
 export const getImConfig = () => request.post('/im/getImConfig')
 
+/** 主播设置直播间公告 */
+export const setAnnouncement = (roomId, announcement) => request.post('/living/setAnnouncement', null, { params: { roomId, announcement } })
+
+/** 任命/移除房间管理员 */
+export const appointRoomAdmin = (roomId, adminUserId) => request.post('/living/roomAdmin/appoint', null, { params: { roomId, adminUserId } })
+export const removeRoomAdmin = (roomId, adminUserId) => request.post('/living/roomAdmin/remove', null, { params: { roomId, adminUserId } })
+
+/** 禁言/解禁（主播或管理员） */
+export const muteRoomUser = (roomId, muteUserId, minutes = 30) => request.post('/living/roomAdmin/mute', null, { params: { roomId, muteUserId, minutes } })
+export const unmuteRoomUser = (roomId, muteUserId) => request.post('/living/roomAdmin/unmute', null, { params: { roomId, muteUserId } })
+
 /** 口令抽奖：主播发起（keyword/durationSec/winnerCount/rewardCoins） */
 export const createLottery = (roomId, keyword, durationSec, winnerCount, rewardCoins) =>
   request.post('/living/lottery/create', null, { params: { roomId, keyword, durationSec, winnerCount, rewardCoins } })

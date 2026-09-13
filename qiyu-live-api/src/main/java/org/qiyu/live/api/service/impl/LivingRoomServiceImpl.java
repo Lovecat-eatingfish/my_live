@@ -82,6 +82,33 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     }
 
     @Override
+    public String setAnnouncement(Integer roomId, String announcement) {
+        return livingRoomRpc.setAnnouncement(roomId, QiyuRequestContext.getUserId(),
+                announcement == null ? "" : announcement.trim());
+    }
+
+    @Override
+    public String appointRoomAdmin(Integer roomId, Long adminUserId) {
+        return livingRoomRpc.appointRoomAdmin(roomId, QiyuRequestContext.getUserId(), adminUserId);
+    }
+
+    @Override
+    public boolean removeRoomAdmin(Integer roomId, Long adminUserId) {
+        return livingRoomRpc.removeRoomAdmin(roomId, QiyuRequestContext.getUserId(), adminUserId);
+    }
+
+    @Override
+    public String muteRoomUser(Integer roomId, Long muteUserId, Integer minutes) {
+        return livingRoomRpc.muteRoomUser(roomId, QiyuRequestContext.getUserId(), muteUserId,
+                minutes == null ? 30 : minutes);
+    }
+
+    @Override
+    public boolean unmuteRoomUser(Integer roomId, Long muteUserId) {
+        return livingRoomRpc.unmuteRoomUser(roomId, QiyuRequestContext.getUserId(), muteUserId);
+    }
+
+    @Override
     public java.util.List<org.qiyu.live.living.interfaces.dto.LivingCategoryDTO> categories() {
         //RPC 返回全量（含停用），C 端只出启用项
         return livingCategoryRpc.listCategories().stream()
@@ -235,6 +262,11 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
         //封面优先用主播自定义上传图，没有再落到外链默认图
         respVO.setDefaultBgImg(StringUtils.hasText(respDTO.getCovertImg())
                 ? respDTO.getCovertImg() : "https://picst.sunbangyan.cn/2023/08/29/waxzj0.png");
+        // 直播间治理信息：公告 + 管理员
+        respVO.setAnnouncement(respDTO.getAnnouncement());
+        java.util.List<Long> admins = livingRoomRpc.listRoomAdmins(roomId);
+        respVO.setRoomAdmins(admins);
+        respVO.setIsRoomAdmin(admins.contains(userId));
         return respVO;
     }
 

@@ -33,6 +33,9 @@ public class RiskConstants {
     /** 禁言 Redis key 前缀（完整 key = 前缀 + userId） */
     public static final String BAN_MUTE_KEY_PREFIX = "qiyu:live:ban:mute:";
 
+    /** 房间维度禁言（管理员/主播对单个观众）：qiyu:live:ban:room_mute:{roomId}:{userId} */
+    public static final String ROOM_MUTE_KEY_PREFIX = "qiyu:live:ban:room_mute:";
+
     /** 弹幕频率风控：时间窗口（秒） */
     public static final long DANMU_FREQ_WINDOW_SECONDS = 5L;
     /** 弹幕频率风控：窗口内最大条数 */

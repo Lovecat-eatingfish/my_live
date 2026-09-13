@@ -16,6 +16,7 @@
           {{ isFollow ? '已关注' : '+ 关注' }}
         </el-button>
         <span class="viewer-chip share-chip" title="分享直播间" @click="handleShare">🔗 分享</span>
+        <span v-if="announcement" class="viewer-chip announce-chip" :title="announcement">📢 {{ announcement }}</span>
         <span v-if="lotteryActive" class="viewer-chip lottery-chip" title="发送弹幕口令即可参与">
           🎁 抽奖中：发「{{ lotteryActive.keyword }}」
         </span>
@@ -30,6 +31,8 @@
           <el-button size="small" @click="doInviteLinkMic">📞 邀请连麦</el-button>
           <el-button v-if="linkMicActive" size="small" type="warning" @click="doHangUp">挂断连麦</el-button>
           <el-button size="small" type="success" @click="lotteryVisible = true">🎁 抽奖</el-button>
+          <el-button size="small" @click="editAnnouncement">📢 公告</el-button>
+          <el-button size="small" @click="addRoomAdmin">👤 管理员</el-button>
         </template>
         <el-button v-if="!roomInfo.anchor && linkMicActive && isGuest" size="small" type="warning" @click="doHangUp">
           下麦
@@ -111,7 +114,7 @@
             <span class="contrib-score">🪙 {{ c.score }}</span>
           </div>
         </div>
-        <ChatList :messages="chatMessages" class="chat-section" />
+        <ChatList :messages="chatMessages" :can-mute="isAnchor || isRoomAdmin" class="chat-section" @mute="handleMuteFromChat" />
         <div class="chat-input-wrap">
           <ChatInput placeholder="说点什么..." @send="handleSendChat" />
         </div>
@@ -256,7 +259,7 @@ async function handleShare() {
   }
 }
 import { roomGiftRank } from '@/api/rank'
-import { inviteLinkMic, acceptLinkMic, hangUpLinkMic, buyTicket, createLottery } from '@/api/room'
+import { inviteLinkMic, acceptLinkMic, hangUpLinkMic, buyTicket, createLottery, setAnnouncement, appointRoomAdmin, muteRoomUser } from '@/api/room'
 import { IMConnection } from '@/utils/im/connection'
 import ChatList from '@/components/ChatList.vue'
 import ChatInput from '@/components/ChatInput.vue'
@@ -277,6 +280,48 @@ const userStore = useUserStore()
 const roomId = computed(() => Number(route.params.id))
 const roomInfo = ref({})
 const isFollow = ref(false)
+// ==================== 直播间治理（公告/管理员/禁言） ====================
+const announcement = ref('')
+const isRoomAdmin = ref(false)
+const isAnchor = computed(() => !!roomInfo.value.anchor)
+
+async function editAnnouncement() {
+  try {
+    const { value } = await ElMessageBox.prompt('观众进入直播间会看到公告', '📢 直播间公告', {
+      inputValue: announcement.value, inputPattern: /^.{0,200}$/, inputErrorMessage: '最多 200 字',
+      confirmButtonText: '保存', cancelButtonText: '取消'
+    })
+    const vo = await setAnnouncement(roomId.value, value || '')
+    if (vo.data) { ElMessage.error(vo.data); return }
+    announcement.value = value || ''
+    ElMessage.success(announcement.value ? '公告已更新' : '公告已清除')
+  } catch { /* 取消 */ }
+}
+
+async function addRoomAdmin() {
+  try {
+    const { value } = await ElMessageBox.prompt('输入要任命为管理员的观众用户 ID', '👤 任命房间管理员', {
+      inputPattern: /^\d+$/, inputErrorMessage: '请输入数字用户 ID',
+      confirmButtonText: '任命', cancelButtonText: '取消'
+    })
+    const vo = await appointRoomAdmin(roomId.value, Number(value))
+    if (vo.data) { ElMessage.error(vo.data); return }
+    roomInfo.value.roomAdmins = [...(roomInfo.value.roomAdmins || []), Number(value)]
+    ElMessage.success('已任命 ' + value + ' 为房间管理员')
+  } catch { /* 取消 */ }
+}
+
+async function handleMuteFromChat(msg) {
+  try {
+    await ElMessageBox.confirm(`禁言「${msg.userName}」30 分钟？`, '🔇 房间禁言', {
+      confirmButtonText: '禁言', cancelButtonText: '取消', type: 'warning'
+    })
+    const vo = await muteRoomUser(roomId.value, msg.userId, 30)
+    if (vo.data) { ElMessage.error(vo.data); return }
+    chatMessages.value.push({ userName: '系统', content: `${msg.userName} 已被禁言 30 分钟`, system: true, time: new Date().toLocaleTimeString() })
+  } catch { /* 取消 */ }
+}
+
 // ==================== 口令抽奖（5574/5575） ====================
 const lotteryVisible = ref(false)
 const lotteryActive = ref(null)
@@ -719,6 +764,8 @@ async function fetchRoomInfo() {
     return
   }
   roomInfo.value = vo.data || {}
+  announcement.value = vo.data?.announcement || ''
+  isRoomAdmin.value = !!vo.data?.isRoomAdmin
   if (!roomInfo.value.anchor && roomInfo.value.anchorId) {
     const f = await isFollowUser(roomInfo.value.anchorId)
     isFollow.value = !!f.data
@@ -1314,6 +1361,7 @@ onUnmounted(() => {
 }
 .guest-label { padding: 6px 10px; font-size: 12px; color: #aaa; }
 .guest-video { width: 100%; flex: 1; object-fit: contain; background: #000; }
+.announce-chip { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: rgba(64, 158, 255, 0.15); border: 1px solid rgba(64, 158, 255, 0.5); }
 .lottery-chip { background: rgba(103, 194, 58, 0.15); border: 1px solid rgba(103, 194, 58, 0.5); }
 .lottery-hint { font-size: 11px; color: #999; margin-top: 4px; }
 </style>

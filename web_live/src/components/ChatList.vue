@@ -15,6 +15,7 @@
           <span v-if="msg.level" :class="['lv-badge', levelClass(msg.level)]">L{{ msg.level }}</span>
           <span class="chat-name" @click="goProfile(msg)">{{ msg.userName }}</span>
           <span class="chat-time">{{ msg.time }}</span>
+          <span v-if="canMute && !msg.isSelf" class="chat-mute" title="禁言 30 分钟" @click="$emit('mute', msg)">🔇</span>
         </div>
         <div class="chat-bubble">{{ msg.content }}</div>
       </div>
@@ -42,7 +43,10 @@ function levelClass(level) {
   return 'lv-green'
 }
 
+const emit = defineEmits(['mute'])
 const props = defineProps({
+  canMute: { type: Boolean, default: false },
+  canMute: { type: Boolean, default: false },
   messages: {
     type: Array,
     default: () => []
@@ -133,4 +137,6 @@ watch(() => props.messages.length, () => {
   width: 100%; text-align: center; font-size: 12px; color: #7c8aa5;
   padding: 4px 0; background: rgba(124,138,165,0.08); border-radius: 6px; margin: 2px 0;
 }
+.chat-mute { cursor: pointer; opacity: 0; transition: opacity .15s; font-size: 11px; }
+.chat-item:hover .chat-mute { opacity: 1; }
 </style>

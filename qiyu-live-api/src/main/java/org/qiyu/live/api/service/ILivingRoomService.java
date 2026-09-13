@@ -29,6 +29,21 @@ public interface ILivingRoomService {
     /** 口令抽奖：主播发起，返回错误信息，null=成功 */
     String createLottery(Integer roomId, String keyword, int durationSec, int winnerCount, int rewardCoins);
 
+    /** 主播设置直播间公告，返回错误信息，null=成功 */
+    String setAnnouncement(Integer roomId, String announcement);
+
+    /** 主播任命房间管理员，返回错误信息，null=成功 */
+    String appointRoomAdmin(Integer roomId, Long adminUserId);
+
+    /** 主播移除房间管理员 */
+    boolean removeRoomAdmin(Integer roomId, Long adminUserId);
+
+    /** 主播或管理员禁言观众（房间维度），返回错误信息，null=成功 */
+    String muteRoomUser(Integer roomId, Long muteUserId, Integer minutes);
+
+    /** 解除房间禁言 */
+    boolean unmuteRoomUser(Integer roomId, Long muteUserId);
+
     /**
      * 开启直播间
      *

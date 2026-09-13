@@ -119,4 +119,25 @@ public interface ILivingRoomRpc {
      * 口令抽奖：主播发起（扣奖励金币 + 广播 5574 + 延迟 MQ 结算），返回错误信息，null=成功
      */
     String createLottery(Integer roomId, Long userId, String keyword, int durationSec, int winnerCount, int rewardCoins);
+
+    /** 主播设置直播间公告，返回错误信息，null=成功 */
+    String setAnnouncement(Integer roomId, Long userId, String announcement);
+
+    /** 主播任命房间管理员，返回错误信息，null=成功 */
+    String appointRoomAdmin(Integer roomId, Long anchorId, Long adminUserId);
+
+    /** 主播移除房间管理员 */
+    boolean removeRoomAdmin(Integer roomId, Long anchorId, Long adminUserId);
+
+    /** 是否房间管理员 */
+    boolean isRoomAdmin(Integer roomId, Long userId);
+
+    /** 房间管理员列表 */
+    java.util.List<Long> listRoomAdmins(Integer roomId);
+
+    /** 主播或管理员禁言观众（房间维度），返回错误信息，null=成功 */
+    String muteRoomUser(Integer roomId, Long operatorId, Long muteUserId, int minutes);
+
+    /** 解除房间禁言 */
+    boolean unmuteRoomUser(Integer roomId, Long operatorId, Long muteUserId);
 }

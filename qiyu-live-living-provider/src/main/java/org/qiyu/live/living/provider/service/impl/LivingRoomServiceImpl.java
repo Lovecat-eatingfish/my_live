@@ -12,6 +12,8 @@ import org.idea.qiyu.live.framework.redis.starter.key.LivingProviderCacheKeyBuil
 import org.qiyu.live.common.interfaces.dto.PageWrapper;
 import org.qiyu.live.common.interfaces.enums.CommonStatusEum;
 import org.qiyu.live.common.interfaces.constants.LotteryConstants;
+import org.qiyu.live.living.provider.dao.mapper.LivingRoomAdminMapper;
+import org.qiyu.live.living.provider.dao.po.LivingRoomAdminPO;
 import org.qiyu.live.common.interfaces.utils.ConvertBeanUtils;
 import org.qiyu.live.im.constants.AppIdEnum;
 import org.qiyu.live.im.core.server.interfaces.dto.ImOfflineDTO;
@@ -70,6 +72,8 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     private ILivingRoomTxService livingRoomTxService;
     @Resource
     private MQProducer mqProducer;
+    @Resource
+    private org.qiyu.live.living.provider.dao.mapper.LivingRoomAdminMapper livingRoomAdminMapper;
     @DubboReference(check = false)
     private org.qiyu.live.bank.interfaces.IQiyuCurrencyAccountRpc currencyAccountRpc;
     @DubboReference(check = false)
@@ -372,6 +376,124 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
             return "抽奖已发起但结算消息发送失败";
         }
         return null;
+    }
+
+    @Override
+    public String setAnnouncement(Integer roomId, Long userId, String announcement) {
+        LivingRoomRespDTO room = queryByRoomId(roomId);
+        if (room == null || room.getId() == null || !userId.equals(room.getAnchorId())) {
+            return "只有主播能设置公告";
+        }
+        if (announcement != null && announcement.length() > 200) {
+            return "公告最多 200 字";
+        }
+        livingRoomMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<LivingRoomPO>()
+                .eq(LivingRoomPO::getId, roomId)
+                .set(LivingRoomPO::getAnnouncement, announcement == null ? "" : announcement));
+        // 刷新房间缓存
+        redisTemplate.delete(cacheKeyBuilder.buildLivingRoomObj(roomId));
+        return null;
+    }
+
+    @Override
+    public String appointRoomAdmin(Integer roomId, Long anchorId, Long adminUserId) {
+        LivingRoomRespDTO room = queryByRoomId(roomId);
+        if (room == null || room.getId() == null || !anchorId.equals(room.getAnchorId())) {
+            return "只有主播能任命管理员";
+        }
+        if (adminUserId == null || adminUserId.equals(room.getAnchorId())) {
+            return "不能任命自己为管理员";
+        }
+        Long exists = livingRoomAdminMapper.selectCount(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<LivingRoomAdminPO>()
+                        .eq(LivingRoomAdminPO::getRoomId, roomId)
+                        .eq(LivingRoomAdminPO::getAdminUserId, adminUserId));
+        if (exists > 0) {
+            return null; // 幂等
+        }
+        LivingRoomAdminPO po = new LivingRoomAdminPO();
+        po.setRoomId(roomId);
+        po.setAdminUserId(adminUserId);
+        po.setCreateTime(new java.util.Date());
+        try {
+            livingRoomAdminMapper.insert(po);
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            // 并发任命幂等
+        }
+        return null;
+    }
+
+    @Override
+    public boolean removeRoomAdmin(Integer roomId, Long anchorId, Long adminUserId) {
+        LivingRoomRespDTO room = queryByRoomId(roomId);
+        if (room == null || room.getId() == null || !anchorId.equals(room.getAnchorId())) {
+            return false;
+        }
+        return livingRoomAdminMapper.delete(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<LivingRoomAdminPO>()
+                        .eq(LivingRoomAdminPO::getRoomId, roomId)
+                        .eq(LivingRoomAdminPO::getAdminUserId, adminUserId)) > 0;
+    }
+
+    @Override
+    public boolean isRoomAdmin(Integer roomId, Long userId) {
+        if (roomId == null || userId == null) {
+            return false;
+        }
+        return livingRoomAdminMapper.selectCount(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<LivingRoomAdminPO>()
+                        .eq(LivingRoomAdminPO::getRoomId, roomId)
+                        .eq(LivingRoomAdminPO::getAdminUserId, userId)) > 0;
+    }
+
+    @Override
+    public java.util.List<Long> listRoomAdmins(Integer roomId) {
+        if (roomId == null) {
+            return java.util.Collections.emptyList();
+        }
+        return livingRoomAdminMapper.selectList(
+                        new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<LivingRoomAdminPO>()
+                                .eq(LivingRoomAdminPO::getRoomId, roomId))
+                .stream().map(LivingRoomAdminPO::getAdminUserId).collect(java.util.stream.Collectors.toList());
+    }
+
+    @Override
+    public String muteRoomUser(Integer roomId, Long operatorId, Long muteUserId, int minutes) {
+        LivingRoomRespDTO room = queryByRoomId(roomId);
+        if (room == null || room.getId() == null) {
+            return "直播间不存在";
+        }
+        boolean isAnchor = operatorId.equals(room.getAnchorId());
+        if (!isAnchor && !isRoomAdmin(roomId, operatorId)) {
+            return "只有主播或管理员能禁言";
+        }
+        if (operatorId.equals(muteUserId)) {
+            return "不能禁言自己";
+        }
+        if (muteUserId.equals(room.getAnchorId())) {
+            return "不能禁言主播";
+        }
+        if (isRoomAdmin(roomId, muteUserId)) {
+            return "不能禁言管理员";
+        }
+        int mins = Math.min(Math.max(minutes, 1), 1440);
+        stringRedisTemplate.opsForValue().set(
+                org.qiyu.live.common.interfaces.constants.RiskConstants.ROOM_MUTE_KEY_PREFIX + roomId + ":" + muteUserId,
+                String.valueOf(operatorId), java.time.Duration.ofMinutes(mins));
+        return null;
+    }
+
+    @Override
+    public boolean unmuteRoomUser(Integer roomId, Long operatorId, Long muteUserId) {
+        LivingRoomRespDTO room = queryByRoomId(roomId);
+        if (room == null || room.getId() == null) {
+            return false;
+        }
+        if (!operatorId.equals(room.getAnchorId()) && !isRoomAdmin(roomId, operatorId)) {
+            return false;
+        }
+        return stringRedisTemplate.delete(
+                org.qiyu.live.common.interfaces.constants.RiskConstants.ROOM_MUTE_KEY_PREFIX + roomId + ":" + muteUserId);
     }
 
     @Override
