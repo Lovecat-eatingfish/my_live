@@ -25,7 +25,9 @@ public enum ImMsgBizCodeEnum {
     DM_MSG_UP(5568,"私信上行"),
     DM_MSG_DOWN(5569,"私信下行"),
     LOTTERY_START(5574,"直播间口令抽奖开始"),
-    LOTTERY_RESULT(5575,"直播间口令抽奖开奖");
+    LOTTERY_RESULT(5575,"直播间口令抽奖开奖"),
+    VOTE_START(5576,"直播间投票发起"),
+    VOTE_RESULT(5577,"直播间投票结果");
 
     int code;
     String desc;

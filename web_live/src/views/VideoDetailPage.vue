@@ -10,6 +10,24 @@
 
     <div class="detail-body" v-if="video">
       <div class="player-col">
+        <!-- 弹幕式评论飘屏 -->
+
+        <div v-if="danmuMode && danmuComments.length" class="danmu-layer">
+
+          <div
+
+            v-for="d in danmuComments"
+
+            :key="d.key"
+
+            class="danmu-item"
+
+            :style="{ top: d.top + '%', animationDuration: d.dur + 's', animationDelay: d.delay + 's' }"
+
+          >{{ d.text }}</div>
+
+        </div>
+
         <video
           ref="playerRef"
           class="player"
@@ -51,7 +69,10 @@
         </div>
 
         <div class="comment-section">
-          <div class="comment-title">全部评论（{{ formatCount(video.commentCount) }}）</div>
+          <div class="comment-title">
+          全部评论（{{ formatCount(video.commentCount) }}）
+          <el-switch v-model="danmuMode" size="small" inline-prompt active-text="弹幕" inactive-text="弹幕" style="margin-left: auto" />
+        </div>
           <div class="comment-input-row">
             <input
               ref="commentInputRef"
@@ -101,6 +122,23 @@ const userStore = useUserStore()
 
 const video = ref(null)
 const comments = ref([])
+// 弹幕式评论：评论以飘屏形式飘过画面
+const danmuMode = ref(true)
+const danmuComments = ref([])
+let danmuSeq = 0
+function rebuildDanmu() {
+  danmuComments.value = (comments.value || []).slice(0, 30).map(c => {
+    danmuSeq += 1
+    const text = typeof c === 'string' ? c : (c.content || '')
+    return {
+      key: 'd' + danmuSeq,
+      text,
+      top: 5 + Math.floor(Math.random() * 70),
+      dur: 8 + Math.floor(Math.random() * 6),
+      delay: Math.random() * 6,
+    }
+  })
+}
 const commentText = ref('')
 const commentInputRef = ref(null)
 const loadError = ref('')
@@ -128,6 +166,7 @@ async function fetchComments() {
   try {
     const vo = await listComments(route.params.id)
     comments.value = vo.data || []
+    rebuildDanmu()
   } catch { /* 忽略 */ }
 }
 
@@ -163,6 +202,7 @@ async function submitComment() {
   try {
     const vo = await addComment(video.value.id, content)
     comments.value.unshift(vo.data)
+    rebuildDanmu()
     video.value.commentCount = Number(video.value.commentCount) + 1
     commentText.value = ''
   } catch { /* 拦截器提示 */ }
@@ -172,6 +212,7 @@ async function removeComment(commentId) {
   try {
     await deleteComment(commentId)
     comments.value = comments.value.filter(c => c.id !== commentId)
+    rebuildDanmu()
     video.value.commentCount = Math.max(0, Number(video.value.commentCount) - 1)
   } catch { /* 拦截器提示 */ }
 }
@@ -259,4 +300,11 @@ onMounted(async () => {
 .comment-content { font-size: 14px; color: #ccc; line-height: 1.5; }
 .comment-empty { text-align: center; color: #444; padding: 24px 0; }
 .loading { text-align: center; color: #666; padding: 100px 0; }
+.danmu-layer { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 5; }
+.danmu-item {
+  position: absolute; left: 100%; white-space: nowrap; color: #fff; font-size: 14px;
+  text-shadow: 0 1px 2px rgba(0,0,0,.8); padding: 2px 8px; border-radius: 10px;
+  background: rgba(0,0,0,.25); animation: danmu-move linear;
+}
+@keyframes danmu-move { from { transform: translateX(0) } to { transform: translateX(calc(-100vw - 100%)) } }
 </style>

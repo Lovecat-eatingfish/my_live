@@ -529,6 +529,89 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     }
 
     @Override
+    public String createVote(Integer roomId, Long userId, String title, java.util.List<String> options, int durationSec) {
+        LivingRoomRespDTO room = queryByRoomId(roomId);
+        if (room == null || room.getId() == null || !userId.equals(room.getAnchorId())) {
+            return "只有主播能发起投票";
+        }
+        if (title == null || title.trim().isEmpty() || title.length() > 50) {
+            return "投票标题不合法";
+        }
+        if (options == null || options.size() < 2 || options.size() > org.qiyu.live.common.interfaces.constants.VoteConstants.MAX_OPTIONS) {
+            return "投票选项需 2~" + org.qiyu.live.common.interfaces.constants.VoteConstants.MAX_OPTIONS + " 个";
+        }
+        if (!org.qiyu.live.common.interfaces.constants.VoteConstants.DURATION_DELAY_LEVEL.containsKey(durationSec)) {
+            return "投票时长仅支持 30s/1m/2m/3m/5m";
+        }
+        String ctxKey = org.qiyu.live.common.interfaces.constants.VoteConstants.VOTE_CTX_KEY_PREFIX + roomId;
+        if (stringRedisTemplate.hasKey(ctxKey)) {
+            return "已有进行中的投票";
+        }
+        com.alibaba.fastjson.JSONObject ctx = new com.alibaba.fastjson.JSONObject();
+        ctx.put("roomId", roomId);
+        ctx.put("title", title.trim());
+        ctx.put("options", options);
+        ctx.put("anchorId", userId);
+        long endTime = System.currentTimeMillis() + durationSec * 1000L;
+        ctx.put("endTime", endTime);
+        stringRedisTemplate.opsForValue().set(ctxKey, ctx.toJSONString(),
+                java.time.Duration.ofSeconds(durationSec + 120));
+        stringRedisTemplate.delete(org.qiyu.live.common.interfaces.constants.VoteConstants.VOTE_VOTED_KEY_PREFIX + roomId);
+        stringRedisTemplate.delete(org.qiyu.live.common.interfaces.constants.VoteConstants.VOTE_COUNTS_KEY_PREFIX + roomId);
+
+        // 广播 5576 投票开始
+        try {
+            org.qiyu.live.living.interfaces.dto.LivingRoomReqDTO reqDTO = new org.qiyu.live.living.interfaces.dto.LivingRoomReqDTO();
+            reqDTO.setRoomId(roomId);
+            reqDTO.setAppId(AppIdEnum.QIYU_LIVE_BIZ.getCode());
+            java.util.List<Long> userIds = queryUserIdByRoomId(reqDTO);
+            batchSendImMsg(userIds, org.qiyu.live.im.router.interfaces.constants.ImMsgBizCodeEnum.VOTE_START.getCode(), ctx);
+        } catch (Exception e) {
+            LOGGER.error("[createVote] broadcast error, roomId={}", roomId, e);
+        }
+        // 延迟 MQ 结算
+        try {
+            org.apache.rocketmq.common.message.Message msg = new org.apache.rocketmq.common.message.Message(
+                    org.qiyu.live.living.provider.consumer.VoteSettleConsumer.VOTE_SETTLE_TOPIC,
+                    String.valueOf(roomId).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            msg.setDelayTimeLevel(org.qiyu.live.common.interfaces.constants.VoteConstants.DURATION_DELAY_LEVEL.get(durationSec));
+            mqProducer.send(msg);
+        } catch (Exception e) {
+            LOGGER.error("[createVote] send settle mq error, roomId={}", roomId, e);
+        }
+        return null;
+    }
+
+    @Override
+    public String castVote(Integer roomId, Long userId, int optionIndex) {
+        String ctxKey = org.qiyu.live.common.interfaces.constants.VoteConstants.VOTE_CTX_KEY_PREFIX + roomId;
+        String ctxStr = stringRedisTemplate.opsForValue().get(ctxKey);
+        if (ctxStr == null) {
+            return "当前没有进行中的投票";
+        }
+        com.alibaba.fastjson.JSONObject ctx = com.alibaba.fastjson.JSON.parseObject(ctxStr);
+        int size = ctx.getJSONArray("options").size();
+        if (optionIndex < 0 || optionIndex >= size) {
+            return "选项不存在";
+        }
+        String votedKey = org.qiyu.live.common.interfaces.constants.VoteConstants.VOTE_VOTED_KEY_PREFIX + roomId;
+        Long added = stringRedisTemplate.opsForSet().add(votedKey, String.valueOf(userId));
+        if (added == null || added == 0) {
+            return "每人只能投一票";
+        }
+        stringRedisTemplate.opsForHash().increment(
+                org.qiyu.live.common.interfaces.constants.VoteConstants.VOTE_COUNTS_KEY_PREFIX + roomId,
+                String.valueOf(optionIndex), 1);
+        return null;
+    }
+
+    @Override
+    public String currentVote(Integer roomId) {
+        return stringRedisTemplate.opsForValue().get(
+                org.qiyu.live.common.interfaces.constants.VoteConstants.VOTE_CTX_KEY_PREFIX + roomId);
+    }
+
+    @Override
     public LivingRoomRespDTO queryByRoomId(Integer roomId) {
         String cacheKey = cacheKeyBuilder.buildLivingRoomObj(roomId);
         LivingRoomRespDTO queryResult = (LivingRoomRespDTO) redisTemplate.opsForValue().get(cacheKey);

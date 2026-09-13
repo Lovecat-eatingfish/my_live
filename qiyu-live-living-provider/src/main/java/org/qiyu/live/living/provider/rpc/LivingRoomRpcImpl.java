@@ -142,4 +142,19 @@ public class LivingRoomRpcImpl implements ILivingRoomRpc {
     public boolean unmuteRoomUser(Integer roomId, Long operatorId, Long muteUserId) {
         return livingRoomService.unmuteRoomUser(roomId, operatorId, muteUserId);
     }
+
+    @Override
+    public String createVote(Integer roomId, Long userId, String title, java.util.List<String> options, int durationSec) {
+        return livingRoomService.createVote(roomId, userId, title, options, durationSec);
+    }
+
+    @Override
+    public String castVote(Integer roomId, Long userId, int optionIndex) {
+        return livingRoomService.castVote(roomId, userId, optionIndex);
+    }
+
+    @Override
+    public String currentVote(Integer roomId) {
+        return livingRoomService.currentVote(roomId);
+    }
 }

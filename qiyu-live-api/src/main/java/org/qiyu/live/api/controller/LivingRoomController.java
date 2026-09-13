@@ -96,6 +96,32 @@ public class LivingRoomController {
         return WebResponseVO.success(livingRoomService.unmuteRoomUser(roomId, muteUserId));
     }
 
+    /** 主播发起投票（options 为选项数组，2~6 个） */
+    @PostMapping("/vote/create")
+    public WebResponseVO voteCreate(Integer roomId, String title, String options, Integer durationSec) {
+        ErrorAssert.isNotNull(roomId, BizBaseErrorEnum.PARAM_ERROR);
+        ErrorAssert.isTure(title != null && !title.trim().isEmpty(), BizBaseErrorEnum.PARAM_ERROR);
+        java.util.List<String> optList = options == null || options.trim().isEmpty()
+                ? null : com.alibaba.fastjson.JSON.parseArray(options, String.class);
+        return WebResponseVO.success(livingRoomService.createVote(roomId, title,
+                optList, durationSec == null ? 60 : durationSec));
+    }
+
+    /** 观众投票（一人一票） */
+    @PostMapping("/vote/cast")
+    public WebResponseVO voteCast(Integer roomId, Integer optionIndex) {
+        ErrorAssert.isNotNull(roomId, BizBaseErrorEnum.PARAM_ERROR);
+        ErrorAssert.isNotNull(optionIndex, BizBaseErrorEnum.PARAM_ERROR);
+        return WebResponseVO.success(livingRoomService.castVote(roomId, optionIndex));
+    }
+
+    /** 当前进行中的投票（进房补拉） */
+    @PostMapping("/vote/current")
+    public WebResponseVO voteCurrent(Integer roomId) {
+        ErrorAssert.isNotNull(roomId, BizBaseErrorEnum.PARAM_ERROR);
+        return WebResponseVO.success(livingRoomService.currentVote(roomId));
+    }
+
     /** 口令抽奖：主播发起 */
     @PostMapping("/lottery/create")
     public WebResponseVO lotteryCreate(Integer roomId, String keyword, Integer durationSec,

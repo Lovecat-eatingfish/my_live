@@ -109,6 +109,21 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     }
 
     @Override
+    public String createVote(Integer roomId, String title, java.util.List<String> options, int durationSec) {
+        return livingRoomRpc.createVote(roomId, QiyuRequestContext.getUserId(), title, options, durationSec);
+    }
+
+    @Override
+    public String castVote(Integer roomId, int optionIndex) {
+        return livingRoomRpc.castVote(roomId, QiyuRequestContext.getUserId(), optionIndex);
+    }
+
+    @Override
+    public String currentVote(Integer roomId) {
+        return livingRoomRpc.currentVote(roomId);
+    }
+
+    @Override
     public java.util.List<org.qiyu.live.living.interfaces.dto.LivingCategoryDTO> categories() {
         //RPC 返回全量（含停用），C 端只出启用项
         return livingCategoryRpc.listCategories().stream()

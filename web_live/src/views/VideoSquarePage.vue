@@ -19,6 +19,10 @@
         <el-button size="small" v-else @click="$router.push('/login')">登录</el-button>
       </div>
     </header>
+    <div v-if="tagList.length" class="tag-chips">
+      <span :class="['tag-chip', { active: activeTag === 0 }]" @click="switchTag(0)">全部</span>
+      <span v-for="t in tagList" :key="t.id" :class="['tag-chip', { active: activeTag === t.id }]" @click="switchTag(t.id)"># {{ t.tagName }}</span>
+    </div>
 
     <!-- 沉浸式竖屏 Feed：scroll-snap 逐屏吸附 -->
     <div class="feed-scroll" ref="scrollRef">
@@ -113,7 +117,7 @@
 import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { feedVideos, likeVideo, favoriteVideo, shareVideo, listComments, addComment, playReport } from '@/api/video'
+import { feedVideos, listVideos, listVideoTags, likeVideo, favoriteVideo, shareVideo, listComments, addComment, playReport } from '@/api/video'
 import VideoPublishDialog from '@/components/VideoPublishDialog.vue'
 import { ElMessage } from 'element-plus'
 
@@ -272,11 +276,35 @@ function onPublished(videoId) {
   router.push(`/video/${videoId}`)
 }
 
+// 话题标签聚合：选中标签后用列表接口替换 feed 数据源
+const tagList = ref([])
+const activeTag = ref(0)
+async function loadTags() {
+  try {
+    const vo = await listVideoTags()
+    tagList.value = vo.data || []
+  } catch { tagList.value = [] }
+}
+async function switchTag(tagId) {
+  activeTag.value = tagId
+  observer && observer.disconnect()
+  videoEls.forEach(el => { try { el.pause() } catch { } })
+  videoEls.length = 0
+  if (tagId === 0) {
+    await loadFeed(true)
+    setupObserver()
+  } else {
+    const vo = await listVideos(tagId, 1, 20)
+    videos.value = vo.data?.list || []
+  }
+}
+
 onMounted(async () => {
   await userStore.fetchUserInfo()
   userStore.refreshBalance()
   setupObserver()
   await loadFeed(true)
+  await loadTags()
 })
 
 onUnmounted(() => {
@@ -362,4 +390,11 @@ onUnmounted(() => {
   flex: 1; padding: 8px 12px; border-radius: 6px; border: 1px solid #2a3040;
   background: #11151c; color: #fff; outline: none;
 }
+.tag-chips {
+  position: fixed; top: 52px; left: 0; right: 0; z-index: 19;
+  display: flex; gap: 8px; padding: 8px 20px; overflow-x: auto;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
+}
+.tag-chip { flex-shrink: 0; padding: 3px 12px; border-radius: 12px; font-size: 12px; color: #ddd; background: rgba(255,255,255,0.1); cursor: pointer; }
+.tag-chip.active { background: #fff; color: #000; font-weight: 600; }
 </style>

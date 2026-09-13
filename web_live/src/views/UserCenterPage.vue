@@ -41,7 +41,46 @@
         </template>
       </div>
       <div v-else v-loading="loading" class="video-grid">
-        <div
+        <!-- 📊 创作看板 -->
+
+        <div v-if="currentTab === 'creator'" class="creator-board">
+
+          <template v-if="creatorStats">
+
+            <div class="stat-cards">
+
+              <div class="stat-card"><b>{{ creatorStats.videoCount }}</b><span>视频</span></div>
+
+              <div class="stat-card"><b>{{ creatorStats.playCount }}</b><span>播放</span></div>
+
+              <div class="stat-card"><b>{{ creatorStats.likeCount }}</b><span>点赞</span></div>
+
+              <div class="stat-card"><b>{{ creatorStats.favoriteCount }}</b><span>收藏</span></div>
+
+              <div class="stat-card"><b>{{ creatorStats.commentCount }}</b><span>评论</span></div>
+
+            </div>
+
+            <div class="stat-title">播放 Top5</div>
+
+            <div v-for="(v, i) in creatorStats.top" :key="v.id" class="top-row" @click="$router.push(`/video/${v.id}`)">
+
+              <span class="top-rank" :class="'top-' + (i + 1)">{{ i + 1 }}</span>
+
+              <span class="top-name">{{ v.title }}</span>
+
+              <span class="top-count">▶ {{ v.playCount }}</span>
+
+            </div>
+
+            <div v-if="!creatorStats.videoCount" class="empty">还没有发布过视频</div>
+
+          </template>
+
+        </div>
+
+
+        <div v-if="currentTab !== 'creator'"
           v-for="v in list"
           :key="v.id"
           class="video-card"
@@ -80,6 +119,7 @@ const defaultCover = 'https://via.placeholder.com/320x180/1a1a2e/667eea?text=Vid
 
 const tabs = [
   { key: 'my', label: '我的视频' },
+  { key: 'creator', label: '📊 创作看板' },
   { key: 'favorites', label: '我的收藏' },
   { key: 'likes', label: '我点赞的' },
   { key: 'history', label: '观看历史' },
@@ -117,12 +157,34 @@ const fetchList = async () => {
   }
 }
 
+// 创作看板：汇总我的视频数据
+const creatorStats = ref(null)
+async function loadCreatorStats() {
+  loading.value = true
+  try {
+    const { data } = await myList(1, 50)
+    const list = data || []
+    creatorStats.value = {
+      videoCount: list.length,
+      playCount: list.reduce((s, v) => s + (Number(v.playCount) || 0), 0),
+      likeCount: list.reduce((s, v) => s + (Number(v.likeCount) || 0), 0),
+      favoriteCount: list.reduce((s, v) => s + (Number(v.favoriteCount) || 0), 0),
+      commentCount: list.reduce((s, v) => s + (Number(v.commentCount) || 0), 0),
+      top: [...list].sort((a, b) => (Number(b.playCount) || 0) - (Number(a.playCount) || 0)).slice(0, 5),
+    }
+  } catch {
+    creatorStats.value = null
+  } finally {
+    loading.value = false
+  }
+}
+
 function switchTab(key) {
   if (currentTab.value === key) return
   currentTab.value = key
 }
 
-watch(currentTab, fetchList)
+watch(currentTab, (k) => { if (k === 'creator') loadCreatorStats(); else fetchList() })
 onMounted(fetchList)
 // ==================== 主播看板 ====================
 const dash = reactive({ roomId: null, heat: 0, online: 0, giftCoins: 0, streamStatus: 0, contrib: [] })
@@ -214,4 +276,15 @@ watch(currentTab, (t) => { if (t === 'dashboard') loadDashboard() })
 .contrib-row .avt { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
 .contrib-row .nick { flex: 1; font-size: 13px; color: #ddd; }
 .contrib-row .score { color: #e6a23c; font-size: 13px; }
+.creator-board { display: flex; flex-direction: column; gap: 12px; }
+.stat-cards { display: flex; gap: 10px; flex-wrap: wrap; }
+.stat-card { flex: 1; min-width: 90px; background: var(--sq-card, #fff); border-radius: 10px; padding: 14px 10px; text-align: center; display: flex; flex-direction: column; }
+.stat-card b { font-size: 22px; color: var(--sq-blue, #409eff); }
+.stat-card span { font-size: 12px; color: #888; }
+.stat-title { font-weight: 600; margin-top: 6px; }
+.top-row { display: flex; align-items: center; gap: 10px; background: var(--sq-card, #fff); border-radius: 8px; padding: 10px 12px; cursor: pointer; }
+.top-rank { width: 22px; height: 22px; border-radius: 50%; background: #ddd; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+.top-1 { background: #f44336; } .top-2 { background: #ff9800; } .top-3 { background: #ffc107; }
+.top-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.top-count { color: #999; font-size: 12px; }
 </style>

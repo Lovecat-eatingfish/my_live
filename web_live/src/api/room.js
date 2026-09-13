@@ -19,6 +19,16 @@ export const myLivingRoom = () => request.post('/living/myLivingRoom')
 // 获取IM配置
 export const getImConfig = () => request.post('/im/getImConfig')
 
+/** 主播发起投票（options 为选项数组） */
+export const createVote = (roomId, title, options, durationSec) =>
+  request.post('/living/vote/create', null, { params: { roomId, title, options: JSON.stringify(options), durationSec } })
+
+/** 观众投票（一人一票） */
+export const castVote = (roomId, optionIndex) => request.post('/living/vote/cast', null, { params: { roomId, optionIndex } })
+
+/** 当前进行中的投票 */
+export const currentVote = (roomId) => request.post('/living/vote/current', null, { params: { roomId } })
+
 /** 主播设置直播间公告 */
 export const setAnnouncement = (roomId, announcement) => request.post('/living/setAnnouncement', null, { params: { roomId, announcement } })
 

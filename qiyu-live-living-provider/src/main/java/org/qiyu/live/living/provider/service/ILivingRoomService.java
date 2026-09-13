@@ -145,4 +145,13 @@ public interface ILivingRoomService {
 
     /** 解除房间禁言 */
     boolean unmuteRoomUser(Integer roomId, Long operatorId, Long muteUserId);
+
+    /** 主播发起投票（options 为选项数组 JSON），返回错误信息，null=成功 */
+    String createVote(Integer roomId, Long userId, String title, java.util.List<String> options, int durationSec);
+
+    /** 观众投票（一人一票），返回错误信息，null=成功 */
+    String castVote(Integer roomId, Long userId, int optionIndex);
+
+    /** 当前进行中的投票（无则 null） */
+    String currentVote(Integer roomId);
 }

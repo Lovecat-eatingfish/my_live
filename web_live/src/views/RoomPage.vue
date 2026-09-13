@@ -37,6 +37,7 @@
           <el-button size="small" @click="doInviteLinkMic">📞 邀请连麦</el-button>
           <el-button v-if="linkMicActive" size="small" type="warning" @click="doHangUp">挂断连麦</el-button>
           <el-button size="small" type="success" @click="lotteryVisible = true">🎁 抽奖</el-button>
+          <el-button size="small" type="primary" plain @click="voteVisible = true">📊 投票</el-button>
           <el-button size="small" @click="editAnnouncement">📢 公告</el-button>
           <el-button size="small" @click="addRoomAdmin">👤 管理员</el-button>
         </template>
@@ -205,6 +206,54 @@
     <StartLivingDialog ref="startDialogRef" v-model="startVisible" @confirm="handleStartLiving" />
 
     <!-- 回放列表弹窗 -->
+    <!-- 投票卡片（全员可见） -->
+    <div v-if="voteActive" class="vote-card">
+      <div class="vote-title">📊 {{ voteActive.title }}</div>
+      <template v-if="!voteActive.done">
+        <button
+          v-for="(opt, i) in voteActive.options"
+          :key="i"
+          :class="['vote-opt', { chosen: voteActive.voted === i }]"
+          :disabled="voteActive.voted >= 0"
+          @click="doCastVote(i)"
+        >{{ opt }}</button>
+        <div v-if="voteActive.voted >= 0" class="vote-hint">已投一票，等待结果…</div>
+      </template>
+      <template v-else>
+        <div v-for="(opt, i) in voteActive.options" :key="'r' + i" class="vote-result-row">
+          <span>{{ opt }}</span>
+          <span class="vote-count">{{ voteActive.counts?.[i] || 0 }} 票</span>
+        </div>
+      </template>
+    </div>
+
+    <!-- 投票发起弹窗（主播） -->
+    <el-dialog v-model="voteVisible" title="📊 发起投票" width="400px">
+      <el-form label-width="70px" size="small">
+        <el-form-item label="标题">
+          <el-input v-model="voteForm.title" maxlength="50" placeholder="这局玩什么？" />
+        </el-form-item>
+        <el-form-item v-for="(o, i) in voteForm.options" :key="i" :label="'选项' + (i + 1)">
+          <div style="display: flex; gap: 6px; width: 100%">
+            <el-input v-model="voteForm.options[i]" maxlength="20" />
+            <el-button v-if="voteForm.options.length > 2" text type="danger" @click="voteForm.options.splice(i, 1)">删</el-button>
+          </div>
+        </el-form-item>
+        <el-form-item label="">
+          <el-button v-if="voteForm.options.length < 6" size="small" text type="primary" @click="voteForm.options.push('')">+ 加选项</el-button>
+        </el-form-item>
+        <el-form-item label="时长">
+          <el-select v-model="voteForm.durationSec">
+            <el-option v-for="d in voteDurations" :key="d.value" :label="d.label" :value="d.value" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="voteVisible = false">取消</el-button>
+        <el-button type="primary" :loading="voteSubmitting" @click="doCreateVote">发起投票</el-button>
+      </template>
+    </el-dialog>
+
     <!-- 口令抽奖发起弹窗（主播） -->
     <el-dialog v-model="lotteryVisible" title="🎁 发起口令抽奖" width="380px">
       <el-form label-width="80px" size="small">
@@ -265,7 +314,7 @@ async function handleShare() {
   }
 }
 import { roomGiftRank } from '@/api/rank'
-import { inviteLinkMic, acceptLinkMic, hangUpLinkMic, buyTicket, createLottery, setAnnouncement, appointRoomAdmin, muteRoomUser } from '@/api/room'
+import { inviteLinkMic, acceptLinkMic, hangUpLinkMic, buyTicket, createLottery, setAnnouncement, appointRoomAdmin, muteRoomUser, createVote, castVote, currentVote } from '@/api/room'
 import { IMConnection } from '@/utils/im/connection'
 import ChatList from '@/components/ChatList.vue'
 import ChatInput from '@/components/ChatInput.vue'
@@ -286,6 +335,50 @@ const userStore = useUserStore()
 const roomId = computed(() => Number(route.params.id))
 const roomInfo = ref({})
 const isFollow = ref(false)
+// ==================== 投票（5576/5577） ====================
+const voteVisible = ref(false)
+const voteActive = ref(null)   // 进行中：{title, options, endTime}
+const voteSubmitting = ref(false)
+const voteForm = reactive({ title: '', options: ['', ''], durationSec: 60 })
+const voteDurations = [
+  { label: '30 秒', value: 30 }, { label: '1 分钟', value: 60 },
+  { label: '2 分钟', value: 120 }, { label: '3 分钟', value: 180 }, { label: '5 分钟', value: 300 },
+]
+async function doCreateVote() {
+  const opts = voteForm.options.map(o => (o || '').trim()).filter(Boolean)
+  if (!voteForm.title.trim() || opts.length < 2) { ElMessage.warning('需要标题和至少 2 个选项'); return }
+  voteSubmitting.value = true
+  try {
+    const vo = await createVote(roomId.value, voteForm.title.trim(), opts, voteForm.durationSec)
+    if (vo.data) { ElMessage.error(vo.data); return }
+    voteVisible.value = false
+    ElMessage.success('投票已发起')
+  } catch (e) {
+    ElMessage.error(e?.message || '发起失败')
+  } finally {
+    voteSubmitting.value = false
+  }
+}
+async function doCastVote(idx) {
+  try {
+    const vo = await castVote(roomId.value, idx)
+    if (vo.data) { ElMessage.warning(vo.data); return }
+    ElMessage.success('已投票：' + voteActive.value.options[idx])
+    voteActive.value.voted = idx
+  } catch (e) {
+    ElMessage.error(e?.message || '投票失败')
+  }
+}
+// 进房补拉进行中投票
+async function loadCurrentVote() {
+  try {
+    const vo = await currentVote(roomId.value)
+    if (vo.data && new Date(vo.data.endTime) > new Date()) {
+      voteActive.value = { ...JSON.parse(vo.data), voted: -1 }
+    }
+  } catch { /* 无投票 */ }
+}
+
 // ==================== 直播间治理（公告/管理员/禁言） ====================
 const entranceEffect = ref(null)
 const announcement = ref('')
@@ -773,6 +866,7 @@ async function fetchRoomInfo() {
   roomInfo.value = vo.data || {}
   announcement.value = vo.data?.announcement || ''
   isRoomAdmin.value = !!vo.data?.isRoomAdmin
+  loadCurrentVote()
   if (!roomInfo.value.anchor && roomInfo.value.anchorId) {
     const f = await isFollowUser(roomInfo.value.anchorId)
     isFollow.value = !!f.data
@@ -871,6 +965,21 @@ function handleIMMessage(msg) {
         // 连麦信令：invite 单发被邀请人 / accepted 单发观众(含推流参数) / start+stop 全房间
         const data = JSON.parse(body.data)
         handleLinkMicSignal(data)
+      } else if (bizCode === 5576) {
+        // 投票发起：展示投票卡片
+        const data = JSON.parse(body.data)
+        voteActive.value = { ...data, voted: -1 }
+        ElMessage.success(`📊 发起了投票：${data.title}`)
+      } else if (bizCode === 5577) {
+        // 投票结果
+        const data = JSON.parse(body.data)
+        if (voteActive.value) {
+          voteActive.value.counts = data.counts
+          voteActive.value.done = true
+        }
+        const lines = (data.options || []).map((o, i) => `${o}: ${data.counts?.[i] || 0} 票`).join(' / ')
+        chatMessages.value.push({ userName: '系统', content: `📊 投票结果「${data.title}」：${lines}`, system: true, time: new Date().toLocaleTimeString() })
+        setTimeout(() => { voteActive.value = null }, 6000)
       } else if (bizCode === 5574) {
         // 口令抽奖开始：主播端发起，观众发对应口令弹幕即参与
         const data = JSON.parse(body.data)
@@ -1390,6 +1499,23 @@ onUnmounted(() => {
 @keyframes entrance-zoom { 0% { transform: scale(0.4) } 20% { transform: scale(1.15) } 35% { transform: scale(1) } 100% { transform: scale(1) } }
 .fade-enter-active, .fade-leave-active { transition: opacity .4s }
 .fade-enter-from, .fade-leave-to { opacity: 0 }
+.vote-card {
+  position: absolute; top: 60px; left: 16px; z-index: 100;
+  background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px);
+  border-radius: 10px; padding: 12px 14px; min-width: 200px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.vote-title { font-size: 13px; font-weight: 600; color: #fff; }
+.vote-opt {
+  background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff; border-radius: 6px; padding: 6px 10px; cursor: pointer; font-size: 13px; text-align: left;
+}
+.vote-opt:hover { background: rgba(255, 255, 255, 0.22); }
+.vote-opt.chosen { background: var(--sq-blue, #409eff); border-color: var(--sq-blue, #409eff); }
+.vote-opt:disabled { cursor: default; opacity: 0.85; }
+.vote-hint { font-size: 11px; color: #aaa; }
+.vote-result-row { display: flex; justify-content: space-between; font-size: 13px; color: #eee; }
+.vote-count { color: var(--sq-blue, #409eff); font-weight: 600; }
 .lottery-chip { background: rgba(103, 194, 58, 0.15); border: 1px solid rgba(103, 194, 58, 0.5); }
 .lottery-hint { font-size: 11px; color: #999; margin-top: 4px; }
 </style>
