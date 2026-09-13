@@ -120,3 +120,53 @@ jar 内 `bootstrap.yaml` 里的 `spring.cloud.nacos.discovery.server-addr` 等�
 解法：`docker/app.Dockerfile` 的 ENTRYPOINT 支持 `EXTRA_ARGS`，以 Spring 启动参数方式（优先级最高）覆盖 nacos config/discovery 与 dubbo.registry.address，见 `docker-compose-full.yml`。
 
 另一个坑：容器里没有 Nacos 鉴权用户时，config 客户端会报 `403 user not found!`（dataId 不存在导致），与宿主机启动日志一致，属良性告警，不影响启动。
+
+## 12. 视频上传"假死"：响应 200 已到，前端却永远卡在上传中（两个叠加 bug）
+
+用户实际遇到的现象：上传进度走完、网络面板里也能看到 200 响应（code:200 + videoUrl），但弹窗一直显示"上传中"，分类、取消、发布全部点不动。排查发现是**两个独立 bug 叠加**，且测试合成文件时完全暴露不出来：
+
+### 12.1 fetch 的 res.json() 挂起（诱因）
+
+上传用的 `fetch` 在 `res.json()` 这一步依赖**响应体流读取完成**。用户浏览器装的视频下载类扩展会劫持媒体响应流，导致流永远读不完 → `await` 挂起 → UI 冻结。干净浏览器复现不出来。
+
+修复：上传统一改用 **XMLHttpRequest**（`load` 事件在传输结束时必触发，不依赖 body 流读取），并加 15 分钟超时兜底、真实进度条、可取消（`api/video.js`、`api/resource.js`、`VideoPublishDialog.vue`）。
+
+经验：**涉及用户环境的 web 功能，别把"我这里正常"当验证通过**；上传这类大文件链路用 XHR 比 fetch 可靠，且必须给超时和取消兜底。
+
+### 12.2 formatDuration 未定义 → 渲染崩溃冻结（真正的元凶）
+
+修完 12.1 用户仍卡住。用真实视频文件（17.9MB，有时长）复现：上传完成后弹窗整体冻结。遍历 Vue 组件树时触发重渲染，暴露报错 `_ctx.formatDuration is not a function`——模板里"已上传（xxMB · 时长）"调用了 `formatDuration`，但脚本里**从没定义过这个函数**。
+
+为什么之前测试全过：合成测试文件是无效视频，`duration=0`，模板三元表达式短路，根本不会调用 `formatDuration`。真实视频有时长 → 走到该分支 → 渲染函数崩溃 → Vue 渲染循环反复失败 → **整个弹窗 DOM 不再更新**，表现为"所有按钮都点不动"（其实点击有响应，只是界面冻结）。
+
+修复：补上函数定义（`78539d8`）。
+
+经验：**测试数据要贴近真实形态**（真实格式、有时长、中文文件名）；Vue 里"点击无反应"未必是事件没绑定，先开 console 看有没有渲染报错——渲染函数一崩，整个组件树都会冻结。
+
+### 排查过程附注（为什么绕了远路）
+- 先怀疑 vite 代理、`Expect: 100-continue`、并发封面上传——逐一用对照实验排除（curl 直连网关 vs 走代理、抑制 Expect 头、页面内裸 XHR 直传都成功），最后靠 Performance API 看到**请求层全部 200 完成**才把方向锁定到"promise 链断了"，再由组件树遍历暴露渲染异常定位根因。
+- 复现手段：无法直接上传本地文件给浏览器，就在页面里把文件 base64 分块传入重建 `File` 对象（或起本地 CORS 静态服务让页面 fetch）。
+
+## 13. Dubbo 接口 jar 版本不一致：新加字段静默丢失
+
+admin-api 打包时，本地仓库里的 `qiyu-live-video-interface` 是旧 SNAPSHOT（`VideoDTO` 还没有 `status` 字段），打出来的 fatjar 里嵌的就是旧 jar。运行时 provider 端返回了 status，consumer 端按旧类反序列化**静默丢字段**（不报错），管理端视频列表全部显示"已下架"。
+
+排查线索：直接解包 fatjar 看嵌套 jar 里的 class（`unzip -p app.jar BOOT-INF/lib/xxx-interface.jar | javap -p`），对比字段。
+
+规则：**改过任何 interface 模块后，必须先 `mvn install` 该 interface，再 package 依赖它的模块**；用 `mvn clean package` 而不是增量 package，避免旧 jar 残留。
+
+## 14. Spring 接口签名与实现不一致的连锁编译坑
+
+给 `closeLivingCheck` 换参数类型（LivingRoomReqDTO → ImOfflineDTO）时，接口、实现、消费者三处只改了一半，加上脚本批量替换时误写了 `closeLiving(livingRoomReqDTO := null)` 这类非法语法、`getCode()` 返回 int 不能 `.equals` 比较，连续报了四种编译错。逐一修正：接口/实现签名统一为 ImOfflineDTO，内部再手工构造 LivingRoomReqDTO 传给事务方法；int 比较用 `!=`。
+
+经验：**改接口签名时一次性 grep 所有调用点**（接口/实现/消费者/测试），批量脚本替换后必须人工 review diff，脚本会"补丁摞补丁"。
+
+## 15. 运行中的 jar 会锁文件导致 repackage 失败
+
+`mvn package` 报 `Unable to rename xxx.jar to xxx.jar.original`——目标 jar 还被运行中的 Java 进程占用。用 `jps -l` 找到对应进程 kill 后重新打包。另外 IDEA 里启动的服务与自己 jar 启动的服务会抢同一 Dubbo 端口（`Address already in use: bind`），重启服务前先 `jps` 核对谁在跑。
+
+## 16. 定时/异步链路测试的三个实用技巧
+
+- **测试脚本别依赖非原生依赖**：Node 脚本里想直连 MySQL 发现没有 mysql2，改走 HTTP API 查询 + `mysql` CLI 改数据，避免为测试装依赖。
+- **开播限流是 10 秒 1 次**：E2E 里连续开播会被 `RequestLimit` 拦截（"开播请求过于频繁"），断言前注意这不是功能 bug。
+- **自动化点击时机**：页面异步加载的按钮（如收藏）在 DOM 就绪前点击会"点了没反应"，先等状态渲染完成再操作，否则会误判成应用 bug（本次收藏按钮验证两次误报，实际功能是好的）。
