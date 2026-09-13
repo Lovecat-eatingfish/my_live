@@ -1,6 +1,6 @@
 # 需求待办清单（Backlog）
 
-> 更新时间：2026-09-13。最初需求原文见 [archive/todo-origin.md](archive/todo-origin.md)（已完成），历史迭代设计见 [archive/iterations-2026-09.md](archive/iterations-2026-09.md)。
+> 更新时间：2026-09-13。最初需求原文见 [archive/todo-origin.md](../archive/todo-origin.md)（已完成），历史迭代设计见 [archive/iterations-2026-09.md](../archive/iterations-2026-09.md)。
 
 ## 一、状态总览
 
@@ -112,6 +112,17 @@ P0-1 内容风控（敏感词 DFA+热更新/截帧审核/封禁禁言，批次�
 
 ### 本轮实施顺序（已与用户确认）
 批次十 私信 DM → 批次十一 分区体系+首页关注 tab → 批次十二 录制回放 → 批次十三 抽奖玩法。电商闭环与大航海体系体量大，单独立项再排。
+
+### P0/P1 残留清理（2026-09-14 第三轮，批次十四~十六）
+| 批次 | 内容 | E2E |
+|------|------|-----|
+| 十四 | 直播间治理：公告（主播可改/进房可见）+ 房间管理员（任命/移除）+ 房间维度禁言（管理员可禁言观众 30min）；修复管理员可禁言主播漏洞 | room_governance_test.mjs 16/16 |
+| 十五 | 互关标记（profile.isMutual）+ 粉丝团灯牌（亲密度=送礼金币+每日观看10，L1~L5 弹幕徽章）+ L3+ 进场全屏特效 | fan_badge_test.mjs 6/6 |
+| 十六 | 投票玩法（5576/5577，一人一票+延迟结算）+ 视频话题聚合筛选 chips + 弹幕式评论飘屏 + 创作者看板 tab | vote_test.mjs 13/13 |
+
+- 更正：观看历史/我的收藏此前已在 UserCenterPage 实现（/video/my/history + listByAction），缺口清单误报
+- 冒烟修复：MessagePage 直链 userId=null 导致 IM 失败、回放 startTime Date→Long 转换丢失（37f00d5）
+- 搜索 ES 升级：本机无 ES 基建，保持 MySQL LIKE（需求允许的过渡方案），ES 列远期
 
 ### 本轮完成情况（2026-09-14）
 | 批次 | 内容 | 状态 | E2E |
