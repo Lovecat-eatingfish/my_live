@@ -16,6 +16,9 @@
           {{ isFollow ? '已关注' : '+ 关注' }}
         </el-button>
         <span class="viewer-chip share-chip" title="分享直播间" @click="handleShare">🔗 分享</span>
+        <span v-if="lotteryActive" class="viewer-chip lottery-chip" title="发送弹幕口令即可参与">
+          🎁 抽奖中：发「{{ lotteryActive.keyword }}」
+        </span>
         <span class="viewer-chip" title="在线观众">
           <span class="viewer-dot"></span>{{ viewerCount }} 人观看
         </span>
@@ -26,6 +29,7 @@
           <input v-model="linkMicUserId" class="linkmic-input" placeholder="观众ID" @keyup.enter="doInviteLinkMic" />
           <el-button size="small" @click="doInviteLinkMic">📞 邀请连麦</el-button>
           <el-button v-if="linkMicActive" size="small" type="warning" @click="doHangUp">挂断连麦</el-button>
+          <el-button size="small" type="success" @click="lotteryVisible = true">🎁 抽奖</el-button>
         </template>
         <el-button v-if="!roomInfo.anchor && linkMicActive && isGuest" size="small" type="warning" @click="doHangUp">
           下麦
@@ -192,6 +196,31 @@
     <StartLivingDialog ref="startDialogRef" v-model="startVisible" @confirm="handleStartLiving" />
 
     <!-- 回放列表弹窗 -->
+    <!-- 口令抽奖发起弹窗（主播） -->
+    <el-dialog v-model="lotteryVisible" title="🎁 发起口令抽奖" width="380px">
+      <el-form label-width="80px" size="small">
+        <el-form-item label="抽奖口令">
+          <el-input v-model="lotteryForm.keyword" maxlength="12" placeholder="如：旗鱼666" />
+        </el-form-item>
+        <el-form-item label="时长">
+          <el-select v-model="lotteryForm.durationSec">
+            <el-option v-for="d in lotteryDurations" :key="d.value" :label="d.label" :value="d.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="中奖人数">
+          <el-input-number v-model="lotteryForm.winnerCount" :min="1" :max="100" />
+        </el-form-item>
+        <el-form-item label="奖池金币">
+          <el-input-number v-model="lotteryForm.rewardCoins" :min="0" :max="100000" :step="10" />
+          <div class="lottery-hint">从你的余额扣除，均分给中奖者；0=纯名单</div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="lotteryVisible = false">取消</el-button>
+        <el-button type="primary" :loading="lotterySubmitting" @click="doCreateLottery">发起抽奖</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="replayVisible" title="直播回放" width="640px">
       <div v-if="replayLoading" class="replay-empty">加载中...</div>
       <div v-else-if="!replayList.length" class="replay-empty">暂无回放记录</div>
@@ -227,7 +256,7 @@ async function handleShare() {
   }
 }
 import { roomGiftRank } from '@/api/rank'
-import { inviteLinkMic, acceptLinkMic, hangUpLinkMic, buyTicket } from '@/api/room'
+import { inviteLinkMic, acceptLinkMic, hangUpLinkMic, buyTicket, createLottery } from '@/api/room'
 import { IMConnection } from '@/utils/im/connection'
 import ChatList from '@/components/ChatList.vue'
 import ChatInput from '@/components/ChatInput.vue'
@@ -248,6 +277,31 @@ const userStore = useUserStore()
 const roomId = computed(() => Number(route.params.id))
 const roomInfo = ref({})
 const isFollow = ref(false)
+// ==================== 口令抽奖（5574/5575） ====================
+const lotteryVisible = ref(false)
+const lotteryActive = ref(null)
+const lotteryForm = reactive({ keyword: '', durationSec: 60, winnerCount: 1, rewardCoins: 0 })
+const lotterySubmitting = ref(false)
+const lotteryDurations = [
+  { label: '30 秒', value: 30 }, { label: '1 分钟', value: 60 },
+  { label: '2 分钟', value: 120 }, { label: '3 分钟', value: 180 }, { label: '5 分钟', value: 300 },
+]
+async function doCreateLottery() {
+  if (!lotteryForm.keyword.trim()) { ElMessage.warning('请设置抽奖口令'); return }
+  lotterySubmitting.value = true
+  try {
+    const vo = await createLottery(roomId.value, lotteryForm.keyword.trim(),
+      lotteryForm.durationSec, lotteryForm.winnerCount, lotteryForm.rewardCoins || 0)
+    if (vo.data) { ElMessage.error(vo.data); return }
+    lotteryVisible.value = false
+    ElMessage.success('抽奖已发起')
+  } catch (e) {
+    ElMessage.error(e?.message || '发起失败')
+  } finally {
+    lotterySubmitting.value = false
+  }
+}
+
 // ==================== 连麦（5572） ====================
 const linkMicUserId = ref('')
 const linkMicActive = ref(false)   // 房间当前有连麦（观众显示第二画面）
@@ -758,6 +812,27 @@ function handleIMMessage(msg) {
         // 连麦信令：invite 单发被邀请人 / accepted 单发观众(含推流参数) / start+stop 全房间
         const data = JSON.parse(body.data)
         handleLinkMicSignal(data)
+      } else if (bizCode === 5574) {
+        // 口令抽奖开始：主播端发起，观众发对应口令弹幕即参与
+        const data = JSON.parse(body.data)
+        lotteryActive.value = {
+          keyword: data.keyword, endTime: data.endTime,
+          winnerCount: data.winnerCount, rewardCoins: data.rewardCoins
+        }
+        ElMessage.success(`🎁 抽奖开始！发送弹幕「${data.keyword}」参与${data.rewardCoins > 0 ? `，奖池 ${data.rewardCoins} 金币` : ''}`)
+      } else if (bizCode === 5575) {
+        // 口令抽奖开奖
+        const data = JSON.parse(body.data)
+        lotteryActive.value = null
+        const me = Number(userStore.userInfo.userId)
+        const winners = data.winners || []
+        const iWin = winners.some(w => Number(w) === me)
+        const rewardTxt = data.rewardPerPerson > 0 ? `，每人 ${data.rewardPerPerson} 金币` : ''
+        const who = winners.map(w => '用户' + w).join('、') || '无人参与，奖励退回'
+        const msg = `🎁 抽奖开奖：${who}${rewardTxt}`
+        if (iWin) ElMessage({ message: '🎉 恭喜你中奖！' + msg, type: 'success', duration: 10000 })
+        else ElMessage({ message: msg, duration: 8000 })
+        chatMessages.value.push({ userName: '系统', content: `🎁 抽奖开奖（口令 ${data.keyword}）：${who}${rewardTxt}`, system: true, time: new Date().toLocaleTimeString() })
       } else if (bizCode === 5567) {
         // 关注的主播开播推送（点 Toast 跳转房间）
         const data = JSON.parse(body.data)
@@ -1239,4 +1314,6 @@ onUnmounted(() => {
 }
 .guest-label { padding: 6px 10px; font-size: 12px; color: #aaa; }
 .guest-video { width: 100%; flex: 1; object-fit: contain; background: #000; }
+.lottery-chip { background: rgba(103, 194, 58, 0.15); border: 1px solid rgba(103, 194, 58, 0.5); }
+.lottery-hint { font-size: 11px; color: #999; margin-top: 4px; }
 </style>

@@ -10,6 +10,7 @@ import org.qiyu.live.common.interfaces.dto.UserExpChangeMqDTO;
 import org.qiyu.live.common.interfaces.topic.UserProviderTopicNames;
 import org.apache.dubbo.config.annotation.DubboReference;
 import org.qiyu.live.common.interfaces.constants.RiskConstants;
+import org.qiyu.live.common.interfaces.constants.LotteryConstants;
 import org.qiyu.live.common.interfaces.dto.DmMessageDTO;
 import org.qiyu.live.common.interfaces.dto.RiskCheckRespDTO;
 import org.qiyu.live.msg.provider.dao.mapper.UserDmConversationMapper;
@@ -93,6 +94,8 @@ public class SingleMessageHandlerImpl implements MessageHandler {
             if (riskResp.getReplacedText() != null) {
                 messageDTO.setContent(riskResp.getReplacedText());
             }
+            // 口令抽奖：房间有进行中抽奖且弹幕命中口令 → 参与者集合去重登记（静默）
+            checkLotteryJoin(roomId, imMsgBody.getUserId(), messageDTO.getContent());
             // 等级徽章随弹幕下发 + 弹幕经验（每日上限，超限只丢经验不丢弹幕）
             messageDTO.setLevel(getUserLevel(imMsgBody.getUserId()));
             sendDanmuExp(imMsgBody.getUserId(), roomId);
@@ -184,6 +187,26 @@ public class SingleMessageHandlerImpl implements MessageHandler {
             routerRpc.batchSendMsg(java.util.Arrays.asList(toMsg, echoMsg));
         } catch (Exception e) {
             LOGGER.error("[handleDmUp] persist/send error, from={}, to={}", fromUid, toUid, e);
+        }
+    }
+
+    /** 口令抽奖参与登记：命中进行中抽奖的口令即 SADD 去重参与 */
+    private void checkLotteryJoin(Integer roomId, Long userId, String content) {
+        try {
+            if (roomId == null || content == null) {
+                return;
+            }
+            String ctx = stringRedisTemplate.opsForValue().get(LotteryConstants.ROOM_LOTTERY_KEY_PREFIX + roomId);
+            if (ctx == null) {
+                return;
+            }
+            com.alibaba.fastjson.JSONObject lottery = com.alibaba.fastjson.JSON.parseObject(ctx);
+            if (!content.trim().equals(lottery.getString("keyword"))) {
+                return;
+            }
+            stringRedisTemplate.opsForSet().add(LotteryConstants.ROOM_LOTTERY_PARTICIPANTS_PREFIX + roomId, String.valueOf(userId));
+        } catch (Exception e) {
+            LOGGER.error("[checkLotteryJoin] error, roomId={}, userId={}", roomId, userId, e);
         }
     }
 

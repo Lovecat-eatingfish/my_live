@@ -11,6 +11,7 @@ import org.apache.dubbo.config.annotation.DubboReference;
 import org.idea.qiyu.live.framework.redis.starter.key.LivingProviderCacheKeyBuilder;
 import org.qiyu.live.common.interfaces.dto.PageWrapper;
 import org.qiyu.live.common.interfaces.enums.CommonStatusEum;
+import org.qiyu.live.common.interfaces.constants.LotteryConstants;
 import org.qiyu.live.common.interfaces.utils.ConvertBeanUtils;
 import org.qiyu.live.im.constants.AppIdEnum;
 import org.qiyu.live.im.core.server.interfaces.dto.ImOfflineDTO;
@@ -69,6 +70,8 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     private ILivingRoomTxService livingRoomTxService;
     @Resource
     private MQProducer mqProducer;
+    @DubboReference(check = false)
+    private org.qiyu.live.bank.interfaces.IQiyuCurrencyAccountRpc currencyAccountRpc;
     @DubboReference(check = false)
     private ImRouterRpc imRouterRpc;
     @DubboReference(check = false)
@@ -297,6 +300,78 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
         pageWrapper.setList(ConvertBeanUtils.convertList(poPage.getRecords(), LivingRoomRespDTO.class));
         pageWrapper.setHasNext(poPage.getRecords().size() == pageSize);
         return pageWrapper;
+    }
+
+    @Override
+    public String createLottery(Integer roomId, Long userId, String keyword, int durationSec, int winnerCount, int rewardCoins) {
+        if (roomId == null || userId == null || keyword == null || keyword.trim().isEmpty()) {
+            return "参数不完整";
+        }
+        if (!LotteryConstants.DURATION_DELAY_LEVEL.containsKey(durationSec)) {
+            return "抽奖时长仅支持 30s/1m/2m/3m/5m";
+        }
+        if (winnerCount <= 0 || winnerCount > 100 || rewardCoins < 0) {
+            return "中奖人数或奖励配置不合法";
+        }
+        LivingRoomRespDTO room = queryByRoomId(roomId);
+        if (room == null || room.getId() == null || !userId.equals(room.getAnchorId())) {
+            return "只有主播能发起抽奖";
+        }
+        String ctxKey = LotteryConstants.ROOM_LOTTERY_KEY_PREFIX + roomId;
+        if (stringRedisTemplate.hasKey(ctxKey)) {
+            return "已有进行中的抽奖";
+        }
+        // 奖励金币先从主播余额扣（不足则拒绝）
+        if (rewardCoins > 0) {
+            Integer balance = currencyAccountRpc.getBalance(userId);
+            if (balance == null || balance < rewardCoins) {
+                return "余额不足，无法发放奖励";
+            }
+            currencyAccountRpc.decr(userId, rewardCoins);
+        }
+        JSONObject ctx = new JSONObject();
+        ctx.put("roomId", roomId);
+        ctx.put("keyword", keyword.trim());
+        ctx.put("winnerCount", winnerCount);
+        ctx.put("rewardCoins", rewardCoins);
+        ctx.put("anchorId", userId);
+        long endTime = System.currentTimeMillis() + durationSec * 1000L;
+        ctx.put("endTime", endTime);
+        String ctxStr = ctx.toJSONString();
+        // 跨服务读取（msg-provider），必须用 StringRedisTemplate，避免 JSON 序列化器 @class 类型头不兼容
+        stringRedisTemplate.opsForValue().set(ctxKey, ctxStr, java.time.Duration.ofSeconds(durationSec + 120));
+        stringRedisTemplate.delete(LotteryConstants.ROOM_LOTTERY_PARTICIPANTS_PREFIX + roomId);
+
+        // 广播 5574 开奖开始（房间观众可见口令，发弹幕即参与）
+        JSONObject start = new JSONObject();
+        start.put("roomId", roomId);
+        start.put("keyword", keyword.trim());
+        start.put("endTime", endTime);
+        start.put("winnerCount", winnerCount);
+        start.put("rewardCoins", rewardCoins);
+        start.put("anchorId", userId);
+        try {
+            LivingRoomReqDTO reqDTO = new LivingRoomReqDTO();
+            reqDTO.setRoomId(roomId);
+            reqDTO.setAppId(AppIdEnum.QIYU_LIVE_BIZ.getCode());
+            java.util.List<Long> userIdList = queryUserIdByRoomId(reqDTO);
+            batchSendImMsg(userIdList, ImMsgBizCodeEnum.LOTTERY_START.getCode(), start);
+        } catch (Exception e) {
+            LOGGER.error("[createLottery] broadcast start error, roomId={}", roomId, e);
+        }
+
+        // 延迟 MQ 到点结算（RocketMQ 延迟级别固定档位，时长映射见 LotteryConstants）
+        try {
+            org.apache.rocketmq.common.message.Message msg = new org.apache.rocketmq.common.message.Message(
+                    "LivingLotterySettleTopic",
+                    String.valueOf(roomId).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            msg.setDelayTimeLevel(LotteryConstants.DURATION_DELAY_LEVEL.get(durationSec));
+            mqProducer.send(msg);
+        } catch (Exception e) {
+            LOGGER.error("[createLottery] send settle mq error, roomId={}", roomId, e);
+            return "抽奖已发起但结算消息发送失败";
+        }
+        return null;
     }
 
     @Override

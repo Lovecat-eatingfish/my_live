@@ -113,6 +113,16 @@ P0-1 内容风控（敏感词 DFA+热更新/截帧审核/封禁禁言，批次�
 ### 本轮实施顺序（已与用户确认）
 批次十 私信 DM → 批次十一 分区体系+首页关注 tab → 批次十二 录制回放 → 批次十三 抽奖玩法。电商闭环与大航海体系体量大，单独立项再排。
 
+### 本轮完成情况（2026-09-14）
+| 批次 | 内容 | 状态 | E2E |
+|------|------|------|-----|
+| 十 | 私信 DM（5568/5569 + t_user_dm_message/conversation + MessagePage 会话 UI + 首页消息角标） | ✅ | dm_test.mjs 12/12 |
+| 十一 | 分区体系（t_living_category 运营可配置 + admin 分区页 + 首页动态 tab）+ 首页关注 tab（/living/followRooms） | ✅ | category_follow_test.mjs 12/12 |
+| 十二 | 录制回放打通（开播录制开关 recordEnabled + DVR 路径映射修复 + /stream/recordsByAnchor + ProfilePage 回放 tab） | ✅ | record_replay_test.mjs 7/7 |
+| 十三 | 口令抽奖（5574/5575 + 抽奖上下文 + 弹幕命中参与 + 延迟 MQ 结算 + 奖池扣退 + RoomPage 发起/横幅/开奖） | ✅ | lottery_test.mjs 13/13 |
+
+新坑记录：troubleshooting.md §26（跨服务 Redis @class）、§27（延迟消息裸 body）、§28（grep 吞构建失败）。
+
 ## 八、迭代节奏（续）
 1. ~~体验迭代（礼物/布局/充值/红包/余额/日志）~~ ✅ `2f8c35e`
 2. ~~开播设置（名称+封面）~~ ✅ `84b4bff`

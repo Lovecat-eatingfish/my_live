@@ -26,6 +26,9 @@ public interface ILivingRoomService {
     /** 关注 tab：关注的主播中正在开播的房间 */
     LivingRoomPageRespVO followRooms(int page, int pageSize);
 
+    /** 口令抽奖：主播发起，返回错误信息，null=成功 */
+    String createLottery(Integer roomId, String keyword, int durationSec, int winnerCount, int rewardCoins);
+
     /**
      * 开启直播间
      *

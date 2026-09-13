@@ -23,7 +23,9 @@ public enum ImMsgBizCodeEnum {
     LEVEL_UP_EFFECT(5570,"用户升级特效"),
     LINK_MIC_SIGNAL(5572,"连麦信令(邀请/接受/挂断)"),
     DM_MSG_UP(5568,"私信上行"),
-    DM_MSG_DOWN(5569,"私信下行");
+    DM_MSG_DOWN(5569,"私信下行"),
+    LOTTERY_START(5574,"直播间口令抽奖开始"),
+    LOTTERY_RESULT(5575,"直播间口令抽奖开奖");
 
     int code;
     String desc;

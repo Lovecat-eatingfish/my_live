@@ -76,6 +76,12 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     }
 
     @Override
+    public String createLottery(Integer roomId, String keyword, int durationSec, int winnerCount, int rewardCoins) {
+        Long userId = QiyuRequestContext.getUserId();
+        return livingRoomRpc.createLottery(roomId, userId, keyword, durationSec, winnerCount, rewardCoins);
+    }
+
+    @Override
     public java.util.List<org.qiyu.live.living.interfaces.dto.LivingCategoryDTO> categories() {
         //RPC 返回全量（含停用），C 端只出启用项
         return livingCategoryRpc.listCategories().stream()

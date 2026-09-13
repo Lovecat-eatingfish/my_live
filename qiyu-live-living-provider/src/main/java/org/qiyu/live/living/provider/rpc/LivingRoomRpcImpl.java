@@ -102,4 +102,9 @@ public class LivingRoomRpcImpl implements ILivingRoomRpc {
     public PageWrapper<LivingRoomRespDTO> listByAnchorIds(java.util.List<Long> anchorIds, int page, int pageSize) {
         return livingRoomService.listByAnchorIds(anchorIds, page, pageSize);
     }
+
+    @Override
+    public String createLottery(Integer roomId, Long userId, String keyword, int durationSec, int winnerCount, int rewardCoins) {
+        return livingRoomService.createLottery(roomId, userId, keyword, durationSec, winnerCount, rewardCoins);
+    }
 }

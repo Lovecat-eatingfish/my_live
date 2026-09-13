@@ -19,6 +19,10 @@ export const myLivingRoom = () => request.post('/living/myLivingRoom')
 // 获取IM配置
 export const getImConfig = () => request.post('/im/getImConfig')
 
+/** 口令抽奖：主播发起（keyword/durationSec/winnerCount/rewardCoins） */
+export const createLottery = (roomId, keyword, durationSec, winnerCount, rewardCoins) =>
+  request.post('/living/lottery/create', null, { params: { roomId, keyword, durationSec, winnerCount, rewardCoins } })
+
 /** 直播分区列表（首页动态 tab） */
 export const listCategories = () => request.post('/living/categories')
 

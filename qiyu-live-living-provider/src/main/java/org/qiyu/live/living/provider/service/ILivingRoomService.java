@@ -118,4 +118,10 @@ public interface ILivingRoomService {
      * 关注 tab：按主播 id 集合查开播中的房间（startTime 倒序）
      */
     PageWrapper<LivingRoomRespDTO> listByAnchorIds(java.util.List<Long> anchorIds, int page, int pageSize);
+
+    /**
+     * 口令抽奖：主播发起（扣奖励金币 + 广播 5574 + 延迟 MQ 结算）
+     * 返回错误信息，null=成功
+     */
+    String createLottery(Integer roomId, Long userId, String keyword, int durationSec, int winnerCount, int rewardCoins);
 }

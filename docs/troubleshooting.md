@@ -430,3 +430,16 @@ if (StringUtils.isEmpty(imMsgBody.getMsgId())) {
 3. **Dubbo 冷连接**：某服务第一次调另一个服务的 RPC 要建连（秒级），E2E 对首条消息断言要轮询（如进场欢迎），不能固定 sleep 3.5s。
 4. **延迟 MQ 落账**：红包结算/关播检查等延迟消息可能在任意时刻落地，余额类断言的绝对值会被历史任务污染——断言增量而非绝对值，或跑前清相关 key。
 5. **lavfi 推流必须 -re**（详见 §21）：否则 50 倍速秒推完，表现为"流莫名秒断"。
+
+## 26. 跨服务 Redis 上下文：RedisTemplate<String,Object> JSON 序列化器 @class 类型头互不兼容（批次十三）
+
+living-provider 写、msg-provider 读同一 key 时，一方 `RedisTemplate<String,Object>`（JSON 序列化器）写入的值带 `@class` 类型头（或裸字符串），另一方读出来反序列化直接炸 `SerializationException: missing type id property '@class'`。
+**规则**：跨服务共享的 Redis 值一律用 `StringRedisTemplate`（两边都是纯字符串），值内用 JSON 字符串承载结构。与 §22（RedisKeyBuilder 前缀按应用名拼）同属"跨服务 Redis 共享"两大坑。
+
+## 27. RocketMQ 延迟消息 body 不是 JSON：消费者侧按发送侧原样解析（批次十三）
+
+PkSettle/LotterySettle 的消息 body 是裸 roomId 字符串（`String.valueOf(roomId).getBytes()`），消费者若照搬 `JSON.parseObject(new String(body), JSONObject.class)` 会报 `syntax error, expect {, actual int`。对齐口径：要么两边都 JSON，要么两边都裸字符串。延迟级别固定档位：30s=4、1m=5、2m=6、3m=7、5m=9（10min=14）。
+
+## 28. `mvn 输出 | grep ERROR` 会吞构建失败：`PKG=$?` 是 grep 的退出码（老坑变体）
+
+`mvn -q clean package ... | grep ERROR; echo PKG=$?` 在 clean 阶段因 jar 锁失败时，若错误行恰好不匹配 grep 模式，就输出空 + PKG=0，假绿。jar 还锁着时 `-q` 模式报错只有一行 `Failed to clean project`。**规则**：构建命令要么直接看 `BUILD SUCCESS/FAILURE`，要么 `grep -E "BUILD SUCCESS|BUILD FAILURE"`；先杀进程再构建（§23）。

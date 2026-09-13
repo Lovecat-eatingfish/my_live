@@ -57,6 +57,16 @@ public class LivingRoomController {
         return WebResponseVO.success(livingRoomService.followRooms(1, 20));
     }
 
+    /** 口令抽奖：主播发起 */
+    @PostMapping("/lottery/create")
+    public WebResponseVO lotteryCreate(Integer roomId, String keyword, Integer durationSec,
+                                       Integer winnerCount, Integer rewardCoins) {
+        ErrorAssert.isNotNull(roomId, BizBaseErrorEnum.PARAM_ERROR);
+        ErrorAssert.isTure(keyword != null && !keyword.trim().isEmpty(), BizBaseErrorEnum.PARAM_ERROR);
+        return WebResponseVO.success(livingRoomService.createLottery(roomId, keyword, durationSec == null ? 60 : durationSec,
+                winnerCount == null ? 1 : winnerCount, rewardCoins == null ? 0 : rewardCoins));
+    }
+
     @PostMapping("/onlinePk")
     @RequestLimit(limit = 1,second = 3)
     public WebResponseVO onlinePk(OnlinePkReqVO onlinePkReqVO) {
