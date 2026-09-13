@@ -28,4 +28,9 @@ public class PayProductRpcImpl implements IPayProductRpc {
     public PayProductDTO getByProductId(Integer productId) {
         return payProductService.getByProductId(productId);
     }
+
+    @Override
+    public boolean adminUpdateProduct(Integer productId, Integer price, Integer validStatus) {
+        return payProductService.adminUpdateProduct(productId, price, validStatus);
+    }
 }

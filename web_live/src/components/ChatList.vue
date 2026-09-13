@@ -5,6 +5,10 @@
       :key="i"
       :class="['chat-item', { 'is-self': msg.isSelf }]"
     >
+      <template v-if="msg.system">
+        <div class="chat-system">{{ msg.content }}</div>
+      </template>
+      <template v-else>
       <img :src="msg.avatar || defaultAvatar" class="chat-avatar" @click="goProfile(msg)" />
       <div class="chat-body">
         <div class="chat-meta">
@@ -14,6 +18,7 @@
         </div>
         <div class="chat-bubble">{{ msg.content }}</div>
       </div>
+      </template>
     </div>
     <div v-if="messages.length === 0" class="chat-empty">暂无消息，快来聊天吧~</div>
   </div>
@@ -124,4 +129,8 @@ watch(() => props.messages.length, () => {
 .lv-blue { background: #409eff; }
 .lv-gold { background: #e6a23c; }
 .chat-avatar { cursor: pointer; }
+.chat-system {
+  width: 100%; text-align: center; font-size: 12px; color: #7c8aa5;
+  padding: 4px 0; background: rgba(124,138,165,0.08); border-radius: 6px; margin: 2px 0;
+}
 </style>

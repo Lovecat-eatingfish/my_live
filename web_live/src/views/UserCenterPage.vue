@@ -19,7 +19,28 @@
         >{{ t.label }}</span>
       </div>
 
-      <div v-loading="loading" class="video-grid">
+      <!-- 主播看板 -->
+      <div v-if="currentTab === 'dashboard'" class="dash-board" v-loading="dashLoading">
+        <div class="dash-tip" v-if="!dash.roomId">当前未在直播；开播后数据实时更新，再次打开本页可刷新。</div>
+        <template v-else>
+          <div class="dash-cards">
+            <div class="dash-card"><div class="lbl">本场人气（累计进房人次）</div><div class="val">{{ dash.heat }}</div></div>
+            <div class="dash-card"><div class="lbl">当前在线</div><div class="val">{{ dash.online }}</div></div>
+            <div class="dash-card"><div class="lbl">本场收礼（金币）</div><div class="val">{{ dash.giftCoins }}</div></div>
+            <div class="dash-card"><div class="lbl">直播状态</div><div class="val">{{ dash.streamStatus === 1 ? '推流中' : '待推流' }}</div></div>
+          </div>
+          <div class="dash-contrib" v-if="dash.contrib.length">
+            <div class="sub-title">本场贡献 Top10</div>
+            <div class="contrib-row" v-for="c in dash.contrib" :key="c.userId">
+              <span class="no">{{ c.rank }}</span>
+              <img :src="c.avatar || defaultCover" class="avt" />
+              <span class="nick">{{ c.nickName || ('用户' + c.userId) }}</span>
+              <span class="score">🪙 {{ c.score }}</span>
+            </div>
+          </div>
+        </template>
+      </div>
+      <div v-else v-loading="loading" class="video-grid">
         <div
           v-for="v in list"
           :key="v.id"
@@ -47,9 +68,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { myHistory, myList, myFavorites, myLikes } from '@/api/video'
 import { useUserStore } from '@/stores/user'
+import { myLivingRoom, onlineCount } from '@/api/room'
+import { roomGiftRank, heatRank } from '@/api/rank'
 
 const userStore = useUserStore()
 const defaultAvatar = 'https://via.placeholder.com/36/667eea/fff?text=U'
@@ -101,6 +124,30 @@ function switchTab(key) {
 
 watch(currentTab, fetchList)
 onMounted(fetchList)
+// ==================== 主播看板 ====================
+const dash = reactive({ roomId: null, heat: 0, online: 0, giftCoins: 0, streamStatus: 0, contrib: [] })
+const dashLoading = ref(false)
+
+async function loadDashboard() {
+  dashLoading.value = true
+  try {
+    const my = await myLivingRoom()
+    dash.roomId = my.data ? Number(my.data) : null
+    if (!dash.roomId) return
+    const heatVo = await heatRank()
+    const heatItem = (heatVo.data || []).find(r => Number(r.roomId) === dash.roomId)
+    dash.heat = heatItem ? heatItem.score : 0
+    const onlineVo = await onlineCount(dash.roomId)
+    dash.online = Number(onlineVo.data) || 0
+    const giftVo = await roomGiftRank(dash.roomId)
+    dash.contrib = giftVo.data || []
+    dash.giftCoins = dash.contrib.reduce((sum, c) => sum + Number(c.score || 0), 0)
+  } catch { /* 静默 */ } finally {
+    dashLoading.value = false
+  }
+}
+
+watch(currentTab, (t) => { if (t === 'dashboard') loadDashboard() })
 </script>
 
 <style scoped>
@@ -152,4 +199,19 @@ onMounted(fetchList)
 .video-meta { display: flex; justify-content: space-between; font-size: 12px; color: #666; }
 .author { color: var(--sq-blue); }
 .empty { grid-column: 1/-1; text-align: center; color: #444; padding: 60px 0; }
+
+<style scoped>
+.dash-board { padding: 8px 0; }
+.dash-tip { color: #888; font-size: 13px; }
+.dash-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.dash-card { background: var(--sq-card, #1a1f2b); border-radius: 10px; padding: 16px; }
+.dash-card .lbl { font-size: 12px; color: #888; }
+.dash-card .val { font-size: 24px; font-weight: bold; margin-top: 6px; color: #fff; }
+.dash-contrib { margin-top: 20px; }
+.sub-title { font-size: 14px; color: #ccc; margin-bottom: 8px; }
+.contrib-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+.contrib-row .no { width: 20px; color: #888; }
+.contrib-row .avt { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
+.contrib-row .nick { flex: 1; font-size: 13px; color: #ddd; }
+.contrib-row .score { color: #e6a23c; font-size: 13px; }
 </style>

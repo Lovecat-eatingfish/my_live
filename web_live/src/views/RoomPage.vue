@@ -15,6 +15,7 @@
           :type="isFollow ? 'info' : 'primary'" @click="toggleFollow">
           {{ isFollow ? '已关注' : '+ 关注' }}
         </el-button>
+        <span class="viewer-chip share-chip" title="分享直播间" @click="handleShare">🔗 分享</span>
         <span class="viewer-chip" title="在线观众">
           <span class="viewer-dot"></span>{{ viewerCount }} 人观看
         </span>
@@ -199,6 +200,17 @@ import { anchorConfig, startLiving, closeLiving, getImConfig , onlineCount } fro
 import { createPushUrl, getStreamStatus, getPlayUrl, getRecordList } from '@/api/stream'
 import { sendGift, listGift, createRedPacket, prepareRedPacket, sendRedPacket } from '@/api/gift'
 import { followUser, unfollowUser, isFollowUser } from '@/api/user'
+
+// 直播间分享：复制带房间号的链接（落地页打开自动进房）
+async function handleShare() {
+  const url = `${location.origin}/room/${roomId.value}`
+  try {
+    await navigator.clipboard.writeText(url)
+    ElMessage.success('直播间链接已复制，快去分享吧')
+  } catch {
+    ElMessage.info(`直播间链接：${url}`)
+  }
+}
 import { roomGiftRank } from '@/api/rank'
 import { IMConnection } from '@/utils/im/connection'
 import ChatList from '@/components/ChatList.vue'
@@ -579,6 +591,7 @@ function handleIMMessage(msg) {
           level: data.level,
           content: data.content,
           avatar: data.senderAvtar || '',
+          system: !!data.system,
           isSelf: data.userId === userStore.userInfo.userId,
           time: new Date().toLocaleTimeString()
         })

@@ -8,5 +8,13 @@
 <body>
   <div id="app"></div>
   <script type="module" src="/src/main.js"></script>
-</body>
+<script>
+      // 深色模式：跟随系统 + localStorage 记忆（Element Plus dark 变量）
+      (function darkModeInit() {
+        var saved = localStorage.getItem('qiyu_dark');
+        var dark = saved !== null ? saved === '1' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (dark) document.documentElement.classList.add('dark');
+      })();
+    </script>
+  </body>
 </html>

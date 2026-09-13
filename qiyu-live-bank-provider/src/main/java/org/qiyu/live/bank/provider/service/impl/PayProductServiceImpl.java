@@ -83,4 +83,24 @@ public class PayProductServiceImpl implements IPayProductService {
         redisTemplate.opsForValue().set(cacheKey, new PayProductDTO(), 5, TimeUnit.MINUTES);
         return null;
     }
+
+    @Override
+    public boolean adminUpdateProduct(Integer productId, Integer price, Integer validStatus) {
+        com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<org.qiyu.live.bank.provider.dao.po.PayProductPO> uw =
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<org.qiyu.live.bank.provider.dao.po.PayProductPO>()
+                        .eq(org.qiyu.live.bank.provider.dao.po.PayProductPO::getId, productId);
+        if (price != null) {
+            uw.set(org.qiyu.live.bank.provider.dao.po.PayProductPO::getPrice, price);
+        }
+        if (validStatus != null) {
+            uw.set(org.qiyu.live.bank.provider.dao.po.PayProductPO::getValidStatus, validStatus);
+        }
+        boolean updated = payProductMapper.update(null, uw) > 0;
+        if (updated) {
+            // 列表/详情缓存失效，前台立即读到新价格
+            redisTemplate.delete(cacheKeyBuilder.buildPayProductCache(0));
+            redisTemplate.delete(cacheKeyBuilder.buildPayProductItemCache(productId));
+        }
+        return updated;
+    }
 }

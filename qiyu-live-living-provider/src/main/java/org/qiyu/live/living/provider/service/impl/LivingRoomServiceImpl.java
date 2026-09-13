@@ -68,6 +68,8 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     private MQProducer mqProducer;
     @DubboReference(check = false)
     private ImRouterRpc imRouterRpc;
+    @DubboReference(check = false)
+    private org.qiyu.live.user.interfaces.IUserRpc userRpc;
 
     @Override
     public List<Long> queryUserIdByRoomId(LivingRoomReqDTO livingRoomReqDTO) {
@@ -182,6 +184,35 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
             } catch (Exception e) {
                 LOGGER.error("[userOnlineHandler] heat zincrby error, roomId={}", roomId, e);
             }
+            // 进场欢迎：全房间广播系统弹幕（走 5555，system 标记，前端系统样式渲染）
+            try {
+                sendWelcomeMsg(userId, roomId, appId);
+            } catch (Exception e) {
+                LOGGER.error("[userOnlineHandler] welcome msg error, roomId={}", roomId, e);
+            }
+        }
+    }
+
+    private void sendWelcomeMsg(Long userId, Integer roomId, Integer appId) {
+        org.qiyu.live.user.dto.UserDTO userDTO = userRpc.getByUserId(userId);
+        String nick = userDTO == null || userDTO.getNickName() == null ? ("用户" + userId) : userDTO.getNickName();
+        com.alibaba.fastjson.JSONObject data = new com.alibaba.fastjson.JSONObject();
+        data.put("userId", userId);
+        data.put("roomId", roomId);
+        data.put("senderName", "系统");
+        data.put("content", "欢迎 " + nick + " 来到直播间");
+        data.put("system", true);
+        org.qiyu.live.living.interfaces.dto.LivingRoomReqDTO reqDTO = new org.qiyu.live.living.interfaces.dto.LivingRoomReqDTO();
+        reqDTO.setRoomId(roomId);
+        reqDTO.setAppId(appId);
+        java.util.List<Long> userIds = queryUserIdByRoomId(reqDTO);
+        for (Long targetId : userIds) {
+            org.qiyu.live.im.dto.ImMsgBody body = new org.qiyu.live.im.dto.ImMsgBody();
+            body.setUserId(targetId);
+            body.setAppId(org.qiyu.live.im.constants.AppIdEnum.QIYU_LIVE_BIZ.getCode());
+            body.setBizCode(org.qiyu.live.im.router.interfaces.constants.ImMsgBizCodeEnum.LIVING_ROOM_IM_CHAT_MSG_BIZ.getCode());
+            body.setData(data.toJSONString());
+            imRouterRpc.batchSendMsg(java.util.Collections.singletonList(body));
         }
     }
 

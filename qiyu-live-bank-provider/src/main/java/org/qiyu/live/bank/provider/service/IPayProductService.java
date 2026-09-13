@@ -25,4 +25,6 @@ public interface IPayProductService {
      * @return
      */
     PayProductDTO getByProductId(Integer productId);
+
+    boolean adminUpdateProduct(Integer productId, Integer price, Integer validStatus);
 }

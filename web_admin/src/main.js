@@ -14,6 +14,8 @@ import DashPage from './views/DashboardPage.vue'
 import AuditPage from './views/AuditPage.vue'
 import SnapshotPage from './views/SnapshotPage.vue'
 import RiskPage from './views/RiskPage.vue'
+import GiftConfigPage from './views/GiftConfigPage.vue'
+import PayProductPage from './views/PayProductPage.vue'
 import './style.css'
 
 const router = createRouter({
@@ -28,6 +30,8 @@ const router = createRouter({
         { path: 'audit', name: 'Audit', component: AuditPage },
         { path: 'snapshot', name: 'Snapshot', component: SnapshotPage },
         { path: 'risk', name: 'Risk', component: RiskPage },
+        { path: 'giftConfig', name: 'GiftConfig', component: GiftConfigPage },
+        { path: 'payProduct', name: 'PayProduct', component: PayProductPage },
         { path: 'recon', name: 'Recon', component: ReconPage },
         { path: 'tag', name: 'Tag', component: TagPage },
         { path: 'video', name: 'Video', component: VideoPage },

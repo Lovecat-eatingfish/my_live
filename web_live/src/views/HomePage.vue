@@ -13,6 +13,7 @@
             <img :src="userStore.userInfo.avatar || defaultAvatar" class="avatar" title="个人菜单" style="cursor: pointer" />
             <template #dropdown>
               <el-dropdown-menu>
+                <el-dropdown-item command="dark">深色/浅色</el-dropdown-item>
                 <el-dropdown-item command="center">个人中心</el-dropdown-item>
                 <el-dropdown-item command="myprofile">我的主页</el-dropdown-item>
                 <el-dropdown-item command="profile">个人设置</el-dropdown-item>
@@ -196,6 +197,13 @@ async function markAllRead() {
   notifyListData.value = notifyListData.value.map(n => ({ ...n, isRead: 1 }))
 }
 async function handleAvatarCommand(cmd) {
+  if (cmd === 'dark') {
+    const el = document.documentElement
+    const dark = !el.classList.contains('dark')
+    el.classList.toggle('dark', dark)
+    localStorage.setItem('qiyu_dark', dark ? '1' : '0')
+    return
+  }
   if (cmd === 'center') router.push('/user/center')
   else if (cmd === 'myprofile') router.push('/profile')
   else if (cmd === 'profile') profileVisible.value = true

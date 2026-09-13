@@ -26,4 +26,7 @@ public interface IPayProductRpc {
      * @return
      */
     PayProductDTO getByProductId(Integer productId);
+
+    /** 管理端修改充值档位（价格/状态） */
+    boolean adminUpdateProduct(Integer productId, Integer price, Integer validStatus);
 }
