@@ -68,7 +68,17 @@ public class LivingPlayBackServiceImpl implements ILivingPlayBackService {
         queryWrapper.eq(LivingRoomRecordPO::getStatus, 2); // 2=可用
         queryWrapper.orderByDesc(LivingRoomRecordPO::getCreateTime);
         List<LivingRoomRecordPO> poList = livingRoomRecordMapper.selectList(queryWrapper);
-        return ConvertBeanUtils.convertList(poList, LivingRoomRecordDTO.class);
+        List<LivingRoomRecordDTO> dtoList = ConvertBeanUtils.convertList(poList, LivingRoomRecordDTO.class);
+        // PO 的 Date → DTO 的 Long 毫秒，通用转换器不做类型转换，需显式回填
+        for (int i = 0; i < poList.size() && i < dtoList.size(); i++) {
+            if (poList.get(i).getStartTime() != null) {
+                dtoList.get(i).setStartTime(poList.get(i).getStartTime().getTime());
+            }
+            if (poList.get(i).getEndTime() != null) {
+                dtoList.get(i).setEndTime(poList.get(i).getEndTime().getTime());
+            }
+        }
+        return dtoList;
     }
 
     @Override
@@ -82,7 +92,17 @@ public class LivingPlayBackServiceImpl implements ILivingPlayBackService {
         queryWrapper.orderByDesc(LivingRoomRecordPO::getCreateTime);
         queryWrapper.last("limit 20");
         List<LivingRoomRecordPO> poList = livingRoomRecordMapper.selectList(queryWrapper);
-        return ConvertBeanUtils.convertList(poList, LivingRoomRecordDTO.class);
+        List<LivingRoomRecordDTO> dtoList = ConvertBeanUtils.convertList(poList, LivingRoomRecordDTO.class);
+        // PO 的 Date → DTO 的 Long 毫秒，通用转换器不做类型转换，需显式回填
+        for (int i = 0; i < poList.size() && i < dtoList.size(); i++) {
+            if (poList.get(i).getStartTime() != null) {
+                dtoList.get(i).setStartTime(poList.get(i).getStartTime().getTime());
+            }
+            if (poList.get(i).getEndTime() != null) {
+                dtoList.get(i).setEndTime(poList.get(i).getEndTime().getTime());
+            }
+        }
+        return dtoList;
     }
 
     private boolean isStreaming(LivingRoomPO room) {

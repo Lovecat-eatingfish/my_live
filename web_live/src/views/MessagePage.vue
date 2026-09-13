@@ -64,7 +64,7 @@ import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
 const userStore = useUserStore()
-const myUserId = userStore.userInfo?.userId
+let myUserId = userStore.userInfo?.userId
 
 const conversations = ref([])
 const currentPeer = ref(null)
@@ -191,6 +191,11 @@ async function initIM() {
 }
 
 onMounted(async () => {
+  // 直链进入本页时 userStore 尚未拉取用户信息，userId 为 null 会导致 IM 登录失败
+  if (!myUserId) {
+    await userStore.fetchUserInfo()
+    myUserId = userStore.userInfo?.userId
+  }
   await loadConversations()
   await initIM()
   //支持 /messages?peer=xxx 直达某会话
