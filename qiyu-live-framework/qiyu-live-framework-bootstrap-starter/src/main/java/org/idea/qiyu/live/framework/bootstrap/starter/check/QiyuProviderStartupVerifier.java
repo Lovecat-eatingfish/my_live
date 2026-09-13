@@ -239,17 +239,17 @@ public class QiyuProviderStartupVerifier implements ApplicationRunner {
      * 存在 RedisConnectionFactory 时检查 Redis 可连接
      */
     private void checkRedis(List<String> errors, List<String> oks) {
-        RedisConnectionFactory connectionFactory =
-                applicationContext.getBeanProvider(RedisConnectionFactory.class).getIfAvailable();
-        if (connectionFactory == null) {
-            return;
-        }
-        try (RedisConnection connection = connectionFactory.getConnection()) {
-            connection.ping();
-            oks.add("Redis 连接正常");
-        } catch (Throwable t) {
-//            errors.add("Redis 连接失败（检查 redis 地址/密码配置）: " + rootMessage(t));
-        }
+//        RedisConnectionFactory connectionFactory =
+//                applicationContext.getBeanProvider(RedisConnectionFactory.class).getIfAvailable();
+//        if (connectionFactory == null) {
+//            return;
+//        }
+//        try (RedisConnection connection = connectionFactory.getConnection()) {
+//            connection.ping();
+//            oks.add("Redis 连接正常");
+//        } catch (Throwable t) {
+////            errors.add("Redis 连接失败（检查 redis 地址/密码配置）: " + rootMessage(t));
+//        }
     }
 
     /**

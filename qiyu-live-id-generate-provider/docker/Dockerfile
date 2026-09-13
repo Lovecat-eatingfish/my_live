@@ -1,7 +1,7 @@
 FROM openjdk:17-jdk-alpine
 VOLUME /tmp
 COPY /arthas-bin.zip /opts/arthas-bin.zip
-ADD qiyu-live-id-generate-provider-docker.jar app.jar
+ADD qiyu-live-id-generate-provider.jar app.jar
 ENV JAVA_OPTS="\
 -server \
 -Xmx1g \

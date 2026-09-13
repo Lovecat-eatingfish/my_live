@@ -16,7 +16,7 @@ spring:
 
 # HTTP 端口：SRS 的 on_publish / on_unpublish 回调打到这个端口
 server:
-  port: 38101
+  port: 38090
 
 qiyu:
   srs:
@@ -46,4 +46,4 @@ dubbo:
     address: nacos://127.0.0.1:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=nacos&&password=nacos
   protocol:
     name: dubbo
-    port: 30005
+    port: 30065

@@ -87,6 +87,7 @@
     </dependencies>
 
     <build>
+        <finalName>${artifactId}</finalName>
         <plugins>
             <!-- 打包为可执行 Spring Boot jar（本地 java -jar 启动必需） -->
             <plugin>

@@ -73,7 +73,7 @@
     </dependencies>
 
     <build>
-        <finalName>${artifactId}-docker</finalName>
+        <finalName>${artifactId}</finalName>
         <plugins>
             <plugin>
                 <groupId>com.spotify</groupId>

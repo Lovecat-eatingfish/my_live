@@ -61,7 +61,7 @@ $AllModules = $Waves.ForEach{ $_.Mods }
 
 # im-core-server reads these env vars at startup (Netty server identity in Redis), fails without them
 $ModuleExtraEnv = @{
-  "qiyu-live-im-core-server" = @{ "DUBBO_IP_TO_REGISTRY" = "127.0.0.1"; "DUBBO_PORT_TO_REGISTRY" = "30007" }
+  "qiyu-live-im-core-server" = @{ "DUBBO_IP_TO_REGISTRY" = "127.0.0.1"; "DUBBO_PORT_TO_REGISTRY" = "30035" }
 }
 
 # ---------- helpers ----------

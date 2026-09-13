@@ -1,0 +1,282 @@
+# 旗鱼直播 · 服务依赖关系与启动顺序指南
+
+> 生成日期：2026-09-13（基于全量代码扫描：15 个可启动模块的 `@DubboReference` 逐一核对）
+> 解决的问题：**A 服务依赖 B 服务的 Dubbo RPC，如果 B（提供者）没先启动，A 启动时会因引用校验失败退出或运行时报 no provider**。
+> 本文档给出：依赖关系图 → 分层启动顺序 → 每一步的具体启动命令 → 失败排查。
+
+---
+
+## 一、先搞懂：这个项目"依赖没起会怎样"
+
+- 所有 RPC 引用都是 `@DubboReference(check = false)`（懒加载），**单看注解**，消费方启动时上游没起也不会报错，运行期调用才炸。
+- **但是**：14 个 provider/服务模块带了 `qiyu-live-framework-bootstrap-starter`，其中的
+  `QiyuProviderStartupVerifier`（`qiyu-live-framework/qiyu-live-framework-bootstrap-starter/.../check/QiyuProviderStartupVerifier.java`）
+  会在启动期把每个 `@DubboReference` **强制升级为 check=true 并立即初始化**——上游没起就打印失败清单并 `System.exit(1)` 退出。
+  所以 **provider 类服务必须严格按依赖顺序启动**。
+- 例外：`qiyu-live-api`、`qiyu-live-bank-api`、`qiyu-live-gateway` **不含这个自检**（pom 没引 bootstrap-starter），它们启动不依赖上游，但建议仍放在最后启动，保证起来就能用。
+- 自检开关（在模块的 application.yml 加）：
+  - `qiyu.startup.verify: false` —— 整个关掉自检
+  - `qiyu.startup.strict-references: false` —— 只关 RPC 强检（不关 Nacos 注册/DB 检查）
+  - `qiyu.startup.ignore-references: ImRouterRpc,IUserRpc` —— 按接口名豁免个别引用
+
+---
+
+## 二、Dubbo 依赖关系总图
+
+```text
+                          ┌─────────────────── 中间件层 ───────────────────┐
+                          │  Nacos(8848) ← 全部服务                        │
+                          │  MySQL(3306) / Redis(6379) / RocketMQ(9876)    │
+                          │  MinIO(9000) ← stream-provider                 │
+                          │  SRS ← stream-provider（回调打 38101）          │
+                          └────────────────────────────────────────────────┘
+
+  第1层·无RPC依赖的基础服务
+    bank-provider(31001)   account-provider(30002)   id-generate-provider(30003)   im-provider(30004)
+         │                        │                                                   │
+         │                        │                       ┌───────────────────────────┘
+         │                        │                       ▼
+  第2层                     第3层              im-core-server(30007, IM端口 38085/38086)
+    user-provider(30006)     gateway(38080)          │
+         │   ▲               （只依赖 account，   被以下所有"要往房间推消息"的服务依赖
+         │   └── video-provider       任意时机可起）            │
+         │       (30021)                                  ▼
+         │                                    im-router-provider(30008)
+         │                                            │
+         │                                            ▼
+  第4层                                     living-provider(30009)
+         │                                            │
+         ├──────────────┬─────────────────────────────┤
+         ▼              ▼                             ▼
+  第5层  msg-provider   stream-provider(30005,HTTP 38101)   gift-provider(30011)
+         (30010)        （SRS 回调入口，依赖 living+im-router）  （依赖 bank+living+im-router+user）
+         (依赖 im-router+living)
+                                                      │
+  第6层·聚合入口                                       ▼
+    qiyu-live-api(38100)  ←─ 引用几乎所有人的 RPC（最后启动）
+    bank-api(38201)       ←─ 只依赖 bank-provider
+```
+
+### 精确依赖表（A 消费 B，核对自代码中的 @DubboReference）
+
+| 消费方 (A) | 依赖的服务 (B) | 引用的接口 |
+|---|---|---|
+| qiyu-live-bank-provider | 无（基础层） | — |
+| qiyu-live-account-provider | 无（基础层） | — |
+| qiyu-live-id-generate-provider | 无（基础层） | — |
+| qiyu-live-im-provider | 无（基础层） | — |
+| qiyu-live-user-provider | id-generate | `IdGenerateRpc` |
+| qiyu-live-im-core-server | im-provider | `ImTokenRpc`（握手时验 token） |
+| qiyu-live-im-router-provider | **im-core-server** | `IRouterHandlerRpc`（实际发消息给它写回 Channel） |
+| qiyu-live-living-provider | im-router | `ImRouterRpc`（在线人数/关播广播） |
+| qiyu-live-msg-provider | im-router + living | `ImRouterRpc`、`ILivingRoomRpc`（弹幕广播链路中枢） |
+| qiyu-live-stream-provider | **living + im-router** | `ILivingRoomRpc`、`ImRouterRpc`（SRS 回调后广播 5563） |
+| qiyu-live-video-provider | user | `IUserRpc` |
+| qiyu-live-gift-provider | bank + living + im-router + user | `IQiyuCurrencyAccountRpc`、`ILivingRoomRpc`、`ImRouterRpc`、`IUserRpc` |
+| qiyu-live-bank-api | bank-provider | `IPayOrderRpc`（支付回调） |
+| qiyu-live-gateway | account-provider | `IAccountTokenRPC`（token 鉴权） |
+| qiyu-live-api | **几乎全部** | user、account、msg、living、stream、bank、gift、video、im-provider 的 RPC |
+
+> ⚠️ **与现有 `scripts/start-all.ps1` / `docs/startup-guide.md` 的差异**：脚本把 `stream-provider` 放在 Wave0（声称无依赖），
+> 但代码里它引用了 `ILivingRoomRpc` 和 `ImRouterRpc`（`ImBroadcastServiceImpl.java:31-33`）。在启动自检 strict 模式开启时，
+> living/im-router 未起它会直接退出。**正确位置是 Wave5（living 和 im-router 之后）**，建议修正脚本。
+
+---
+
+## 三、启动顺序与命令
+
+### 第 0 步：编译 + 打包（⚠️ 每次改过代码都必须重新打包，不能直接启动旧 jar）
+
+**为什么不能直接 `java -jar` 已有的 jar**：`target/` 下的 jar 是**上次构建**的产物。改了代码不重新打包就启动，跑的还是旧字节码——表现为"改了没生效""修了还报错"。另外 `scripts/start-all.*` 脚本**只在 jar 缺失时**才自动构建，代码变了但 jar 还在时，脚本同样会拿旧包启动，务必注意。
+
+**方式一：全量构建（推荐，拉完代码 / 改动跨多个模块时用）**
+
+```bash
+# Git Bash / macOS / Linux
+cd /d/桌面/project/qiyu-live-app
+mvn clean install -DskipTests            # 编译+打包全部模块，并把 interface/starter 装进本地仓库
+mvn clean install -DskipTests -T 1C      # 多核并行加速版
+```
+
+**方式二：单模块增量构建（只改了一个模块时最快，配合下文各波次命令使用）**
+
+```bash
+# -pl 指定要构建的模块；-am 连带把它依赖的 interface / common-interface / framework starter 一起编译
+mvn -pl qiyu-live-living-provider -am clean package -DskipTests
+```
+
+> `-am`（also-make）不能省：living-provider 依赖 `qiyu-live-living-interface`、`qiyu-live-common-interface` 和 framework 各 starter，如果这些上游模块也改过，缺 `-am` 就会把旧 class 打进新 jar，又是"老版本有问题"。
+
+**方式三：怎么判断 target 里的 jar 是不是旧的**
+
+```bash
+ls -l qiyu-live-living-provider/target/*.jar          # jar 文件的修改时间
+git log -1 --format=%ci -- qiyu-live-living-provider  # 该模块源码最后一次提交时间
+```
+jar 时间早于源码提交时间 → 旧包，必须重新 `mvn package` 再启动。
+
+产物在各模块 `target/` 下。**jar 命名规则（已统一）**：所有模块 pom 均配置 `<finalName>${artifactId}</finalName>`，
+jar 名一律为 `qiyu-live-xxx.jar`（既没有 `-docker` 后缀，也没有 `-1.0-SNAPSHOT` 版本号）。
+
+下面每一波都给出「构建 + 启动」两段命令：**做过全量构建且代码没改**，可跳过 mvn 行直接启动；**改过代码**，先跑 mvn 行再启动。
+
+### 第 1 波：中间件
+
+```bash
+docker compose up -d        # mysql / redis / nacos / rmqnamesrv / rmqbroker / srs / minio
+# 或: scripts\start-all.bat infra
+```
+
+启动后**等待就绪再继续**（RocketMQ broker 要等 namesrv 完全起来，约 10~20 秒）：
+
+| 中间件 | 就绪判据 |
+|---|---|
+| Nacos | 浏览器打开 http://127.0.0.1:8848/nacos 能登录 |
+| MySQL | `docker exec mysql mysql -uroot -p -e "show databases;"` 列出 qiyu_live_* 各库 |
+| RocketMQ | `docker logs qiyu-rmqbroker` 无报错，`bin/mqadmin clusterList` 正常 |
+| MinIO | http://127.0.0.1:9000 可访问 |
+| SRS | http://127.0.0.1:31985/api/v1/versions 返回 json |
+
+### 第 2 波：无 RPC 依赖的 4 个基础服务（顺序随意，可并行）
+
+```bash
+# ① 构建（改过代码时执行；已全量构建可跳过）
+mvn -pl qiyu-live-bank-provider,qiyu-live-account-provider,qiyu-live-id-generate-provider,qiyu-live-im-provider \
+    -am clean package -DskipTests
+
+# ② 启动
+java -jar qiyu-live-bank-provider/target/qiyu-live-bank-provider.jar &          # 31001 金币账户/订单
+java -jar qiyu-live-account-provider/target/qiyu-live-account-provider.jar &          # 30002 登录 token
+java -jar qiyu-live-id-generate-provider/target/qiyu-live-id-generate-provider.jar &  # 30003 分布式ID
+java -jar qiyu-live-im-provider/target/qiyu-live-im-provider.jar &                    # 30004 IM token/在线状态
+```
+
+### 第 3 波：依赖第 2 波的两个服务
+
+```bash
+# ① 构建
+mvn -pl qiyu-live-user-provider,qiyu-live-im-core-server -am clean package -DskipTests
+
+# ② 启动
+java -jar qiyu-live-user-provider/target/qiyu-live-user-provider.jar &          # 30006 依赖 id-generate
+DUBBO_IP_TO_REGISTRY=127.0.0.1 DUBBO_PORT_TO_REGISTRY=30007 \
+java -jar qiyu-live-im-core-server/target/qiyu-live-im-core-server.jar &  # 30007 依赖 im-provider
+# ↑ im-core-server 必须带这两个环境变量：Netty 服务把"自己的 ip:port"写进 Redis 供 router 寻址，
+#   多网卡/localhost 场景下不注入会注册错地址（scripts/start-all.ps1 第 62 行注释说明了原因）
+```
+
+### 第 4 波：IM 路由（依赖 im-core-server）
+
+```bash
+# ① 构建
+mvn -pl qiyu-live-im-router-provider -am clean package -DskipTests
+
+# ② 启动
+java -jar qiyu-live-im-router-provider/target/qiyu-live-im-router-provider.jar &  # 30008
+```
+
+### 第 5 波：直播间域（依赖 im-router）
+
+```bash
+# ① 构建
+mvn -pl qiyu-live-living-provider -am clean package -DskipTests
+
+# ② 启动
+java -jar qiyu-live-living-provider/target/qiyu-live-living-provider.jar &  # 30009
+```
+
+### 第 6 波：消息/流/视频（依赖 living + im-router，或 user）
+
+```bash
+# ① 构建
+mvn -pl qiyu-live-msg-provider,qiyu-live-stream-provider,qiyu-live-video-provider -am clean package -DskipTests
+
+# ② 启动
+java -jar qiyu-live-msg-provider/target/qiyu-live-msg-provider.jar &                 # 30010 依赖 im-router+living
+java -jar qiyu-live-stream-provider/target/qiyu-live-stream-provider.jar &     # 30005(Dubbo) 38101(HTTP回调) 依赖 living+im-router
+java -jar qiyu-live-video-provider/target/qiyu-live-video-provider.jar &             # 30021 依赖 user-provider
+```
+
+### 第 7 波：礼物域（依赖最多：bank+living+im-router+user）
+
+```bash
+# ① 构建
+mvn -pl qiyu-live-gift-provider -am clean package -DskipTests
+
+# ② 启动
+java -jar qiyu-live-gift-provider/target/qiyu-live-gift-provider.jar &  # 30011
+```
+
+### 第 8 波：Web 入口层（无启动自检，但放最后保证可用性）
+
+```bash
+# ① 构建
+mvn -pl qiyu-live-bank-api,qiyu-live-gateway,qiyu-live-api -am clean package -DskipTests
+
+# ② 启动
+java -jar qiyu-live-bank-api/target/qiyu-live-bank-api.jar &    # 38201 支付回调，依赖 bank-provider
+java -jar qiyu-live-gateway/target/qiyu-live-gateway.jar &           # 38080 鉴权网关，依赖 account-provider
+java -jar qiyu-live-api/target/qiyu-live-api.jar &                   # 38100 主 API，依赖几乎全部
+```
+
+之后启动前端：`cd web_live && npm run dev`。
+
+### 开发期最常用：只重启一个模块（改了哪个模块就重启哪个）
+
+```bash
+# ① 杀掉旧进程（按 Dubbo 端口找 PID，以 living-provider 30009 为例）
+netstat -ano | grep 30009 | grep -i listen        # 输出最后一列是 PID
+taskkill //PID <上一步的PID> //F                    # Git Bash 用双斜杠；PowerShell 用 Stop-Process -Id <PID> -Force
+
+# ② 重新编译打包（保证跑的是新代码）
+mvn -pl qiyu-live-living-provider -am clean package -DskipTests
+
+# ③ 前台启动看日志（确认没问题后再改回后台 &）
+java -jar qiyu-live-living-provider/target/qiyu-live-living-provider.jar
+```
+
+---
+
+## 四、启动成功的验证清单
+
+每个服务启动成功的标志（看 `logs/<模块>.log` 或控制台）：
+
+1. 日志出现 Spring Boot 启动完成 + Dubbo `Export dubbo service ...`；
+2. **自检通过**：`QiyuProviderStartupVerifier` 打印 check=PASSED（并写 marker 文件 `%TMP%/qiyu-startup-check-<appName>.txt`）；如果打印 FAILED 并退出 → 见下节排错；
+3. Nacos 控制台 → 服务列表 → 对应 `spring.application.name` 实例数 ≥ 1；
+4. 端口监听：`netstat -ano | findstr 30009`（Windows）/ `lsof -i:30009`。
+
+端到端验证：浏览器走网关 `http://127.0.0.1:38080/live/api/living/list`（白名单接口，无需 token）能返回 json，说明 Nacos→gateway→api→living 全链路通。
+
+## 五、失败排查速查
+
+| 现象 | 原因 | 处理 |
+|---|---|---|
+| 某服务启动即退出，日志有 `No provider available for the reference ...` | 它依赖的上游服务没起（自检 strict 模式强检失败） | 按本文顺序先起上游；或临时 `--qiyu.startup.ignore-references=接口名`；或 `--qiyu.startup.verify=false` |
+| 服务退出，报 Nacos 连接失败 | 中间件没就绪 / namespace 不存在 | 先起 docker compose，确认 `qiyu-live-test` namespace 存在（脚本会自动建） |
+| 启动成功但调用报 `no provider` | 上游中途挂了，或上下游注册的 IP 不一致 | 重启上游；检查 `DUBBO_IP_TO_REGISTRY`；Nacos 控制台对比消费/提供者实例 IP |
+| im-core-server 起了但弹幕收不到 | Redis 里绑定的机器地址不对 | 确认带了 `DUBBO_IP_TO_REGISTRY`/`DUBBO_PORT_TO_REGISTRY` 环境变量 |
+| bank-api 回调 404 | SRS/支付回调配置的地址与 context-path 不符 | 回调地址应为 `http://127.0.0.1:38201/live/bank/payNotify/wxNotify`、SRS 回调 `http://127.0.0.1:38101/api/stream/on_publish` |
+| Redis 检查导致退出 | 自检的 Redis ping（当前代码里该检查已被注释，正常不会触发） | 若恢复后误伤，`--qiyu.startup.verify=false` 临时绕过 |
+
+## 六、一键启动（推荐日常使用）
+
+手敲 15 个命令容易漏，日常直接用现成脚本（内部按波次启动、自动建 namespace、缺 jar 自动构建）：
+
+```powershell
+# Windows
+scripts\start-all.bat          # 中间件 + 全部服务
+scripts\start-all.bat infra    # 只起中间件
+```
+
+```bash
+# Linux / macOS / Git Bash
+bash scripts/start-all.sh
+```
+
+> 注意一：如上文第一节所述，**建议把脚本 Wave0 里的 `qiyu-live-stream-provider` 移到 Wave4 之后**（它依赖 living + im-router），
+> 否则开了启动自检的环境上它会启动失败。`docker-compose-full.yml` 的 23 服务编排不表达服务间依赖（depends_on 只指向中间件），
+> 因为 Nacos 模式下引用是懒注册+重试，容器编排靠重试兜底，手动起进程时才必须讲究顺序。
+>
+> 注意二（旧 jar 陷阱）：脚本**只在 target 下缺 jar 时才触发 `mvn clean install`**——改了代码但旧 jar 还在时，
+> 脚本会直接用旧包启动，症状就是"改了没生效"。改码后请先手动 `mvn clean install -DskipTests`（或删掉对应模块的 `target/`）再跑脚本。

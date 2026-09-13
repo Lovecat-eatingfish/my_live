@@ -29,18 +29,23 @@ NACOS_ADDR="${NACOS_ADDR:-127.0.0.1:8848}"
 STARTUP_WAIT="${STARTUP_WAIT:-10}"
 
 # 按依赖分层(底层在前)。如不需要某服务, 注释掉对应行即可。
-WAVE0=(qiyu-live-bank-provider qiyu-live-account-provider qiyu-live-id-generate-provider qiyu-live-im-provider qiyu-live-stream-provider)
+WAVE0=(qiyu-live-bank-provider qiyu-live-account-provider qiyu-live-id-generate-provider qiyu-live-im-provider)
 WAVE1=(qiyu-live-user-provider qiyu-live-im-core-server qiyu-live-gateway qiyu-live-bank-api)
 WAVE2=(qiyu-live-im-router-provider)
 WAVE3=(qiyu-live-living-provider)
 WAVE4=(qiyu-live-msg-provider qiyu-live-gift-provider)
 WAVE4B=(qiyu-live-video-provider)
-WAVE5=(qiyu-live-api)
-ALL_MODULES=("${WAVE0[@]}" "${WAVE1[@]}" "${WAVE2[@]}" "${WAVE3[@]}" "${WAVE4[@]}" "${WAVE5[@]}")
+WAVE4C=(qiyu-live-stream-provider)
+WAVE5=(qiyu-live-api qiyu-live-admin-api)
+ALL_MODULES=("${WAVE0[@]}" "${WAVE1[@]}" "${WAVE2[@]}" "${WAVE3[@]}" "${WAVE4[@]}" "${WAVE4B[@]}" "${WAVE4C[@]}" "${WAVE5[@]}")
 
 # ---------- 工具函数 ----------
+# 优先用 JAVA_HOME 的 JDK17（PATH 里的 java 可能是 JDK8，跑不了 Spring Boot 3）
+JAVA_CMD="${JAVA_HOME:+$JAVA_HOME/bin/java}"
+JAVA_CMD="${JAVA_CMD:-java}"
 find_jar() {  # $1=模块目录 -> 输出可执行 jar 路径(可能为空)
-  ls "$1"/target/*.jar 2>/dev/null | grep -vE '(-sources\.jar|-javadoc\.jar|\.jar\.original)$' | head -1 || true
+  # target 里可能同时存在新旧两个 fatjar（finalName 变更的历史残留），按修改时间取最新
+  ls -t "$1"/target/*.jar 2>/dev/null | grep -vE '(-sources\.jar|-javadoc\.jar|\.jar\.original)$' | head -1 || true
 }
 
 is_running() {  # $1=模块名 -> 0=运行中
@@ -76,7 +81,7 @@ start_module() {  # $1=模块目录名
     return 0
   fi
   echo "  ▶ $mod ..."
-  java $JAVA_OPTS -jar "$jar" >"$LOG_DIR/$mod.log" 2>&1 &
+  "$JAVA_CMD" $JAVA_OPTS -jar "$jar" >"$LOG_DIR/$mod.log" 2>&1 &
   local pid=$!
   disown "$pid" 2>/dev/null || true
   echo "$pid" >"$LOG_DIR/$mod.pid"
@@ -105,6 +110,7 @@ start_all() {
   start_wave "Wave3 直播间"            "${WAVE3[@]}"
   start_wave "Wave4 消息/礼物"         "${WAVE4[@]}"
   start_wave "Wave4b 视频"             "${WAVE4B[@]}"
+  start_wave "Wave4c 流媒体"           "${WAVE4C[@]}"
   start_wave "Wave5 主API入口"         "${WAVE5[@]}"
   echo "✅ 全部启动指令已发出。"
   echo "   查看状态: bash scripts/start-all.sh status"

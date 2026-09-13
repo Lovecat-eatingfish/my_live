@@ -23,7 +23,7 @@ dubbo:
     address: nacos://127.0.0.1:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=nacos&&password=nacos
 
 server:
-  port: 38100
+  port: 38085
   servlet:
     context-path: /live/api
   tomcat:
@@ -42,8 +42,8 @@ qiyu:
     public-endpoint: http://192.168.31.252:3000/minio
   im:
     # im-core-server 的 Netty 端口，与 qiyu-live-im-core-server 的 application.yml 保持一致
-    ws-port: 38086
-    tcp-port: 38085
+    ws-port: 38115
+    tcp-port: 38110
   rmq:
     producer:
       nameSrv: 127.0.0.1:9876

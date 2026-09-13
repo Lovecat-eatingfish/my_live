@@ -17,6 +17,6 @@ dubbo:
     check: false
 
 server:
-  port: 38300
+  port: 38100
   servlet:
     context-path: /live/admin

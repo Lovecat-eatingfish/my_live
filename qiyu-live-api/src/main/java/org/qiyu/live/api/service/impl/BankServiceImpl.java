@@ -44,7 +44,7 @@ public class BankServiceImpl implements IBankService {
      * 模拟第三方支付成功后的回调地址（bank-api 的 wxNotify 入口）。
      * 真实支付场景由支付宝/微信服务器回调该地址；本项目不对接真实渠道，发起支付后由服务端直接模拟回调。
      */
-    @org.springframework.beans.factory.annotation.Value("${qiyu.pay.mock-notify-url:http://localhost:38201/live/bank/payNotify/wxNotify}")
+    @org.springframework.beans.factory.annotation.Value("${qiyu.pay.mock-notify-url:http://localhost:38095/live/bank/payNotify/wxNotify}")
     private String mockNotifyUrl;
 
     @DubboReference(check = false)

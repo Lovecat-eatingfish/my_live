@@ -333,8 +333,8 @@ services:
       redis:
         condition: service_healthy
     ports:
-      - "38085:38085"   # IM TCP
-      - "38086:38086"   # IM WebSocket（浏览器弹幕/礼物/红包通道）
+      - "38110:38110"   # IM TCP
+      - "38115:38115"   # IM WebSocket（浏览器弹幕/礼物/红包通道）
     environment:
       TZ: Asia/Shanghai
       EXTRA_ARGS: >-
@@ -435,7 +435,7 @@ services:
       nacos:
         condition: service_healthy
     ports:
-      - "38201:38201"   # 模拟支付回调入口（第三方服务角色）
+      - "38095:38095"   # 模拟支付回调入口（第三方服务角色）
     environment:
       TZ: Asia/Shanghai
       EXTRA_ARGS: >-
@@ -454,7 +454,7 @@ services:
       nacos:
         condition: service_healthy
     ports:
-      - "38100:38100"
+      - "38085:38085"
     environment:
       TZ: Asia/Shanghai
       EXTRA_ARGS: >-

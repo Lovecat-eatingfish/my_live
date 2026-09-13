@@ -8,7 +8,7 @@ async function api(p, q = {}, b = null) {
 }
 const cfg = await api('/im/getImConfig');
 (await import('node:fs')).default.writeFileSync(out, '')
-const ws = new WebSocket(`ws://127.0.0.1:38086/${cfg.data.token}/131490/1001/${roomId}`)
+const ws = new WebSocket(`ws://127.0.0.1:38115/${cfg.data.token}/131490/1001/${roomId}`)
 const fs = (await import('node:fs')).default
 ws.onopen = () => fs.appendFileSync(out, `OPEN room=${roomId}\n`)
 ws.onmessage = (e) => {

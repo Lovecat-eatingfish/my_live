@@ -34,7 +34,7 @@ class IMClient {
   constructor(name, token, userId, roomId) {
     this.name = name
     this.received = []
-    this.ws = new WebSocket(`ws://127.0.0.1:38086/${token}/${userId}/1001/${roomId}`)
+    this.ws = new WebSocket(`ws://127.0.0.1:38115/${token}/${userId}/1001/${roomId}`)
     this.ws.onmessage = (ev) => {
       try {
         const msg = JSON.parse(ev.data)

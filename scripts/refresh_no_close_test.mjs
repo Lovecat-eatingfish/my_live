@@ -32,7 +32,7 @@ async function roomStatus(roomId) {
   return { status: inList ? 1 : 0, raw: inList || null }
 }
 async function wsJoin(cfg, token, userId, roomId) {
-  const ws = new WebSocket(`ws://127.0.0.1:38086/${cfg.token}/${userId}/1001/${roomId}`)
+  const ws = new WebSocket(`ws://127.0.0.1:38115/${cfg.token}/${userId}/1001/${roomId}`)
   await new Promise(r => { ws.onopen = r; ws.onerror = () => r() })
   await sleep(800)
   return ws

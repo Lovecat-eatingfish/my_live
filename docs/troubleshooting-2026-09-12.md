@@ -170,3 +170,19 @@ admin-api 打包时，本地仓库里的 `qiyu-live-video-interface` 是旧 SNAP
 - **测试脚本别依赖非原生依赖**：Node 脚本里想直连 MySQL 发现没有 mysql2，改走 HTTP API 查询 + `mysql` CLI 改数据，避免为测试装依赖。
 - **开播限流是 10 秒 1 次**：E2E 里连续开播会被 `RequestLimit` 拦截（"开播请求过于频繁"），断言前注意这不是功能 bug。
 - **自动化点击时机**：页面异步加载的按钮（如收藏）在 DOM 就绪前点击会"点了没反应"，先等状态渲染完成再操作，否则会误判成应用 bug（本次收藏按钮验证两次误报，实际功能是好的）。
+
+
+## 17. 端口重编排时的连环坑（JDK8 启动 / target 双 jar / find_jar 选旧包）
+
+全项目端口按步长 5 重编排时踩了一串坑，复盘如下：
+
+1. **启动脚本用裸 `java`**：PATH 里是 JDK8，`UnsupportedClassVersionError` 全体秒退。修复：`start-all.sh` 改为优先取 `${JAVA_HOME}/bin/java`（本项目固定用 JDK17：`D:\enviroment\javaenviroment\jdk17`）。
+2. **target 下新旧两个 fatjar 并存**：各模块历史 finalName 不一致（`-1.0-SNAPSHOT` / `-docker` / 裸名），重新 package 产出新名 jar 后旧 jar 仍残留；`start-all.sh` 的 `find_jar` 用 `head -1`（字母序）**选中了旧 jar**——于是服务"启动成功"（自检 PASSED）却跑的旧端口旧代码，Nacos 里注册的还是 31001/30006。修复：`find_jar` 改 `ls -t`（修改时间最新优先）+ 重建用 `clean package`。
+3. **15 个服务同时重启打爆 Nacos gRPC**：并发注册导致部分服务 `TimeoutException ... Request/request` 直接退出。处理：分批补拉起即可，非配置问题。
+4. **首次 Dubbo 调用超时**：服务刚起来后第一次 RPC 要建连，默认 1s timeout 会失败，重试即通，不是故障。
+
+经验：**换端口/改配置后的验证必须落到"Nacos 实际注册的 ip:port"**（控制台或 ns API 查），进程活着 + 自检 PASSED 不代表跑的是新配置；启动脚本选 jar 的逻辑要按修改时间而非字母序。
+
+## 18. IDEA 与脚本混跑的端口冲突
+
+IDEA 里启动过的服务如果没停，会和脚本启动的同名服务抢 Dubbo 端口（`Address already in use: bind`，新进程直接退出）。表现是"明明启动了却连不上/端口不是配置里的值"。启动前统一 `jps -l` 检查并清理，或固定只用一种方式启动。

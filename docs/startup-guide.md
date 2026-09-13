@@ -132,12 +132,12 @@ scripts\start-all.bat start
 mvn clean install -DskipTests
 
 :: 单独启动某模块（PowerShell，注意用 JDK17；im-core-server 还需注入注册地址环境变量）
-& "D:\enviroment\javaenviroment\jdk17\bin\java.exe" -jar qiyu-live-api\target\qiyu-live-api-docker.jar
+& "D:\enviroment\javaenviroment\jdk17\bin\java.exe" -jar qiyu-live-api\target\qiyu-live-api.jar
 
 :: im-core-server 必须先设置（否则启动直接抛异常）：
 $env:DUBBO_IP_TO_REGISTRY = "127.0.0.1"; $env:DUBBO_PORT_TO_REGISTRY = "30007"
 ```
-> 部分模块 finalName 是 `xxx-docker.jar`（api/gateway/account/id-generate/gift），其余是 `xxx-1.0-SNAPSHOT.jar`。`logs/` 下脚本会自动识别。
+> 所有模块 jar 名统一为 `模块名.jar`（如 `qiyu-live-api.jar`）。`logs/` 下脚本会自动识别。
 
 
 # 识别内容
