@@ -119,6 +119,16 @@ public class VideoApiServiceImpl implements IVideoApiService {
     }
 
     @Override
+    public List<VideoItemRespVO> feed(Long lastId, int size) {
+        return toItems(videoRpc.feed(lastId, QiyuRequestContext.getUserId(), size));
+    }
+
+    @Override
+    public void playReport(Long videoId, int watchedSeconds, int duration) {
+        videoRpc.playReport(videoId, QiyuRequestContext.getUserId(), watchedSeconds, duration);
+    }
+
+    @Override
     public List<VideoItemRespVO> search(String keyword, int page, int pageSize) {
         return toItems(videoRpc.searchVideos(keyword, QiyuRequestContext.getUserId(), page, pageSize));
     }
@@ -263,6 +273,8 @@ public class VideoApiServiceImpl implements IVideoApiService {
     private VideoItemRespVO toItemVO(VideoDTO dto) {
         VideoItemRespVO vo = new VideoItemRespVO();
         vo.setId(dto.getId());
+        vo.setTranscodeStatus(dto.getTranscodeStatus());
+        vo.setSize(dto.getSize());
         vo.setUserId(dto.getUserId());
         vo.setNickName(dto.getNickName());
         vo.setAvatar(dto.getAvatar());

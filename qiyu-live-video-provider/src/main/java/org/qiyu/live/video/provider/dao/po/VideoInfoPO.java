@@ -36,6 +36,8 @@ public class VideoInfoPO implements Serializable {
     private Long commentCount;
     /** 状态（0下架 1上线） */
     private Integer status;
+    /** 转码状态（0处理中 1完成 2失败/未转码，失败回退播原 video_url） */
+    private Integer transcodeStatus;
     private Date createTime;
     private Date updateTime;
 }

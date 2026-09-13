@@ -35,6 +35,12 @@ public interface IVideoApiService {
     /** 分享计数 */
     void share(Long videoId);
 
+    /** 沉浸式 Feed 游标分页（热度分排序） */
+    List<VideoItemRespVO> feed(Long lastId, int size);
+
+    /** 完播上报 */
+    void playReport(Long videoId, int watchedSeconds, int duration);
+
     /** 按标题模糊搜索上架视频（搜索中心用） */
     List<VideoItemRespVO> search(String keyword, int page, int pageSize);
 

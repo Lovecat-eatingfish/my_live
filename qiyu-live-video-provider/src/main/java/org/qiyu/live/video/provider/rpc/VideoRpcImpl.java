@@ -36,6 +36,16 @@ public class VideoRpcImpl implements IVideoRpc {
     }
 
     @Override
+    public PageWrapper<VideoDTO> feed(Long lastId, Long viewerUserId, int size) {
+        return videoService.feed(lastId, viewerUserId, size);
+    }
+
+    @Override
+    public void playReport(Long videoId, Long userId, int watchedSeconds, int duration) {
+        videoService.playReport(videoId, userId, watchedSeconds, duration);
+    }
+
+    @Override
     public VideoDTO detail(Long videoId, Long viewerUserId) {
         return videoService.detail(videoId, viewerUserId);
     }

@@ -22,6 +22,22 @@ mybatis-plus:
     db-config:
       id-type: auto
 
+qiyu:
+  minio:
+    endpoint: http://127.0.0.1:9000
+    access-key: minioadmin
+    secret-key: minioadmin
+    video-bucket: qiyu-live-videos
+    public-endpoint: http://192.168.31.252:3000/minio
+  rmq:
+    consumer:
+      nameSrv: 127.0.0.1:9876
+      groupName: qiyuLiveMqApplication
+    producer:
+      nameSrv: 127.0.0.1:9876
+      groupName: ${spring.application.name}
+      retryTimes: 2
+
 dubbo:
   application:
     name: ${spring.application.name}

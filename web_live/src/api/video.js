@@ -58,6 +58,14 @@ export const publishVideo = (data) => request.post('/video/publish', data)
 export const listVideos = (tagId = 0, page = 1, pageSize = 20) =>
   request.post('/video/list', null, { params: { tagId, page, pageSize } })
 
+// 沉浸式 Feed（游标分页：lastId 首页不传）
+export const feedVideos = (lastId = null, size = 10) =>
+  request.post('/video/feed', null, { params: lastId ? { lastId, size } : { size } })
+
+// 完播上报（观看≥90% 记完播）
+export const playReport = (videoId, watchedSeconds, duration) =>
+  request.post('/video/playReport', null, { params: { videoId, watchedSeconds, duration } })
+
 // 视频详情（播放量+1）
 export const videoDetail = (id) => request.post('/video/detail', null, { params: { id } })
 

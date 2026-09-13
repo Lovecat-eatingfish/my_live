@@ -114,6 +114,20 @@ public class VideoController {
         return WebResponseVO.success(videoApiService.listHistory(pg(page), ps(pageSize)));
     }
 
+    /** 沉浸式 Feed（游标分页：lastId=上一页最后一条视频id，首页不传） */
+    @PostMapping("/feed")
+    public WebResponseVO feed(Long lastId, Integer size) {
+        return WebResponseVO.success(videoApiService.feed(lastId, size == null || size < 1 || size > 20 ? 10 : size));
+    }
+
+    /** 完播上报（ended 或离开时上报已观看秒数，≥90% 记完播） */
+    @PostMapping("/playReport")
+    public WebResponseVO playReport(Long videoId, Integer watchedSeconds, Integer duration) {
+        videoApiService.playReport(videoId, watchedSeconds == null ? 0 : watchedSeconds,
+                duration == null ? 0 : duration);
+        return WebResponseVO.success();
+    }
+
     /** 指定用户发布的视频（个人主页） */
     @PostMapping("/user/list")
     public WebResponseVO userList(Long targetUserId, Integer page, Integer pageSize) {

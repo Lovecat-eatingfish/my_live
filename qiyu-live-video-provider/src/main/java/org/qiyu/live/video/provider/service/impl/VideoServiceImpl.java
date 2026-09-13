@@ -1,6 +1,13 @@
 package org.qiyu.live.video.provider.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import org.apache.rocketmq.client.producer.MQProducer;
+import org.apache.rocketmq.common.message.Message;
+import org.qiyu.live.common.interfaces.dto.VideoTranscodeMqDTO;
+import org.qiyu.live.common.interfaces.topic.VideoProviderTopicNames;
+import org.qiyu.live.video.provider.dao.maper.IVideoPlayLogMapper;
+import org.qiyu.live.video.provider.dao.po.VideoPlayLogPO;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
@@ -52,6 +59,11 @@ public class VideoServiceImpl implements IVideoService {
 
     @Resource
     private IVideoInfoMapper videoInfoMapper;
+
+    @Resource
+    private MQProducer mqProducer;
+    @Resource
+    private IVideoPlayLogMapper videoPlayLogMapper;
     @Resource
     private IVideoTagMapper videoTagMapper;
     @Resource
@@ -79,8 +91,25 @@ public class VideoServiceImpl implements IVideoService {
         po.setDuration(videoDTO.getDuration() == null ? 0 : videoDTO.getDuration());
         po.setSize(videoDTO.getSize() == null ? 0 : videoDTO.getSize());
         po.setStatus(STATUS_ONLINE);
+        // 发布即置"处理中"，转码完成(1)/失败(2)后可见；发布立即返回
+        po.setTranscodeStatus(0);
         videoInfoMapper.insert(po);
-        return detail(po.getId(), videoDTO.getUserId());
+        try {
+            VideoTranscodeMqDTO mqDTO = VideoTranscodeMqDTO.of(po.getId(), videoDTO.getUserId());
+            mqProducer.send(new Message(VideoProviderTopicNames.VIDEO_TRANSCODE_TOPIC,
+                    com.alibaba.fastjson.JSON.toJSONBytes(mqDTO)));
+        } catch (Exception e) {
+            // 转码任务投递失败不阻塞发布：置失败态回退播原文件
+            org.slf4j.LoggerFactory.getLogger(VideoServiceImpl.class)
+                    .error("[publish] send transcode mq error, videoId={}", po.getId(), e);
+            VideoInfoPO failed = new VideoInfoPO();
+            failed.setId(po.getId());
+            failed.setTranscodeStatus(2);
+            videoInfoMapper.updateById(failed);
+        }
+        // 不走 detail（detail 排除"处理中"），直接转 DTO 返回
+        List<VideoDTO> dtoList = enrich(Collections.singletonList(po), videoDTO.getUserId());
+        return dtoList.isEmpty() ? null : dtoList.get(0);
     }
 
     @Override
@@ -89,6 +118,7 @@ public class VideoServiceImpl implements IVideoService {
         pageSize = Math.min(Math.max(pageSize, 1), PAGE_SIZE_MAX);
         LambdaQueryWrapper<VideoInfoPO> qw = new LambdaQueryWrapper<VideoInfoPO>()
                 .eq(VideoInfoPO::getStatus, STATUS_ONLINE)
+                .ne(VideoInfoPO::getTranscodeStatus, 0)
                 .eq(tagId != null && tagId > 0, VideoInfoPO::getTagId, tagId)
                 .orderByDesc(VideoInfoPO::getId);
         Page<VideoInfoPO> poPage = videoInfoMapper.selectPage(new Page<>(page, pageSize), qw);
@@ -108,6 +138,7 @@ public class VideoServiceImpl implements IVideoService {
         }
         LambdaQueryWrapper<VideoInfoPO> qw = new LambdaQueryWrapper<VideoInfoPO>()
                 .eq(VideoInfoPO::getStatus, STATUS_ONLINE)
+                .ne(VideoInfoPO::getTranscodeStatus, 0)
                 .like(VideoInfoPO::getTitle, keyword.trim())
                 .orderByDesc(VideoInfoPO::getId);
         Page<VideoInfoPO> poPage = videoInfoMapper.selectPage(new Page<>(page, pageSize), qw);
@@ -117,9 +148,49 @@ public class VideoServiceImpl implements IVideoService {
     }
 
     @Override
+    public PageWrapper<VideoDTO> feed(Long lastId, Long viewerUserId, int size) {
+        size = Math.min(Math.max(size, 1), 20);
+        PageWrapper<VideoDTO> wrapper = new PageWrapper<>();
+        QueryWrapper<VideoInfoPO> qw = new QueryWrapper<>();
+        qw.eq("status", STATUS_ONLINE).ne("transcode_status", 0);
+        if (lastId != null && lastId > 0) {
+            // 游标：以上一页最后一条的热度分为界（同分看 id）
+            VideoInfoPO last = videoInfoMapper.selectById(lastId);
+            if (last != null) {
+                double lastScore = heatScore(last);
+                qw.apply("((play_count * 0.4 + like_count * 0.3) < {0}" +
+                        " OR ((play_count * 0.4 + like_count * 0.3) = {0} AND id < {1}))", lastScore, lastId);
+            }
+        }
+        qw.orderByDesc("play_count * 0.4 + like_count * 0.3", "id");
+        Page<VideoInfoPO> poPage = videoInfoMapper.selectPage(new Page<>(1, size), qw);
+        wrapper.setList(enrich(poPage.getRecords(), viewerUserId));
+        wrapper.setHasNext(poPage.getRecords().size() == size);
+        return wrapper;
+    }
+
+    private double heatScore(VideoInfoPO po) {
+        long play = po.getPlayCount() == null ? 0 : po.getPlayCount();
+        long like = po.getLikeCount() == null ? 0 : po.getLikeCount();
+        return play * 0.4 + like * 0.3;
+    }
+
+    @Override
+    public void playReport(Long videoId, Long userId, int watchedSeconds, int duration) {
+        VideoPlayLogPO log = new VideoPlayLogPO();
+        log.setVideoId(videoId);
+        log.setUserId(userId);
+        log.setWatchedSeconds(Math.max(watchedSeconds, 0));
+        log.setDuration(Math.max(duration, 0));
+        log.setIsComplete(duration > 0 && watchedSeconds >= duration * 0.9 ? 1 : 0);
+        log.setCreateTime(new java.util.Date());
+        videoPlayLogMapper.insert(log);
+    }
+
+    @Override
     public VideoDTO detail(Long videoId, Long viewerUserId) {
         VideoInfoPO po = videoInfoMapper.selectById(videoId);
-        if (po == null || po.getStatus() != STATUS_ONLINE) {
+        if (po == null || po.getStatus() != STATUS_ONLINE || Integer.valueOf(0).equals(po.getTranscodeStatus())) {
             return null;
         }
         List<VideoDTO> dtoList = enrich(Collections.singletonList(po), viewerUserId);

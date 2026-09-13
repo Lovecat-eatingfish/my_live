@@ -19,6 +19,12 @@ public interface IVideoService {
     /** 按标题模糊搜索上架视频（搜索中心用） */
     PageWrapper<VideoDTO> searchVideos(String keyword, Long viewerUserId, int page, int pageSize);
 
+    /** 沉浸式 Feed 游标分页（热度分排序） */
+    PageWrapper<VideoDTO> feed(Long lastId, Long viewerUserId, int size);
+
+    /** 完播上报 */
+    void playReport(Long videoId, Long userId, int watchedSeconds, int duration);
+
     VideoDTO detail(Long videoId, Long viewerUserId);
 
     boolean incPlayCount(Long videoId);

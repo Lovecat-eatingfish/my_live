@@ -140,7 +140,14 @@
 
 **验证**：送礼后榜单实时+1；搜索三分栏返回正确；点赞/关注产生未读通知。
 
-### 批次四：视频跃迁（沉浸式 Feed + 转码）
+### 批次四：视频跃迁（沉浸式 Feed + 转码）✅ 已完成（2026-09-13）
+
+> 实施偏差：
+> ① 沉浸式 Feed 内存控制简化为"离开视口即 pause + 上报"，不销毁前后 2 个之外的 video 实例（本地视频量级小，销毁重建的复杂度不值）；preload=auto 保留；
+> ② 完播上报：ended 事件按视频时长上报一次 + 滑离视口时 watched≥3s 上报一次（每视频一次，防刷），is_complete = 观看 ≥90%；
+> ③ 转码幂等用 DB 状态机，admin 手动重触发接口留批次五 admin 补全；
+> ④ 修复 video-provider 缺分页插件的历史问题（顺带）。
+> E2E：scripts/transcode_feed_test.mjs 12/12 全过（mpeg4/mov 重编码→h264+自动抽封面、H.264 mp4 remux+duration/size 修正、发布处理中详情不可见、feed 热度排序游标分页两页无交集、完播/未完播落库）。
 
 **沉浸式 Feed**：`VideoSquarePage` 重构为竖屏全屏 `scroll-snap-type: y mandatory`，每卡 `scroll-snap-align: start`；`IntersectionObserver`(threshold 0.6) 控制可见项 play、其余 pause 并释放（保留前后 2 个实例防内存）；下一个视频 `preload='auto'`。后端 `GET /video/feed?lastId=&size=10` 游标分页（热度分 `play*0.4+like*0.3+create_time` 排序）；`POST /video/playReport` 完播率上报写 `t_video_play_log`。右侧悬浮按钮列 + 双击点赞动画 + 评论底部抽屉（接口全复用）。
 
@@ -183,5 +190,5 @@
 | 一 | ✅ 已完成 | 见 2026-09-13 提交 | ① E2E 弹幕全丢排查 3 小时，根因是 JDK17+中文 Windows 默认 GBK 编码坑（troubleshooting §19），顺带修复了潜伏已久的弹幕中文乱码；② 开播接口有频控，E2E 脚本需带重试；③ WS 测试连上后必须先发 1001 登录包且等 ≥3s（进房走 MQ 异步），appId 用 10001 非 URL 里的 1001 |
 | 二 | ✅ 已完成 | 见 2026-09-13 提交 | ① 发现 IDE(Eclipse)带错误编译的 class 残留在 target/classes，maven 增量编译跳过重编直接打进 jar → 运行时 "Unresolved compilation problems"（troubleshooting §20）；② MyBatis-Plus `apply()` 是拼 WHERE 不是 SET，计数更新要用 `setSql()`；③ 经验结算"读-算-写"在弹幕并发下互相覆盖丢经验，改原子 `exp = exp + ?`；④ IM 连接是 RoomPage 作用域，5567 开播推送只有粉丝在别的直播间在线时能收到（浏览器无全局 IM 连接），主页挂机收不到属预期 |
 | 三 | ✅ 已完成 | 见 2026-09-13 提交 | ① 排行榜 key 前缀固定在 RankConstants（跨模块读写，RedisKeyBuilder 按应用名拼前缀的坑同批次二等级 key）；② ZSET member/score 一律走 StringRedisTemplate，规避各应用 RedisTemplate JSON 序列化器差异；③ 人气榜去重复用进房 Set 的 add 返回值（==1 才自增），不加新链路；④ E2E 坑：房间搜索必须在关播前（只搜开播中），用户搜索需用唯一后缀（全员昵称同前缀，LIKE 第一页轮不到目标） |
-| 四 | 未开始 | — | — |
+| 四 | ✅ 已完成 | 见 2026-09-13 提交 | ① ffmpeg/ffprobe 用宿主机 winget 安装版（8.1.2 gyan full），consumer 以 ProcessBuilder 调用，转码工作目录用系统临时目录；② 幂等用 DB transcode_status 状态机（==1 跳过）而非 Redis setIfAbsent——单实例消费无并发重复，且不会被重试挡死；③ 可见条件是 transcode_status != 0 而非"只出 =1"：plan 原文会让转码失败的视频直接消失，与"失败回退播原文件"矛盾；④ 顺带发现并修复 video-provider 缺 MyBatis-Plus 分页插件（listByUser/feed 等 selectPage 一直全量返回）；⑤ E2E 校验转码产物要先从 MinIO 下载再 ffprobe（URL 直探不稳） |
 | 五 | 未开始 | — | — |

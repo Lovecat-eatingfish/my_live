@@ -53,6 +53,12 @@ public interface IVideoRpc {
     /** 我的观看历史 */
     PageWrapper<VideoDTO> listHistory(Long userId, int page, int pageSize);
 
+    /** 沉浸式 Feed 游标分页：热度分(play*0.4+like*0.3)排序，lastId=上一页最后一条视频id（首页传 null） */
+    PageWrapper<VideoDTO> feed(Long lastId, Long viewerUserId, int size);
+
+    /** 完播上报：写 t_video_play_log，观看≥90% 记完播 */
+    void playReport(Long videoId, Long userId, int watchedSeconds, int duration);
+
     /** 我发布的视频 */
     PageWrapper<VideoDTO> listByUser(Long userId, int page, int pageSize);
 

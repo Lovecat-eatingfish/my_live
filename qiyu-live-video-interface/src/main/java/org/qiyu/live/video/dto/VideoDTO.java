@@ -35,6 +35,8 @@ public class VideoDTO implements Serializable {
     /** 当前登录用户是否已赞/已藏（查询时按需 enrich） */
     /** 视频状态（1上架 0下架），管理端展示与操作用 */
     private Integer status;
+    /** 转码状态（0处理中 1完成 2失败/未转码） */
+    private Integer transcodeStatus;
 
     public Integer getStatus() {
         return status;
@@ -42,6 +44,14 @@ public class VideoDTO implements Serializable {
 
     public void setStatus(Integer status) {
         this.status = status;
+    }
+
+    public Integer getTranscodeStatus() {
+        return transcodeStatus;
+    }
+
+    public void setTranscodeStatus(Integer transcodeStatus) {
+        this.transcodeStatus = transcodeStatus;
     }
 
     private Boolean liked;
