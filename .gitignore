@@ -37,3 +37,8 @@ gui-test-screenshots/
 web_live/node_modules/
 web_live/dist/
 node_modules/
+
+# SRS 运行时产物（HLS 切片/录制）
+objs/
+*.m3u8
+*.ts
