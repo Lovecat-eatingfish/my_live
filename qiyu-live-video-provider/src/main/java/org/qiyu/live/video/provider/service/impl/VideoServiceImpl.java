@@ -157,15 +157,15 @@ public class VideoServiceImpl implements IVideoService {
         QueryWrapper<VideoInfoPO> qw = new QueryWrapper<>();
         qw.eq("status", STATUS_ONLINE).ne("transcode_status", 0);
         if (lastId != null && lastId > 0) {
-            // 游标：以上一页最后一条的热度分为界（同分看 id）
+            // 游标：以上一页最后一条的热度分为界（同分看 id）；热度物化在 heat_score 冗余列，可走索引
             VideoInfoPO last = videoInfoMapper.selectById(lastId);
             if (last != null) {
                 double lastScore = heatScore(last);
-                qw.apply("((play_count * 0.4 + like_count * 0.3) < {0}" +
-                        " OR ((play_count * 0.4 + like_count * 0.3) = {0} AND id < {1}))", lastScore, lastId);
+                qw.apply("((heat_score < {0}" +
+                        " OR (heat_score = {0} AND id < {1})))", lastScore, lastId);
             }
         }
-        qw.orderByDesc("play_count * 0.4 + like_count * 0.3", "id");
+        qw.orderByDesc("heat_score", "id");
         Page<VideoInfoPO> poPage = videoInfoMapper.selectPage(new Page<>(1, size), qw);
         wrapper.setList(enrich(poPage.getRecords(), viewerUserId));
         wrapper.setHasNext(poPage.getRecords().size() == size);
@@ -173,6 +173,10 @@ public class VideoServiceImpl implements IVideoService {
     }
 
     private double heatScore(VideoInfoPO po) {
+        // 读取物化列；历史数据/异常时回退公式
+        if (po.getHeatScore() != null) {
+            return po.getHeatScore();
+        }
         long play = po.getPlayCount() == null ? 0 : po.getPlayCount();
         long like = po.getLikeCount() == null ? 0 : po.getLikeCount();
         return play * 0.4 + like * 0.3;
@@ -231,13 +235,20 @@ public class VideoServiceImpl implements IVideoService {
     public boolean incPlayCount(Long videoId) {
         return videoInfoMapper.update(null, new LambdaUpdateWrapper<VideoInfoPO>()
                 .eq(VideoInfoPO::getId, videoId)
-                .setSql("play_count = play_count + 1")) > 0;
+                .setSql("play_count = play_count + 1, heat_score = heat_score + 0.4")) > 0;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean like(Long videoId, Long userId, boolean isLike) {
         boolean result = toggleAction(videoId, userId, VideoUserActionPO.ACTION_LIKE, "like_count", isLike);
+        // 点赞/取消点赞同步维护热度冗余列（favorite 不参与热度公式，不在此调整）
+        if (result) {
+            videoInfoMapper.update(null, new LambdaUpdateWrapper<VideoInfoPO>()
+                    .eq(VideoInfoPO::getId, videoId)
+                    .setSql(isLike ? "heat_score = heat_score + 0.3"
+                            : "heat_score = GREATEST(heat_score - 0.3, 0)"));
+        }
         // 互动通知：首次点赞时告诉视频作者（失败不影响点赞）
         if (result && isLike) {
             try {

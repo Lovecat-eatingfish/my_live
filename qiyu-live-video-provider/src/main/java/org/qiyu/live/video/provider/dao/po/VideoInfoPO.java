@@ -38,6 +38,9 @@ public class VideoInfoPO implements Serializable {
     private Integer status;
     /** 转码状态（0处理中 1完成 2失败/未转码，失败回退播原 video_url） */
     private Integer transcodeStatus;
+
+    /** 热度分冗余列：play_count*0.4 + like_count*0.3，feed 排序/游标用（表达式排序无法走索引） */
+    private Double heatScore;
     private Date createTime;
     private Date updateTime;
 }
