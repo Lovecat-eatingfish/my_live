@@ -3,26 +3,27 @@ package org.qiyu.live.admin.auth;
 import jakarta.annotation.Resource;
 import org.qiyu.live.admin.dao.mapper.AdminUserMapper;
 import org.qiyu.live.admin.dao.po.AdminUserPO;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 /**
- * 管理员登录态：内存 token（内部系统，单实例部署足够）
+ * 管理员登录态：token 存 Redis（12h TTL），重启不丢、多实例部署就绪
  */
 @Service
 public class AdminAuthService {
 
-    /** token -> 过期时间戳 */
-    private final Map<String, Long> tokenCache = new ConcurrentHashMap<>();
-    private static final long TTL_MS = 12 * 60 * 60 * 1000L;
+    private static final String TOKEN_KEY_PREFIX = "qiyu-live-admin-api:admin:token:";
+    private static final long TTL_SECONDS = 12 * 60 * 60L;
 
     @Resource
     private AdminUserMapper adminUserMapper;
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
 
     /**
      * 登录校验，成功返回 token，失败返回 null
@@ -39,7 +40,7 @@ public class AdminAuthService {
             return null;
         }
         String token = UUID.randomUUID().toString().replace("-", "");
-        tokenCache.put(token, System.currentTimeMillis() + TTL_MS);
+        stringRedisTemplate.opsForValue().set(TOKEN_KEY_PREFIX + token, "1", TTL_SECONDS, TimeUnit.SECONDS);
         return token;
     }
 
@@ -47,20 +48,12 @@ public class AdminAuthService {
         if (token == null) {
             return false;
         }
-        Long expireAt = tokenCache.get(token);
-        if (expireAt == null) {
-            return false;
-        }
-        if (expireAt < System.currentTimeMillis()) {
-            tokenCache.remove(token);
-            return false;
-        }
-        return true;
+        return Boolean.TRUE.equals(stringRedisTemplate.hasKey(TOKEN_KEY_PREFIX + token));
     }
 
     public void logout(String token) {
         if (token != null) {
-            tokenCache.remove(token);
+            stringRedisTemplate.delete(TOKEN_KEY_PREFIX + token);
         }
     }
 

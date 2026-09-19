@@ -217,6 +217,14 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
     }
 
     private void sendWelcomeMsg(Long userId, Integer roomId, Integer appId) {
+        // 欢迎弹幕当天每用户每房间只广播一次：断线重连会先 offline 移除再 online 重新触发 added==1，
+        // 按自然日去重（与粉丝灯牌的每日亲密度口径一致）
+        String welcomeKey = "qiyu-live-living-provider:welcome:" + roomId + ":" + userId + ":"
+                + java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+        java.time.Duration welcomeTtl = java.time.Duration.between(java.time.LocalDateTime.now(),
+                java.time.LocalDate.now().plusDays(1).atStartOfDay()).plusHours(1);
+        boolean firstWelcomeToday = Boolean.TRUE.equals(stringRedisTemplate.opsForValue()
+                .setIfAbsent(welcomeKey, "1", welcomeTtl));
         org.qiyu.live.user.dto.UserDTO userDTO = userRpc.getByUserId(userId);
         String nick = userDTO == null || userDTO.getNickName() == null ? ("用户" + userId) : userDTO.getNickName();
         // 粉丝灯牌：房间主播的粉丝亲密度（每日观看 +10，送礼累计）
@@ -260,6 +268,10 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
         org.qiyu.live.living.interfaces.dto.LivingRoomReqDTO reqDTO = new org.qiyu.live.living.interfaces.dto.LivingRoomReqDTO();
         reqDTO.setRoomId(roomId);
         reqDTO.setAppId(appId);
+        if (!firstWelcomeToday) {
+            // 当天已欢迎过：跳过重复广播；粉丝灯牌/亲密度有自己的独立日去重，不受影响
+            return;
+        }
         java.util.List<Long> userIds = queryUserIdByRoomId(reqDTO);
         for (Long targetId : userIds) {
             org.qiyu.live.im.dto.ImMsgBody body = new org.qiyu.live.im.dto.ImMsgBody();

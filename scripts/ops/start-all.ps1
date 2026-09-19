@@ -39,6 +39,10 @@ if (-not (Test-Path $JavaExe)) {
   exit 1
 }
 $env:JAVA_HOME = $Jdk17
+
+# Dubbo 注册 IP 统一固定：默认用真实网卡 IP，避免注册到 VMware 等虚拟网卡导致跨机不可达
+# （可用环境变量 DUBBO_IP_TO_REGISTRY 覆盖）
+$env:DUBBO_IP_TO_REGISTRY = if ($env:DUBBO_IP_TO_REGISTRY) { $env:DUBBO_IP_TO_REGISTRY } else { "192.168.31.252" }
 $env:Path = "$Jdk17\bin;" + $env:Path
 Write-Host "[JAVA] using JDK: $Jdk17" -ForegroundColor DarkGray
 
@@ -67,7 +71,7 @@ $AllModules = $Waves.ForEach{ $_.Mods }
 # start (IRouterHandlerRpc never exported). Use the real NIC IP so the Dubbo registration
 # address and the IM Redis bind address stay consistent.
 $ModuleExtraEnv = @{
-  "qiyu-live-im-core-server" = @{ "DUBBO_IP_TO_REGISTRY" = "192.168.31.252"; "DUBBO_PORT_TO_REGISTRY" = "30035" }
+  "qiyu-live-im-core-server" = @{ "DUBBO_PORT_TO_REGISTRY" = "30035" }
 }
 
 # Startup-verify exemptions: the verifier force-checks every @DubboReference (check=true),

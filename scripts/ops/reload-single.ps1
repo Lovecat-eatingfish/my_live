@@ -39,6 +39,10 @@ if (-not (Test-Path $JavaExe)) {
   exit 1
 }
 $env:JAVA_HOME = $Jdk17
+
+# Dubbo 注册 IP 统一固定：默认用真实网卡 IP，避免注册到 VMware 等虚拟网卡导致跨机不可达
+# （可用环境变量 DUBBO_IP_TO_REGISTRY 覆盖）
+$env:DUBBO_IP_TO_REGISTRY = if ($env:DUBBO_IP_TO_REGISTRY) { $env:DUBBO_IP_TO_REGISTRY } else { "192.168.31.252" }
 $env:Path = "$Jdk17\bin;" + $env:Path
 Write-Host "[JAVA] using JDK: $Jdk17" -ForegroundColor DarkGray
 
@@ -46,7 +50,7 @@ Write-Host "[JAVA] using JDK: $Jdk17" -ForegroundColor DarkGray
 # im-core-server 启动需要注册 IP 与端口到 Redis
 $ModuleExtraEnv = @{
   # Dubbo 3.2 拒绝把 127.0.0.1 注册到 Nacos（与 start-all.ps1 保持一致，用真实网卡 IP）
-  "qiyu-live-im-core-server" = @{ "DUBBO_IP_TO_REGISTRY" = "192.168.31.252"; "DUBBO_PORT_TO_REGISTRY" = "30035" }
+  "qiyu-live-im-core-server" = @{ "DUBBO_PORT_TO_REGISTRY" = "30035" }
 }
 
 # Startup-verify exemptions（与 start-all.ps1 保持一致）：user<->living、living<->stream 循环依赖的弱边豁免
