@@ -16,9 +16,9 @@ import org.springframework.context.annotation.Bean;
 //@ConditionalOnProperty(name = "qiyu.startup.verify", havingValue = "true", matchIfMissing = true)
 public class QiyuStartupVerifyAutoConfiguration {
 
-    @Bean
-    @ConditionalOnMissingBean
-    public QiyuProviderStartupVerifier qiyuProviderStartupVerifier(ApplicationContext applicationContext) {
-        return new QiyuProviderStartupVerifier(applicationContext);
-    }
+//    @Bean
+//    @ConditionalOnMissingBean
+//    public QiyuProviderStartupVerifier qiyuProviderStartupVerifier(ApplicationContext applicationContext) {
+//        return new QiyuProviderStartupVerifier(applicationContext);
+//    }
 }

@@ -15,7 +15,8 @@
       </el-table-column>
       <el-table-column label="状态" width="90">
         <template #default="{ row }">
-          <span :class="row.status === 1 ? 'st-on' : 'st-off'">{{ row.status === 1 ? '已上架' : '已下架' }}</span>
+          <!-- 状态枚举对齐 provider：1=已上架 2=审核中 0=已下架 -->
+          <span :class="row.status === 1 ? 'st-on' : 'st-off'">{{ { 1: '已上架', 2: '审核中' }[row.status] || '已下架' }}</span>
         </template>
       </el-table-column>
       <el-table-column label="操作" width="120">

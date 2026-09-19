@@ -335,6 +335,12 @@ services:
     ports:
       - "38110:38110"   # IM TCP
       - "38115:38115"   # IM WebSocket（浏览器弹幕/礼物/红包通道）
+    # 可选：通过项目根目录 .env 注入 DUBBO_IP_TO_REGISTRY / DUBBO_PORT_TO_REGISTRY，
+    # 用于把 im-core 的 Dubbo 注册地址与 Netty 寻址地址固定为宿主机 IP。
+    # 默认不注入（容器自动探测，容器间互通）。参见 .env.example
+    env_file:
+      - path: .env
+        required: false
     environment:
       TZ: Asia/Shanghai
       EXTRA_ARGS: >-

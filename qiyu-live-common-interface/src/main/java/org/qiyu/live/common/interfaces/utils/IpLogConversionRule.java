@@ -27,6 +27,7 @@ public class IpLogConversionRule extends PropertyDefinerBase {
 
     private String getLogIndex() {
         try {
+            // 获取的是docker 容器的ip，每个docker 容器有自己的ip
             return InetAddress.getLocalHost().getHostAddress();
         } catch (UnknownHostException e) {
             e.printStackTrace();

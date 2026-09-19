@@ -3,6 +3,8 @@ spring:
     name: qiyu-live-bank-api
 
 dubbo:
+  consumer:
+    timeout: 5000
   application:
     name: qiyu-live-bank-api
     qos-enable: false

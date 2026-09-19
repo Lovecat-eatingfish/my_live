@@ -587,8 +587,8 @@ const chatMessages = ref([])
 const giftAnimRef = ref(null)
 const pkStatus = reactive({ show: false, leftName: '', rightName: '', leftPercent: 50, rightPercent: 50 })
 
-const defaultAvatar = 'https://via.placeholder.com/48/667eea/fff?text=A'
-const defaultBg = 'https://via.placeholder.com/750x400/1a1a2e/667eea?text=Live+Room'
+const defaultAvatar = 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22320%22%20height%3D%22180%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%231a1a2e%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%234a3a8e%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22url(%23g)%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2252%25%22%20dominant-baseline%3D%22middle%22%20text-anchor%3D%22middle%22%20font-family%3D%22sans-serif%22%20font-size%3D%2230%22%20fill%3D%22%23667eea%22%3ELIVE%3C%2Ftext%3E%3C%2Fsvg%3E'
+const defaultBg = 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22320%22%20height%3D%22180%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%231a1a2e%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%234a3a8e%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22url(%23g)%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2252%25%22%20dominant-baseline%3D%22middle%22%20text-anchor%3D%22middle%22%20font-family%3D%22sans-serif%22%20font-size%3D%2230%22%20fill%3D%22%23667eea%22%3ELIVE%3C%2Ftext%3E%3C%2Fsvg%3E'
 
 let imConn = null
 
@@ -840,29 +840,37 @@ async function submitRedPacket() {
 
 // 获取直播间完整信息
 async function fetchRoomInfo() {
-  const vo = await anchorConfig(roomId.value)
-  if (vo.code === 10114) {
-    // 付费直播间未购票：弹购票窗（重复弹窗去重）
-    if (!ticketPrompting) {
-      ticketPrompting = true
-      try {
-        await ElMessageBox.confirm(
+  let vo
+  try {
+    vo = await anchorConfig(roomId.value)
+  } catch (e) {
+    // 付费直播间未购票：anchorConfig 返回 10114（silent 模式下走 reject），弹购票窗（重复弹窗去重）
+    if (e && e.code === 10114) {
+      if (!ticketPrompting) {
+        ticketPrompting = true
+        ElMessageBox.confirm(
           `本直播间为付费直播间，购买门票后即可观看。是否立即购票？`,
           '付费直播间', { confirmButtonText: '购票进入', cancelButtonText: '离开', type: 'warning' }
         ).then(async () => {
-          await buyTicket(roomId.value)
-          ElMessage.success('购票成功，欢迎观看')
-          ticketPrompting = false
-          return fetchRoomInfo()
+          try {
+            await buyTicket(roomId.value)
+            ticketPrompting = false
+            ElMessage.success('购票成功，欢迎观看')
+            userStore.refreshBalance()
+            return fetchRoomInfo()
+          } catch (e) {
+            // 购票失败（余额不足等）：留在房间并提示，不能误走"离开"分支
+            ticketPrompting = false
+            ElMessage.error(e?.msg || e?.message || '购票失败')
+          }
         }).catch(() => {
           ticketPrompting = false
           router.back()
         })
-      } catch (e) {
-        ticketPrompting = false
-        ElMessage.error(e?.message || '购票失败')
       }
+      return
     }
+    ElMessage.error(e?.msg || e?.message || '获取直播间信息失败')
     return
   }
   roomInfo.value = vo.data || {}

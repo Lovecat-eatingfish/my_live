@@ -26,6 +26,8 @@ spring:
           max-idle: 10
 
 dubbo:
+  consumer:
+    timeout: 5000
   application:
     name: ${spring.application.name}
   registry:

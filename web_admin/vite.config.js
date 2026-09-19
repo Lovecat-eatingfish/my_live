@@ -7,6 +7,8 @@ export default defineConfig({
   resolve: { alias: { '@': resolve(__dirname, 'src') } },
   server: {
     port: 3005,
+    // host: true - 允许局域网设备访问运营台
+    host: true,
     proxy: {
       '/adminApi': {
         target: 'http://localhost:38100',

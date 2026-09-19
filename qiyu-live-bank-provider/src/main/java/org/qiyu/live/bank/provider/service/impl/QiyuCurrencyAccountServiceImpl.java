@@ -63,9 +63,16 @@ public class QiyuCurrencyAccountServiceImpl implements IQiyuCurrencyAccountServi
 
     private void incr(long userId, int num, int tradeType) {
         String cacheKey = cacheKeyBuilder.buildUserBalance(userId);
-        if (redisTemplate.hasKey(cacheKey)) {
-            redisTemplate.opsForValue().increment(cacheKey, num);
-            redisTemplate.expire(cacheKey, 5, TimeUnit.MINUTES);
+        // -1 是 getBalance 写入的"无账户"哨兵值：直接 increment 会把 -1 加成 num-1（如充值600显示599），
+        // 必须删除哨兵让下次读取回源 DB；DB 侧由异步线程保证最终一致
+        Object cached = redisTemplate.opsForValue().get(cacheKey);
+        if (cached instanceof Integer) {
+            if ((Integer) cached == -1) {
+                redisTemplate.delete(cacheKey);
+            } else {
+                redisTemplate.opsForValue().increment(cacheKey, num);
+                redisTemplate.expire(cacheKey, 5, TimeUnit.MINUTES);
+            }
         }
         threadPoolExecutor.execute(new Runnable() {
             @Override
@@ -86,10 +93,15 @@ public class QiyuCurrencyAccountServiceImpl implements IQiyuCurrencyAccountServi
     private void decr(long userId, int num, int tradeType) {
         //扣减余额
         String cacheKey = cacheKeyBuilder.buildUserBalance(userId);
-        if (redisTemplate.hasKey(cacheKey)) {
-            //基于redis的扣减操作
-            redisTemplate.opsForValue().decrement(cacheKey, num);
-            redisTemplate.expire(cacheKey, 5, TimeUnit.MINUTES);
+        // 同 incr：哨兵值 -1 不能参与扣减，删除让下次读取回源 DB
+        Object cached = redisTemplate.opsForValue().get(cacheKey);
+        if (cached instanceof Integer) {
+            if ((Integer) cached == -1) {
+                redisTemplate.delete(cacheKey);
+            } else {
+                redisTemplate.opsForValue().decrement(cacheKey, num);
+                redisTemplate.expire(cacheKey, 5, TimeUnit.MINUTES);
+            }
         }
         threadPoolExecutor.execute(new Runnable() {
             @Override
@@ -138,20 +150,27 @@ public class QiyuCurrencyAccountServiceImpl implements IQiyuCurrencyAccountServi
 
     private AccountTradeRespDTO consume(long userId, int num, int tradeType) {
         //余额判断 + 余额扣减 必须保证原子性，否则高并发下同一用户可能双扣/透支
-        //分布式锁：同一用户同一时刻只允许一笔扣减在执行，抢不到锁的短暂等待后重试
+        //分布式锁：同一用户同一时刻只允许一笔扣减在执行；抢不到锁的短暂等待后重试
+        //循环重试（有上限），避免高并发争锁时递归深度失控
         String lockKey = cacheKeyBuilder.buildUserBalanceLockKey(userId);
-        Boolean isLock = redisTemplate.opsForValue().setIfAbsent(lockKey, 1, 2L, TimeUnit.SECONDS);
-        if (Boolean.TRUE.equals(isLock)) {
-            try {
-                Integer balance = this.getBalance(userId);
-                if (balance == null || balance < num) {
-                    return AccountTradeRespDTO.buildFail(userId, "账户余额不足", 1);
+        final int maxRetry = 3;
+        for (int attempt = 1; ; attempt++) {
+            Boolean isLock = redisTemplate.opsForValue().setIfAbsent(lockKey, 1, 2L, TimeUnit.SECONDS);
+            if (Boolean.TRUE.equals(isLock)) {
+                try {
+                    Integer balance = this.getBalance(userId);
+                    if (balance == null || balance < num) {
+                        return AccountTradeRespDTO.buildFail(userId, "账户余额不足", 1);
+                    }
+                    this.decr(userId, num, tradeType);
+                    return AccountTradeRespDTO.buildSuccess(userId, "扣费成功");
+                } finally {
+                    redisTemplate.delete(lockKey);
                 }
-                this.decr(userId, num, tradeType);
-            } finally {
-                redisTemplate.delete(lockKey);
             }
-        } else {
+            if (attempt >= maxRetry) {
+                return AccountTradeRespDTO.buildFail(userId, "系统繁忙", 2);
+            }
             try {
                 //等待0.5~1秒后重试，避免高并发送礼时请求直接失败
                 Thread.sleep(ThreadLocalRandom.current().nextLong(500, 1000));
@@ -159,9 +178,7 @@ public class QiyuCurrencyAccountServiceImpl implements IQiyuCurrencyAccountServi
                 Thread.currentThread().interrupt();
                 return AccountTradeRespDTO.buildFail(userId, "系统繁忙", 2);
             }
-            return this.consume(userId, num, tradeType);
         }
-        return AccountTradeRespDTO.buildSuccess(userId, "扣费成功");
     }
 
     @Transactional(rollbackFor = Exception.class)

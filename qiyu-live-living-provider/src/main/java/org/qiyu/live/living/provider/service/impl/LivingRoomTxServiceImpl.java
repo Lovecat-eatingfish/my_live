@@ -37,6 +37,8 @@ public class LivingRoomTxServiceImpl implements ILivingRoomTxService {
     @Resource
     private RedisTemplate redisTemplate;
     @Resource
+    private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
+    @Resource
     private LivingRoomMapper livingRoomMapper;
     @Resource
     private LivingProviderCacheKeyBuilder cacheKeyBuilder;
@@ -61,6 +63,9 @@ public class LivingRoomTxServiceImpl implements ILivingRoomTxService {
         //移除直播间相关缓存
         redisTemplate.delete(cacheKeyBuilder.buildLivingRoomObj(roomId));
         redisTemplate.delete(cacheKeyBuilder.buildLivingRoomList(roomPO.getType()));
+        //人气榜：已关闭的房间及时移出，否则会长期占据 top10（ZSET TTL 8天）
+        stringRedisTemplate.opsForZSet().remove(
+                org.qiyu.live.common.interfaces.constants.RankConstants.ROOM_HEAT_KEY, String.valueOf(roomId));
         LOGGER.info("closeLiving success,roomId is {},anchorId is {}", roomId, roomPO.getAnchorId());
         //通知房间内所有观众直播间已关闭（主播主动关播、或主播断开IM连接的钩子都会走到这里）
         this.notifyLivingRoomClose(roomPO);

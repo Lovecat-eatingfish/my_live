@@ -14,6 +14,16 @@ public class LivingRoomRespVO {
     private Integer goodNum;
     private Integer type;
     private String covertImg;
+    /** 0 普通 1 付费（门票）直播间，前端据此渲染付费角标 */
+    private Integer payType;
+
+    public Integer getPayType() {
+        return payType;
+    }
+
+    public void setPayType(Integer payType) {
+        this.payType = payType;
+    }
 
     public Integer getId() {
         return id;

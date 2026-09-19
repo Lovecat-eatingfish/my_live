@@ -51,7 +51,9 @@ export const listCategories = () => request.post('/living/categories')
 export const followRooms = () => request.post('/living/followRooms')
 
 // 主播配置
-export const anchorConfig = (roomId) => request.post('/living/anchorConfig', null, { params: { roomId } })
+// silent: true —— 付费直播间未购票时返回 10114，由 RoomPage 弹购票窗消化，
+// 不能让全局拦截器直接 reject（否则购票弹窗永远走不到）
+export const anchorConfig = (roomId) => request.post('/living/anchorConfig', null, { params: { roomId }, silent: true })
 
 // ==================== 连麦（5572 信令） ====================
 

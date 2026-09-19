@@ -12,6 +12,7 @@ import org.qiyu.live.api.vo.resp.VideoDetailRespVO;
 import org.qiyu.live.api.vo.resp.VideoItemRespVO;
 import org.qiyu.live.api.vo.resp.VideoTagRespVO;
 import org.qiyu.live.common.interfaces.constants.RiskConstants;
+import org.qiyu.live.web.starter.error.QiyuErrorException;
 import org.qiyu.live.common.interfaces.dto.PageWrapper;
 import org.qiyu.live.common.interfaces.dto.RiskCheckReqDTO;
 import org.qiyu.live.common.interfaces.dto.RiskCheckRespDTO;
@@ -157,7 +158,10 @@ public class VideoApiServiceImpl implements IVideoApiService {
     public VideoDetailRespVO detail(Long videoId) {
         ErrorAssert.isNotNull(videoId, BizBaseErrorEnum.PARAM_ERROR);
         VideoDTO dto = videoRpc.detail(videoId, QiyuRequestContext.getUserId());
-        ErrorAssert.isNotNull(dto, BizBaseErrorEnum.PARAM_ERROR);
+        // null = 视频不存在/转码未完成/审核中仅作者可见 —— 属正常业务态，不能报"参数异常"误导用户
+        if (dto == null) {
+            throw new QiyuErrorException(ApiErrorEnum.VIDEO_NOT_EXIST);
+        }
         // 打开详情即计一次播放
         videoRpc.incPlayCount(videoId);
         dto.setPlayCount(dto.getPlayCount() == null ? 1 : dto.getPlayCount() + 1);

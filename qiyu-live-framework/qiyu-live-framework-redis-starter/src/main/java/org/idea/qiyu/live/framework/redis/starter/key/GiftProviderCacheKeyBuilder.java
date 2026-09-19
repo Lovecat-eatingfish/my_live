@@ -19,7 +19,7 @@ public class GiftProviderCacheKeyBuilder extends RedisKeyBuilder {
     private static String GIFT_LIST_LOCK = "gift_list_lock";
     private static String LIVING_PK_KEY = "living_pk_key";
     private static String LIVING_PK_SEND_SEQ = "living_pk_send_seq";
-    private static String LIVING_PK_IS_OVER = "living_pk_is over";
+    private static String LIVING_PK_IS_OVER = "living_pk_is_over";
     private static String RED_PACKET_KEY = "red_packet_key";
     private static String RED_PACKET_RECEIVE_KEY = "red_packet_receive_key";
     private static String RED_PACKET_LIST_KEY = "red_packet_list_key";

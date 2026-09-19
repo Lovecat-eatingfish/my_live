@@ -23,7 +23,8 @@ public enum ApiErrorEnum implements QiyuBaseError {
     RED_PACKET_BALANCE_NOT_ENOUGH(11,"金币余额不足，无法发送红包"),
     SHOP_CONFIG_REQUIRED(12,"带货直播需先在商品管理上架至少一件商品"),
     CONTENT_BLOCKED(13,"内容包含敏感词，请修改后重试"),
-    TICKET_REQUIRED(14,"本直播间为付费直播间，请先购票进入");
+    TICKET_REQUIRED(14,"本直播间为付费直播间，请先购票进入"),
+    VIDEO_NOT_EXIST(15,"视频不存在或未上线");
 
     private String errorMsg;
     private int errorCode;

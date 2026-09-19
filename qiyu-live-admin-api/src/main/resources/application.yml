@@ -14,6 +14,7 @@ dubbo:
   registry:
     address: nacos://127.0.0.1:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=nacos&&password=nacos
   consumer:
+    timeout: 5000
     check: false
 
 server:

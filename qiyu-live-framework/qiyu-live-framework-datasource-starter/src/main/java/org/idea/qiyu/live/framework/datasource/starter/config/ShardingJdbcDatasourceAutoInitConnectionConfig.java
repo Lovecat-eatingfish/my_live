@@ -26,6 +26,8 @@ public class ShardingJdbcDatasourceAutoInitConnectionConfig {
         return args -> {
             LOGGER.info("dataSource: {}", dataSource);
             //手动触发下连接池的连接创建
+            // 解决的问题：Spring Boot 启动时 DataSource 可能懒加载连接，等到第一次请求时才建连接，导致第一次请求慢。
+            //作用：启动时主动调用一次 getConnection()，提前把连接池建好。
             Connection connection = dataSource.getConnection();
         };
     }

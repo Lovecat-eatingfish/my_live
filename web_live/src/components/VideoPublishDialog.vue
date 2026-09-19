@@ -24,7 +24,7 @@
       <!-- 封面预览（自动截取首帧） -->
       <div class="cover-row">
         <img v-if="coverUrl" :src="coverUrl" class="cover-thumb" />
-        <div v-else class="cover-thumb cover-empty">封面自动截取中...</div>
+        <div v-else class="cover-thumb cover-empty">{{ videoUrl ? '封面自动截取中...' : '选择视频后自动截取封面' }}</div>
         <div class="cover-tip">封面取自视频首帧</div>
       </div>
 

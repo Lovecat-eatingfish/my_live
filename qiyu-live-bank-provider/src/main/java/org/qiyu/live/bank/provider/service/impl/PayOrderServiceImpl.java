@@ -104,6 +104,7 @@ public class PayOrderServiceImpl implements IPayOrderService {
             return false;
         }
         // 条件更新兜底：仅待支付/支付中能改为已支付，并发双回调时只有一个能成功
+        // todo： lock一下
         boolean firstNotify = this.payNotifyHandler(payOrderPO);
         if (!firstNotify) {
             LOGGER.info("[payNotify] order {} notify lost race, concurrent notify ignored", payOrderDTO.getOrderId());

@@ -98,6 +98,7 @@ public class PayProductServiceImpl implements IPayProductService {
         boolean updated = payProductMapper.update(null, uw) > 0;
         if (updated) {
             // 列表/详情缓存失效，前台立即读到新价格
+            // todo type都是 0？
             redisTemplate.delete(cacheKeyBuilder.buildPayProductCache(0));
             redisTemplate.delete(cacheKeyBuilder.buildPayProductItemCache(productId));
         }

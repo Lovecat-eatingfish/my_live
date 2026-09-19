@@ -8,6 +8,8 @@ spring:
     password: 123456
 
 dubbo:
+  consumer:
+    timeout: 5000
   application:
     name: ${spring.application.name}
   registry:

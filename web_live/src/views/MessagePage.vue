@@ -200,7 +200,15 @@ onMounted(async () => {
   await initIM()
   //支持 /messages?peer=xxx 直达某会话
   const peer = Number(route.query.peer)
-  if (peer && convMap.has(peer)) openConversation(peer)
+  if (peer) {
+    if (!convMap.has(peer)) {
+      // 无历史会话（首次私信该用户）：合成会话直接打开聊天面板，首条消息发出后服务端建会话、全量刷新补昵称
+      const synthetic = { peerUid: peer, peerNick: '用户' + peer, lastMsg: '', unreadCnt: 0 }
+      conversations.value.unshift(synthetic)
+      convMap.set(peer, synthetic)
+    }
+    openConversation(peer)
+  }
 })
 
 onUnmounted(() => {

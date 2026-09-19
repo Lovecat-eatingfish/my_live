@@ -20,6 +20,8 @@ spring:
             - Path=/live/api/**
 
 dubbo:
+  consumer:
+    timeout: 5000
   application:
     name: qiyu-live-gateway
     qos-enable: false

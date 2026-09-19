@@ -247,15 +247,17 @@ public class SendGiftConsumer implements InitializingBean {
             Integer moveStep = sendGiftMq.getPrice() / 10;
             pkNum = this.redisTemplate.execute(redisScript, Collections.singletonList(pkNumKey), PK_INIT_NUM, PK_MAX_NUM, PK_MIN_NUM, moveStep);
             if (PK_MAX_NUM <= pkNum) {
-                // 主播侧打满：与对手侧对称置结束标记，点赞/加分通道据此停手
-                this.redisTemplate.opsForValue().set(cacheKeyBuilder.buildLivingPkIsOver(roomId), -1);
+                // 主播侧打满：与对手侧对称置结束标记，点赞/加分通道据此停手。
+                // TTL 与 PkSettleConsumer 的倒计时结算路径对齐（2h），否则标记永久残留，
+                // 该房间将永远无法再次触发 PK 礼物处理
+                this.redisTemplate.opsForValue().set(cacheKeyBuilder.buildLivingPkIsOver(roomId), -1, 2, TimeUnit.HOURS);
                 jsonObject.put("winnerId", pkUserId);
             }
         } else if (pkObjId.equals(receiverId)) {
             Integer moveStep = sendGiftMq.getPrice() / 10 * -1;
             pkNum = this.redisTemplate.execute(redisScript, Collections.singletonList(pkNumKey), PK_INIT_NUM, PK_MAX_NUM, PK_MIN_NUM, moveStep);
             if (PK_MIN_NUM >= pkNum) {
-                this.redisTemplate.opsForValue().set(cacheKeyBuilder.buildLivingPkIsOver(roomId),-1);
+                this.redisTemplate.opsForValue().set(cacheKeyBuilder.buildLivingPkIsOver(roomId), -1, 2, TimeUnit.HOURS);
                 jsonObject.put("winnerId", pkObjId);
             }
         }

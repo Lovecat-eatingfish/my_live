@@ -33,7 +33,7 @@ const emit = defineEmits(['update:modelValue', 'send'])
 
 const giftList = ref([])
 const selected = ref(null)
-const defaultImg = 'https://via.placeholder.com/64x64/1a1a2e/667eea?text=Gift'
+const defaultImg = 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2280%22%20height%3D%2280%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23667eea%22%2F%3E%3Ccircle%20cx%3D%2240%22%20cy%3D%2230%22%20r%3D%2214%22%20fill%3D%22%23ffffffaa%22%2F%3E%3Cpath%20d%3D%22M14%2074%20Q40%2048%2066%2074%20Z%22%20fill%3D%22%23ffffffaa%22%2F%3E%3C%2Fsvg%3E'
 
 // 使用 computed 保持 visible 与 modelValue 同步（Vue 3 推荐写法）
 const visible = computed({

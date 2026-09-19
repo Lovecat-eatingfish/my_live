@@ -48,4 +48,5 @@ dubbo:
     port: 30060
     threads: 200
   consumer:
+    timeout: 5000
     check: false

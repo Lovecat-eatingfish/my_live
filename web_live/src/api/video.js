@@ -71,7 +71,8 @@ export const relatedVideos = (videoId, size = 6) =>
   request.post('/video/related', null, { params: { videoId, size } })
 
 // 视频详情（播放量+1）
-export const videoDetail = (id) => request.post('/video/detail', null, { params: { id } })
+// silent: 视频不存在/审核中时后端返回 10115，由详情页内联展示 loadError，避免全局 toast 重复
+export const videoDetail = (id) => request.post('/video/detail', null, { params: { id }, silent: true })
 
 // 点赞 / 取消点赞
 export const likeVideo = (id, isLike) => request.post('/video/like', null, { params: { id, isLike } })

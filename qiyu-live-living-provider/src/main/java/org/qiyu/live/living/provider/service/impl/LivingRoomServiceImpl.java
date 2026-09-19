@@ -129,6 +129,10 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
         if (anchorRoom == null) {
             return;
         }
+        // 关播检查必须指向主播自己的房间：观众退出时 imOfflineDTO.roomId 是被访问的房间，
+        // 若直接用它，主播身份校验会错误作用到别人房间（观众掉线误触发他人关播）
+        roomReqDTO.setRoomId(anchorRoom.getId());
+        roomReqDTO.setAnchorId(userId);
         Message closeCheckMsg = new Message();
         closeCheckMsg.setTopic(ImCoreServerProviderTopicNames.LIVING_ROOM_CLOSE_CHECK);
         closeCheckMsg.setBody(JSON.toJSONBytes(roomReqDTO));
