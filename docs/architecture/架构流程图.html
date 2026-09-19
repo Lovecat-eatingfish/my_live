@@ -16,8 +16,105 @@
 <body>
 <h1>旗鱼直播平台 · 全系统架构与流程图</h1>
 <nav>
-  <a href="#s1">总体架构</a><a href="#s2">部署拓扑</a><a href="#s3">登录鉴权</a><a href="#s4">直播全流程</a><a href="#s5">IM弹幕</a><a href="#s6">送礼</a><a href="#s7">支付对账</a><a href="#s8">短视频</a><a href="#s9">连麦</a><a href="#s10">发号器</a>
+  <a href="#s0">全功能一图流</a><a href="#s1">总体架构</a><a href="#s2">部署拓扑</a><a href="#s3">登录鉴权</a><a href="#s4">直播全流程</a><a href="#s5">IM弹幕</a><a href="#s6">送礼</a><a href="#s7">支付对账</a><a href="#s8">短视频</a><a href="#s9">连麦</a><a href="#s10">发号器</a><a href="#s11">PK结算</a><a href="#s12">私信DM</a><a href="#s13">口令抽奖</a>
 </nav>
+
+<h2 id="s0">〇、全功能一图流（一张图看懂所有功能的设计与流程）</h2>
+<div class="card"><pre class="mermaid">
+flowchart TB
+    USER["用户 / 主播 / 观众 / 管理员"]
+    subgraph GWL["统一接入"]
+        GW["网关鉴权<br/>cookie qytk → Dubbo换userId → 封禁检查 → header透传"]
+    end
+    subgraph F1["① 账号体系 user/account/msg"]
+        A1["短信验证码<br/>60s限频 + DES加密手机号"] --> A2["自动注册<br/>发号器取ID → 100分表 user_id%100"]
+        A2 --> A3["单token 30天<br/>Redis string"]
+        A3 --> A4["经验等级体系<br/>4来源MQ → 12级 → 5570升级特效"]
+    end
+    subgraph F2["② 直播流 stream × SRS"]
+        B1["防盗链streamKey<br/>md5 roomId+anchorId+secret"] --> B2["SRS推流 RTMP/WebRTC"]
+        B2 --> B3["Hook回调 on_publish/unpublish/dvr<br/>30s宽限期 + X-Srs-Secret鉴权"]
+        B3 --> B4["观众拉流<br/>WebRTC主通道 + HLS兜底"]
+        B4 --> B5["关播: 录像传MinIO → 回放归档"]
+        B5 -.-> B6["巡查: 30s ffmpeg截帧<br/>警告5566 / 强关 / 封号"]
+    end
+    subgraph F3["③ IM实时通讯 im-core/router"]
+        C1["自定义二进制协议<br/>magic+code+len+body"] --> C2["Netty长连接<br/>TCP 8085 / WS 8086"]
+        C2 --> C3["MQ: QIYU_LIVE_IM_BIZ_MSG_TOPIC"]
+        C3 --> C4["Redis绑定 im:bind:ip TTL30s"]
+        C4 --> C5["自定义Dubbo Cluster SPI<br/>按ip定点投递 + ack重发"]
+    end
+    subgraph F4["④ 送礼/PK/红包 gift/bank"]
+        D1["Caffeine配置缓存90s"] --> D2["MQ send_gift 削峰"]
+        D2 --> D3["SETNX uuid幂等 5min"]
+        D3 --> D4["分布式锁 + 余额预检扣款<br/>流水表只插不改"]
+        D4 --> D5["5556全房间SVGA特效<br/>+ PK进度条Redis Lua"]
+    end
+    subgraph F5["⑤ 支付充值 bank"]
+        E1["充值档位 t_pay_product"] --> E2["订单状态机 0→1→2<br/>uk_order_id + 三重幂等"]
+        E2 --> E3["模拟回调 bank-api :38095<br/>⚠无验签"]
+        E3 --> E4["入账 + t_pay_topic发MQ"]
+        E4 -.-> E5["T+1对账<br/>差异3类 → 差异表"]
+    end
+    subgraph F6["⑥ 短视频 video"]
+        F1a["发布 status=2审核中"] --> F2a["MQ转码 → ffprobe探测"]
+        F2a --> F3a["H.264秒级remux<br/>否则libx264重编码720p"]
+        F3a --> F4a["抽封面 → 传MinIO<br/>失败2次回退原文件"]
+        F4a --> F5a["沉浸Feed: scroll-snap吸附<br/>IntersectionObserver + 完播上报"]
+    end
+    subgraph F7["⑦ 连麦 living/stream"]
+        G1["5572信令 invite/accepted/start/stop"] --> G2["t_living_linkmic状态机<br/>0邀请中→1连麦中→2结束"]
+        G2 --> G3["liveg_第二路推流<br/>前端双画面 ⚠无合流"]
+    end
+    subgraph F8["⑧ 风控 msg"]
+        H1["敏感词DFA trie<br/>level1拦截/2替换/3记录<br/>版本号懒热更新"] --> H2["弹幕频率 5s/10条窗口"]
+        H2 --> H3["禁言/封号 ban:account<br/>网关403 + 拦截5566单发"]
+    end
+    subgraph F9["⑨ 运营支撑"]
+        I1["排行榜纯ZSET<br/>日榜+周榜ZUNIONSTORE查时聚合"]
+        I2["关注/通知中心<br/>t_user_notify + 铃铛轮询"]
+        I3["全局搜索 LIKE三分栏<br/>⚠ES远期"]
+        I4["admin后台11控制器<br/>仪表盘JdbcTemplate跨库4指标"]
+    end
+    subgraph F10["⑩ 门票+PK竞技 living/gift"]
+        J1["付费房 pay_type=1<br/>购票: 扣观众→入主播<br/>幂等 ticket 12h"] --> J2["进房双鉴权 anchorConfig+getPlayUrl<br/>无票错误码10114"]
+        J2 --> J3["PK分账: 主播入账90%<br/>平台抽成10%"]
+        J3 --> J4["点赞加分 /pk/like 日限50<br/>同Lua同key + 5558广播"]
+        J4 --> J5["延迟消息10min → PkSettleConsumer<br/>判胜负(>50/<50/=50) → 5573广播"]
+    end
+    subgraph F11["⑪ 私信DM msg"]
+        K1["独立IM连接(roomId=0)<br/>5568上行"] --> K2["fromUid以鉴权为准防伪造<br/>敏感词风控"]
+        K2 --> K3["落库t_user_dm_message<br/>会话表双行upsert unread+1"]
+        K3 --> K4["5569下发+发送方回显<br/>前端只认服务端回显(有序)"]
+        K4 --> K5["离线靠未读数兜底<br/>铃铛60s轮询"]
+    end
+    subgraph F12["⑫ 口令抽奖 living/msg"]
+        L1["主播发起 createLottery<br/>校验+扣奖池+5574广播"] --> L2["延迟消息 LivingLotterySettleTopic<br/>30~300s→delayLevel映射"]
+        L2 --> L3["弹幕链路checkLotteryJoin<br/>口令全字匹配→SADD参与者"]
+        L3 --> L4["开奖: shuffle取前N<br/>均分余数退回主播 → 5575广播"]
+    end
+    subgraph infra["共享基础设施"]
+        DB[("MySQL 100分表+读写分离")]
+        RD[("Redis 缓存/锁/ZSET/Lua")]
+        MQ2[("RocketMQ 削峰/解耦")]
+        SRS2[("SRS 5")]
+        MIO2[("MinIO")]
+        IDG["发号器: DB号段+CAS+75%预取"]
+    end
+    USER --> GW
+    GW --> A1 & B1 & C2 & D1 & E1 & F1a & G1 & H1 & I1 & I2 & I3 & I4 & J1 & K1 & L1
+    F1 & F4 & F5 & F9 --> RD
+    F1 & F3 & F4 & F5 & F6 & F10 & F12 --> MQ2
+    F1 & F4 & F5 & F6 & F9 & F10 & F11 & F12 --> DB
+    F2 --> SRS2
+    F2 & F6 --> MIO2
+    A2 -.-> IDG
+    C4 --> RD
+    H1 --> RD
+    I1 --> RD
+    J2 --> RD
+    L3 --> RD
+</pre></div>
 
 <h2 id="s1">一、系统总体架构图</h2>
 <div class="card"><pre class="mermaid">
@@ -330,6 +427,83 @@ flowchart TB
     CAS --> LOAD["载入新号段"]
     SEQ -->|getSeqId| O1["incrementAndGet"]
     UNSEQ -->|getUnSeqId| O2["queue.poll()"]
+</pre></div>
+
+<h2 id="s11">十一、PK 对战与倒计时结算</h2>
+<div class="card"><pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant AN as 主播
+    participant LP as living-provider
+    participant MQ as RocketMQ
+    participant PC as PkSettleConsumer
+    participant R as Redis
+    participant IR as im-router
+    participant AU as 观众
+    AN->>LP: onlinePk 连麦连线
+    Note over LP: 修复: 成功分支原误置onlineStatus=false
+    LP->>MQ: 延迟消息 LivingPkSettleTopic（10分钟）
+    loop PK 进行中
+        AU->>LP: 送礼 → 主播incr90% 平台抽成10%
+        LP->>R: Lua进度条 living_pk_key（init50/incrby/钳制）
+        AU->>LP: POST /living/pk/like（日限50，同Lua同key）
+        LP->>IR: 5558广播 pkNum
+    end
+    MQ->>PC: 10分钟后消费
+    PC->>R: 读pkNumKey / isOverKey
+    alt 送礼提前打满
+        PC->>PC: 跳过并清key
+    else 正常结算
+        PC->>PC: >50主播胜 / <50连麦方胜 / =50平局
+        PC->>IR: 5573结算广播
+        PC->>R: 置isOverKey 2h + 删pkNum/onlinePkKey
+    end
+    Note over PC,R: PK key用PkConstants固定前缀（跨服务前缀陷阱）
+</pre></div>
+
+<h2 id="s12">十二、私信 DM 链路</h2>
+<div class="card"><pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant A as 发送方
+    participant IC as im-core(Netty)
+    participant MP as msg-provider
+    participant DB as MySQL(msg库)
+    participant IR as im-router
+    participant B as 接收方
+    A->>IC: 独立IM连接(roomId=0) 5568上行
+    IC->>MP: MQ业务消息
+    MP->>MP: fromUid以鉴权为准（防伪造）+ 敏感词DFA
+    MP->>DB: insert t_user_dm_message<br/>会话表upsert: 发送方unread+0 / 接收方unread+1
+    MP->>IR: 5569私信下行
+    IR-->>B: 投递接收方（在线实时收到）
+    IR-->>A: 同时回显发送方（前端只认服务端回显）
+    Note over B,DB: 离线靠unread_cnt兜底，角标60s轮询
+</pre></div>
+
+<h2 id="s13">十三、口令抽奖流程</h2>
+<div class="card"><pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant AN as 主播
+    participant LP as living-provider
+    participant R as Redis
+    participant MQ as RocketMQ
+    participant MP as msg-provider弹幕链
+    participant LC as LotterySettleConsumer
+    participant O as 全房间
+    AN->>LP: createLottery(keyword/人数/奖池/时长)
+    LP->>LP: 校验: 仅主播/时长30~300s/1~100名
+    LP->>R: decr主播扣奖池
+    LP->>R: SET living_lottery:{roomId} TTL=时长+120s
+    LP->>O: 5574抽奖开始广播（可见口令）
+    LP->>MQ: 延迟消息 LivingLotterySettleTopic
+    O->>MP: 弹幕
+    MP->>R: 口令全字匹配→SADD participants
+    MQ->>LC: 延迟时间到
+    LC->>R: 读ctx→删ctx/集合
+    LC->>LC: shuffle取前N 均分 余数退回主播
+    LC->>O: 5575开奖广播
 </pre></div>
 
 <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
