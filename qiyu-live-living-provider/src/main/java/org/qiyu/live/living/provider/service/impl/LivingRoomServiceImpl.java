@@ -121,11 +121,19 @@ public class LivingRoomServiceImpl implements ILivingRoomService {
         this.offlinePk(roomReqDTO);
         //主播断开IM不再直接关播：刷新浏览器也会触发IM断线，直接关播体验很差。
         //投递30秒延迟消息做关播检查，到期时校验：主播已回房 or 推流仍存活（OBS场景）则放行
-        LambdaQueryWrapper<LivingRoomPO> anchorRoomWrapper = new LambdaQueryWrapper<>();
-        anchorRoomWrapper.eq(LivingRoomPO::getAnchorId, userId)
-                .eq(LivingRoomPO::getStatus, CommonStatusEum.VALID_STATUS.getCode())
-                .last("limit 1");
-        LivingRoomPO anchorRoom = livingRoomMapper.selectOne(anchorRoomWrapper);
+        //关播检查目标：优先用断线的房间本身（正常开播断线场景，精确指向）；
+        //断线房间不属于该主播（观众串门）时才回退取其名下任一有效房间
+        LivingRoomPO anchorRoom = livingRoomMapper.selectById(imOfflineDTO.getRoomId());
+        if (anchorRoom == null || !userId.equals(anchorRoom.getAnchorId())
+                || anchorRoom.getStatus() == null
+                || anchorRoom.getStatus() != CommonStatusEum.VALID_STATUS.getCode()) {
+            LambdaQueryWrapper<LivingRoomPO> anchorRoomWrapper = new LambdaQueryWrapper<>();
+            anchorRoomWrapper.eq(LivingRoomPO::getAnchorId, userId)
+                    .eq(LivingRoomPO::getStatus, CommonStatusEum.VALID_STATUS.getCode())
+                    .orderByDesc(LivingRoomPO::getId)
+                    .last("limit 1");
+            anchorRoom = livingRoomMapper.selectOne(anchorRoomWrapper);
+        }
         if (anchorRoom == null) {
             return;
         }

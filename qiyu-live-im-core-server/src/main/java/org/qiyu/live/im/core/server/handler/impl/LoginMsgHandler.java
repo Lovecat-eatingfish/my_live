@@ -73,7 +73,8 @@ public class LoginMsgHandler implements SimplyHandler {
         Long userId = imTokenRpc.getUserIdByToken(token);
         //token校验成功，而且和传递过来的userId是同一个，则允许建立连接
         if (userId != null && userId.equals(userIdFromMsg)) {
-            loginSuccessHandler(ctx, userId, appId, null);
+            // ws 新格式握手时暂存的 roomId（URL 不再携带 token，鉴权延迟到此处）
+            loginSuccessHandler(ctx, userId, appId, ImContextUtils.getRoomId(ctx));
             return;
         }
         ctx.close();

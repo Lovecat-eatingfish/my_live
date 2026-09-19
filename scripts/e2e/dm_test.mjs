@@ -33,7 +33,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 
 // 私信连接：roomId 传 0，仅借 1001 登录包完成 uid→ip 绑定
 async function wsDm(cfg, userId) {
-  const ws = new WebSocket(`ws://127.0.0.1:38115/${cfg.token}/${userId}/1001/0`)
+  const ws = new WebSocket(`ws://127.0.0.1:38115/${userId}/1001/0`)
   await new Promise(r => { ws.onopen = r; ws.onerror = () => r() })
   const loginBody = JSON.stringify({ appId: 10001, userId, token: cfg.token })
   ws.send(JSON.stringify({ magic: MAGIC, code: 1001, len: loginBody.length, body: loginBody }))

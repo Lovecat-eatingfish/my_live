@@ -2,6 +2,7 @@ package org.qiyu.live.im.core.server.handler.ws;
 
 import com.alibaba.fastjson.JSON;
 import io.netty.channel.ChannelFuture;
+import org.qiyu.live.im.core.server.common.ImContextUtils;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -66,19 +67,30 @@ public class WsSharkHandler extends ChannelInboundHandlerAdapter {
     }
 
     private void handleHttpRequest(ChannelHandlerContext ctx, FullHttpRequest msg) {
-        // ws://127.0.0.1:8809/token={token}&userId={userId}&{roomId}=roomId
-        // ws://127.0.0.1:8809/{token}/{userId}/{code}/{param}
-        // 基于code去做不同策略的参数解析
+        // 新格式（推荐，token 不进 URL，避免泄漏到访问日志）：ws://host:port/{userId}/{code}/{param}
+        // 旧格式（兼容保留）：ws://host:port/{token}/{userId}/{code}/{param}
+        // 新格式的鉴权延迟到 1001 登录包（LoginMsgHandler 校验 body token），握手本身不再做鉴权
         String webSocketUrl = "ws://" + serverIp + ":" + port;
         // 构造握手响应返回
         WebSocketServerHandshakerFactory wsFactory = new WebSocketServerHandshakerFactory(webSocketUrl, null, false);
         String uri = msg.uri();
         String[] paramArr = uri.split("/");
-        String token = paramArr[1];
-        Long userId = Long.valueOf(paramArr[2]);
-        Long queryUserId = imTokenRpc.getUserIdByToken(token);
-        //token的尾部就是appId
-        Integer appId = Integer.valueOf(token.substring(token.lastIndexOf("%") + 1));
+        String token = null;
+        Long userId;
+        if (paramArr.length >= 5) {
+            // 旧格式：{token}/{userId}/{code}/{param}
+            token = paramArr[1];
+            userId = Long.valueOf(paramArr[2]);
+        } else {
+            // 新格式：{userId}/{code}/{param}
+            userId = Long.valueOf(paramArr[1]);
+        }
+        Long queryUserId = token == null ? userId : imTokenRpc.getUserIdByToken(token);
+        Integer appId = null;
+        if (token != null) {
+            //token的尾部就是appId
+            appId = Integer.valueOf(token.substring(token.lastIndexOf("%") + 1));
+        }
         if (queryUserId == null || !queryUserId.equals(userId)) {
             LOGGER.error("[WsSharkHandler] token 校验不通过！");
             //校验不通过，不允许建立连接
@@ -96,12 +108,19 @@ public class WsSharkHandler extends ChannelInboundHandlerAdapter {
         ChannelFuture channelFuture = webSocketServerHandshaker.handshake(ctx.channel(), msg);
         //首次握手建立ws连接后，返回一定的内容给到客户端
         if (channelFuture.isSuccess()) {
-            Integer code = Integer.valueOf(paramArr[3]);
+            Integer code = Integer.valueOf(paramArr[paramArr.length - 2]);
             Integer roomId = null;
             if (code == ParamCodeEnum.LIVING_ROOM_LOGIN.getCode()) {
-                roomId = Integer.valueOf(paramArr[4]);
+                roomId = Integer.valueOf(paramArr[paramArr.length - 1]);
             }
-            loginMsgHandler.loginSuccessHandler(ctx, userId, appId, roomId);
+            if (token != null) {
+                // 旧格式：握手即完成鉴权+注册（保持原行为）
+                loginMsgHandler.loginSuccessHandler(ctx, userId, appId, roomId);
+            } else if (roomId != null) {
+                // 新格式：仅暂存 roomId（URL userId 不作为凭据），鉴权与注册由
+                // 1001 登录包（LoginMsgHandler 校验 body token）完成后进行
+                ImContextUtils.setRoomId(ctx, roomId);
+            }
             logger.info("[WebsocketSharkHandler] channel is connect!");
         }
     }

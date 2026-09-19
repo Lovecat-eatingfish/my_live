@@ -51,10 +51,13 @@ function decodeBody(body) {
 }
 
 export class IMConnection {
-  constructor({ wsUrl, userId, appId, onMessage, onOpen, onClose, onError }) {
+  constructor({ wsUrl, userId, appId, token, onMessage, onOpen, onClose, onError }) {
     this.wsUrl = wsUrl
     this.userId = userId
     this.appId = appId || APP_ID
+    // 登录凭证显式传入（token 不再拼进 wsUrl，避免泄漏到访问日志）
+    this.token = token || ''
+
     this.onMessage = onMessage
     this.onOpen = onOpen
     this.onClose = onClose
@@ -76,7 +79,7 @@ export class IMConnection {
           const loginBody = {
             appId: this.appId,
             userId: this.userId,
-            token: this._extractToken()
+            token: this.token || this._extractToken()
           }
           this._send(1001, loginBody)
           this._startHeartbeat()
@@ -123,9 +126,9 @@ export class IMConnection {
     })
   }
 
-  /** 从 wsUrl 中提取 token */
+  /** 兼容旧格式 wsUrl（token 在路径里）时提取 token；新格式请显式传 token */
   _extractToken() {
-    // URL 格式: ws://host:8809/{token}/{userId}/1001/{param}
+    // 旧 URL 格式: ws://host:8809/{token}/{userId}/1001/{param}
     const parts = this.wsUrl.split('/')
     return parts[3] || ''
   }

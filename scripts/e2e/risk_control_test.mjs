@@ -43,7 +43,7 @@ async function adminApi(path, adminToken, params = {}) {
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 
 async function wsJoin(cfg, userId, roomId) {
-  const ws = new WebSocket(`ws://127.0.0.1:38115/${cfg.token}/${userId}/1001/${roomId}`)
+  const ws = new WebSocket(`ws://127.0.0.1:38115/${userId}/1001/${roomId}`)
   await new Promise(r => { ws.onopen = r; ws.onerror = () => r() })
   // 连接后必须先发登录包（code=1001），否则业务消息不处理
   const loginBody = JSON.stringify({ appId: 10001, userId, token: cfg.token })

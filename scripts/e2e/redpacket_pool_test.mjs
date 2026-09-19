@@ -22,7 +22,7 @@ const ROOM_ID = Number(process.argv[3] || 33)
     if (login.code !== 200) { console.log('登录失败', phone, login.msg); continue }
     const token = login.data.token
     const cfg = await api('/im/getImConfig', token)
-    const ws = new WebSocket(`ws://127.0.0.1:38115/${cfg.data.token}/${login.data.userId}/1001/${ROOM_ID}`)
+    const ws = new WebSocket(`ws://127.0.0.1:38115/${login.data.userId}/1001/${ROOM_ID}`)
     await new Promise(r => { ws.onopen = r; ws.onerror = () => r() })
     await new Promise(r => setTimeout(r, 600))
     const vo = await api('/gift/redpacket/receive', token, { body: { redPacketId: RED_PACKET_ID, roomId: ROOM_ID } })

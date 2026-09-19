@@ -894,12 +894,14 @@ async function initIM() {
     // 解析 wsImServerAddress (格式 host:port)
     const [host, port] = wsImServerAddress.split(':')
     const wsPort = port || 8809
-    const wsUrl = `ws://${host}:${wsPort}/${token}/${userStore.userInfo.userId}/1001/${roomId.value}`
+    // token 不进 URL（避免泄漏到访问日志/代理日志）：鉴权走 1001 登录包体
+    const wsUrl = `ws://${host}:${wsPort}/${userStore.userInfo.userId}/1001/${roomId.value}`
 
     imConn = new IMConnection({
       wsUrl,
       userId: userStore.userInfo.userId,
       appId: 10001,
+      token,
       onOpen: () => console.log('[IM] 连接成功'),
       onMessage: handleIMMessage,
       onClose: () => console.log('[IM] 连接关闭'),

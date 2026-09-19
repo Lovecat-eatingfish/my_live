@@ -30,7 +30,7 @@ async function login(phone) {
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 
 async function wsJoin(cfg, userId, roomId, received) {
-  const ws = new WebSocket(`ws://127.0.0.1:38115/${cfg.token}/${userId}/1001/${roomId}`)
+  const ws = new WebSocket(`ws://127.0.0.1:38115/${userId}/1001/${roomId}`)
   await new Promise(r => { ws.onopen = r; ws.onerror = () => r() })
   const loginBody = JSON.stringify({ appId: 10001, userId, token: cfg.token })
   ws.send(JSON.stringify({ magic: 19231, code: 1001, len: loginBody.length, body: loginBody }))

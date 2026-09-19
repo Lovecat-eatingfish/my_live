@@ -171,11 +171,13 @@ async function initIM() {
     if (!token || !wsImServerAddress) return
     const [host, port] = wsImServerAddress.split(':')
     //roomId 用 0：私信不属于任何直播间，仅借登录包完成 uid→ip 绑定
-    const wsUrl = `ws://${host}:${port || 8809}/${token}/${myUserId}/1001/0`
+    //token 不进 URL（避免泄漏到访问日志），鉴权走 1001 登录包体
+    const wsUrl = `ws://${host}:${port || 8809}/${myUserId}/1001/0`
     imConn = new IMConnection({
       wsUrl,
       userId: myUserId,
       appId: 10001,
+      token,
       onOpen: () => { connReady.value = true },
       onMessage: handleIMMessage,
       onClose: () => {

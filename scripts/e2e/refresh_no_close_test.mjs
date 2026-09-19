@@ -32,8 +32,11 @@ async function roomStatus(roomId) {
   return { status: inList ? 1 : 0, raw: inList || null }
 }
 async function wsJoin(cfg, token, userId, roomId) {
-  const ws = new WebSocket(`ws://127.0.0.1:38115/${cfg.token}/${userId}/1001/${roomId}`)
+  const ws = new WebSocket(`ws://127.0.0.1:38115/${userId}/1001/${roomId}`)
   await new Promise(r => { ws.onopen = r; ws.onerror = () => r() })
+  // 必须发送 1001 登录包完成鉴权+注册（握手不再携带 token 鉴权）
+  const loginBody = JSON.stringify({ appId: 10001, userId, token: cfg.token })
+  ws.send(JSON.stringify({ magic: 19231, code: 1001, len: loginBody.length, body: loginBody }))
   await sleep(800)
   return ws
 }
