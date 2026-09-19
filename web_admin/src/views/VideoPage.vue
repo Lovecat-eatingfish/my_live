@@ -19,10 +19,18 @@
           <span :class="row.status === 1 ? 'st-on' : 'st-off'">{{ { 1: '已上架', 2: '审核中' }[row.status] || '已下架' }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="120">
+      <el-table-column label="转码" width="90">
+        <template #default="{ row }">
+          <span :class="row.transcodeStatus === 2 ? 'st-off' : 'st-on'">{{ { 0: '处理中', 1: '已完成', 2: '失败' }[row.transcodeStatus] || '—' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" width="170">
         <template #default="{ row }">
           <el-button size="small" text :type="row.status === 1 ? 'danger' : 'primary'" @click="toggle(row)">
             {{ row.status === 1 ? '下架' : '上架' }}
+          </el-button>
+          <el-button v-if="row.transcodeStatus !== 1" size="small" text type="warning" @click="retryTranscode(row)">
+            重试转码
           </el-button>
         </template>
       </el-table-column>
@@ -47,6 +55,16 @@ async function toggle(row) {
   await ElMessageBox.confirm(`${toOff ? '下架' : '上架'}视频「${row.title}」？`, '确认操作', { type: 'warning' })
   await post('/video/setStatus', { id: row.id, status: toOff ? 0 : 1 })
   ElMessage.success(toOff ? '已下架' : '已上架')
+  await load()
+}
+
+async function retryTranscode(row) {
+  const vo = await post('/video/transcodeRetry', { id: row.id })
+  if (vo.data) {
+    ElMessage.success('已重新投递转码任务，稍后刷新查看结果')
+  } else {
+    ElMessage.warning('无法重试：视频不存在或转码已完成')
+  }
   await load()
 }
 

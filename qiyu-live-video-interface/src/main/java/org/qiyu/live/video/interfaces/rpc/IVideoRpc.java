@@ -59,6 +59,9 @@ public interface IVideoRpc {
     /** 沉浸式 Feed 游标分页：热度分(play*0.4+like*0.3)排序，lastId=上一页最后一条视频id（首页传 null） */
     PageWrapper<VideoDTO> feed(Long lastId, Long viewerUserId, int size);
 
+    /** 管理端：转码重试（重新投递转码 MQ） */
+    boolean retryTranscode(Long videoId);
+
     /** 完播上报：写 t_video_play_log，观看≥90% 记完播 */
     void playReport(Long videoId, Long userId, int watchedSeconds, int duration);
 

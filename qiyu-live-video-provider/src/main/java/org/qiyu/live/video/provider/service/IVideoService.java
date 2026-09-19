@@ -30,6 +30,9 @@ public interface IVideoService {
 
     VideoDTO detail(Long videoId, Long viewerUserId);
 
+    /** 转码重试：未转码(0)/失败(2)的视频重新投递转码任务；已完成(1)返回 false */
+    boolean retryTranscode(Long videoId);
+
     boolean incPlayCount(Long videoId);
 
     boolean like(Long videoId, Long userId, boolean isLike);

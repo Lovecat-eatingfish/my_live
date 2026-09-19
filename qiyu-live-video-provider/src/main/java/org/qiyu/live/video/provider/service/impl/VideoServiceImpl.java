@@ -569,4 +569,27 @@ public class VideoServiceImpl implements IVideoService {
         }
         return dtoList;
     }
+    @Override
+    public boolean retryTranscode(Long videoId) {
+        VideoInfoPO po = videoInfoMapper.selectById(videoId);
+        // 不存在、或转码已完成(1)的视频无需重试
+        if (po == null || po.getTranscodeStatus() != null && po.getTranscodeStatus() == 1) {
+            return false;
+        }
+        try {
+            VideoTranscodeMqDTO mqDTO = VideoTranscodeMqDTO.of(po.getId(), po.getUserId());
+            mqProducer.send(new Message(VideoProviderTopicNames.VIDEO_TRANSCODE_TOPIC,
+                    com.alibaba.fastjson.JSON.toJSONBytes(mqDTO)));
+        } catch (Exception e) {
+            LOGGER.error("[retryTranscode] send mq error, videoId={}", videoId, e);
+            return false;
+        }
+        // 投递成功：状态回"处理中"，前端立即可见；失败仍由消费者 markFailed 兜底
+        VideoInfoPO update = new VideoInfoPO();
+        update.setId(videoId);
+        update.setTranscodeStatus(0);
+        videoInfoMapper.updateById(update);
+        LOGGER.info("[retryTranscode] requeued, videoId={}", videoId);
+        return true;
+    }
 }

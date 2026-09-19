@@ -43,6 +43,13 @@ public class AdminVideoController {
         return WebResponseVO.success(videoRpc.setVideoStatus(id, status));
     }
 
+    /** 转码重试：未转码/失败的视频重新投递转码任务 */
+    @PostMapping("/transcodeRetry")
+    public WebResponseVO transcodeRetry(Long id) {
+        ErrorAssert.isNotNull(id, BizBaseErrorEnum.PARAM_ERROR);
+        return WebResponseVO.success(videoRpc.retryTranscode(id));
+    }
+
     /** 审核队列：status=2 审核中的视频，按提交时间正序 */
     @PostMapping("/reviewList")
     public WebResponseVO reviewList(Integer page, Integer pageSize) {

@@ -145,4 +145,9 @@ public class VideoRpcImpl implements IVideoRpc {
     public org.qiyu.live.common.interfaces.dto.PageWrapper<org.qiyu.live.video.dto.VideoDTO> listByAction(Long userId, int actionType, int page, int pageSize) {
         return videoService.listByAction(userId, actionType, page, pageSize);
     }
+
+    @Override
+    public boolean retryTranscode(Long videoId) {
+        return videoService.retryTranscode(videoId);
+    }
 }
