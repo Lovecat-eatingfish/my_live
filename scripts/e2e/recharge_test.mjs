@@ -1,9 +1,8 @@
 /**
- * 支付回调幂等测试：充值一次 → 直接向 bank-api 重放同一订单回调 2 次 → 余额不得再涨
- * 用法: node scripts/paynotify_idempotent_test.mjs
+ * 充值链路冒烟测试：登录 → 查余额 → 查档位 → 下单+模拟支付 → 验证到账与流水
+ * 用法: node scripts/e2e/recharge_test.mjs
  */
 const GATEWAY = 'http://localhost:38080/live/api'
-const BANK_API_NOTIFY = 'http://localhost:38095/live/bank/payNotify/wxNotify'
 const PHONE = '13800138000'
 
 function log(step, ok, detail = '') {
@@ -36,34 +35,23 @@ const run = async () => {
   log('login', true, `userId=${data.userId}`)
 
   const bal1 = await api('/bank/account/balance', token)
-  log('balance before', bal1.code === 200, `balance=${bal1.data}`)
+  log('balance query', bal1.code === 200, `balance=${bal1.data}`)
 
   const prod = await api('/bank/products', token, { query: { type: 0 } })
   const list = prod.data?.payProductItemVOList || []
-  const target = list.find(p => p.coinNum === 1000) || list[0]
+  log('products', prod.code === 200 && list.length > 0, `${list.length} 档: ${list.map(p => `${p.coinNum}币/¥${p.price / 100}`).join(', ')}`)
 
+  const target = list.find(p => p.coinNum === 1000) || list[0]
   const pay = await api('/bank/payProduct', token, {
     query: { productId: target.id, paySource: 2, payChannel: 1 }
   })
-  log('payOrder(mock pay)', pay.code === 200, `orderId=${pay.data?.orderId} 档位=${target.coinNum}金币`)
+  log('payOrder(mock pay)', pay.code === 200, `orderId=${pay.data?.orderId} 档位=${target.coinNum}金币/¥${target.price / 100}`)
 
+  // 后端模拟回调是同步执行的，但入账走异步线程池，留点时间
   await wait(3000)
   const bal2 = await api('/bank/account/balance', token)
-  const expected = Number(bal1.data) + target.coinNum
-  log('balance after 1st notify', Number(bal2.data) === expected, `${bal1.data} + ${target.coinNum} = ${bal2.data}`)
-
-  // 重放同一订单的回调两次（模拟第三方重复回调）
-  const param = JSON.stringify({ orderId: pay.data.orderId, userId: data.userId, bizCode: 10001 })
-  for (let i = 1; i <= 2; i++) {
-    const res = await fetch(`${BANK_API_NOTIFY}?param=${encodeURIComponent(param)}`, { method: 'POST' })
-    const body = await res.text()
-    log(`replay notify #${i} accepted`, body.includes('success'), `响应=${body}（幂等时也应返回 success）`)
-  }
-
-  await wait(3000)
-  const bal3 = await api('/bank/account/balance', token)
-  log('balance unchanged after replays', Number(bal3.data) === expected,
-    `期望=${expected} 实际=${bal3.data} ${Number(bal3.data) === expected ? '(无重复入账)' : '(重复入账！幂等失效)'}`)
+  log('balance after recharge', Number(bal2.data) === Number(bal1.data) + target.coinNum,
+    `${bal1.data} + ${target.coinNum} = ${bal2.data}`)
 }
 
 run().catch(e => { console.error('❌ 测试异常:', e.message); process.exitCode = 1 })

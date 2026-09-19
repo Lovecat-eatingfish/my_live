@@ -1,6 +1,6 @@
 /**
  * 端到端链路验证脚本：IM 收发消息 / 送礼 / 红包雨 / 带货
- * 用法: node scripts/e2e_test.mjs
+ * 用法: node scripts/e2e/e2e_test.mjs
  * 依赖 Node 22+（内置 WebSocket）
  */
 const GATEWAY = 'http://localhost:38080/live/api'

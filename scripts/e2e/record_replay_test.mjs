@@ -2,7 +2,7 @@
  * 批次十二 E2E：录制回放闭环
  * 1 开播携带 recordEnabled=1  2 ffmpeg 真实推流 12s  3 SRS on_dvr → 上传 MinIO → 回放记录落库
  * 4 /stream/records 可见  5 /stream/recordsByAnchor（主播主页回放）可见
- * 用法: node scripts/record_replay_test.mjs
+ * 用法: node scripts/e2e/record_replay_test.mjs
  */
 const GATEWAY = 'http://localhost:38080/live/api'
 const { spawn } = await import('node:child_process')

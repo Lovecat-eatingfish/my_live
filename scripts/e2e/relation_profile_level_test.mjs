@@ -6,7 +6,7 @@
  * 6 等级体系：看播+10 弹幕+1(日限20) 发视频+50 → 升级 L2 → 5570 特效
  * 7 弹幕带 level 徽章字段
  * 8 t_user_notify 开播通知落库（mysql 直查）
- * 用法: node scripts/relation_profile_level_test.mjs
+ * 用法: node scripts/e2e/relation_profile_level_test.mjs
  */
 const GATEWAY = 'http://localhost:38080/live/api'
 const MAGIC = 19231

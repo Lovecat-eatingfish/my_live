@@ -3,7 +3,7 @@
  * 1 互关：A↔B 互关后 profile.isMutual=true  2 送礼积累粉丝亲密度（B 主播的粉丝团）
  * 3 弹幕带 fanLevel（送礼者对房间主播）  4 每日观看 +10（进房欢迎消息 fanLevel 字段存在）
  * 5 进场特效门槛：欢迎消息 content 含灯牌文案（fanLevel≥3）
- * 用法: node scripts/fan_badge_test.mjs
+ * 用法: node scripts/e2e/fan_badge_test.mjs
  */
 const GATEWAY = 'http://localhost:38080/live/api'
 const MAGIC = 19231

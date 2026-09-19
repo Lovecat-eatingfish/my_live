@@ -4,7 +4,7 @@
  * 2 发布 H.264 mp4（走 remux 快速路径）→ duration/size 修正 + 无封面时自动抽封面
  * 3 /video/feed 热度排序 + 游标分页（两页无交集）
  * 4 /video/playReport 完播上报落库（≥90% 记完播）
- * 用法: node scripts/transcode_feed_test.mjs
+ * 用法: node scripts/e2e/transcode_feed_test.mjs
  */
 const GATEWAY = 'http://localhost:38080/live/api'
 const { execSync } = await import('node:child_process')

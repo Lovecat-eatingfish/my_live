@@ -2,7 +2,7 @@
  * 批次十一 E2E：直播分区体系 + 首页关注 tab
  * 1 分区列表=4 个种子分区  2 admin 新增分区→C 端可见  3 停用分区→C 端隐藏  4 重名被拒
  * 5 B 开播+A 关注→followRooms 含 B 房间  6 A 取关→followRooms 不含
- * 用法: node scripts/category_follow_test.mjs
+ * 用法: node scripts/e2e/category_follow_test.mjs
  */
 const GATEWAY = 'http://localhost:38080/live/api'
 const ADMIN = 'http://localhost:38100/live/admin'
@@ -45,7 +45,8 @@ const run = async () => {
   // ---- 1. 种子分区 ----
   let vo = await api('/living/categories', A.token)
   const base = (vo.data || []).map(c => c.name)
-  log('种子分区4个', vo.code === 200 && base.length === 4, base.join('/'))
+  // 幂等化：后续批次可能新增分区（如 音乐），只要求 4 个种子分区齐全
+  log('种子分区4个', vo.code === 200 && ['娱乐', '游戏', '赛事', '带货'].every(n => base.includes(n)), base.join('/'))
 
   // ---- 2. admin 新增分区 ----
   const catName = '音乐' + Date.now() % 100
@@ -66,6 +67,9 @@ const run = async () => {
   log('C端不可见停用分区', !(vo.data || []).some(c => c.id === newId), `共${(vo.data || []).length}个`)
 
   // ---- 5. followRooms ----
+  // 幂等化：先解除历史运行可能残留的 A→B 关注，否则"未关注时不含B房间"必挂
+  await api('/user/unfollow', A.token, { query: { followUserId: B.userId } })
+  await sleep(500)
   let room = await api('/living/startingLiving', B.token, { query: { type: 2, roomName: '分区测试间', covertImg: 'x' } })
   if (room.code !== 200) {
     console.log('   开播被频控，等 65s 重试...')

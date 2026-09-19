@@ -14,4 +14,4 @@ REM    start-all.bat logs qiyu-live-api   tail a module log
 REM    start-all.bat web         vite dev server (http://localhost:3000)
 REM  Env overrides: QIYU_JAVA_HOME / QIYU_JAVA_OPTS / STARTUP_WAIT / NACOS_ADDR
 REM ============================================================
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0start-all.ps1" %*
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0ops\start-all.ps1" %*

@@ -2,7 +2,7 @@
  * 批次一（风控）E2E：
  * 1 昵称敏感词拦截  2 视频标题拦截  3 评论拦截  4 房间名拦截
  * 5 弹幕替换(*)    6 弹幕拦截(5566)  7 禁言  8 频率风控  9 封号 403
- * 用法: node scripts/risk_control_test.mjs
+ * 用法: node scripts/e2e/risk_control_test.mjs
  */
 const GATEWAY = 'http://localhost:38080/live/api'
 const ADMIN = 'http://localhost:38100/live/admin'
@@ -142,10 +142,16 @@ const run = async () => {
   const muteNotice = aNotices().find(m => String(m.data).includes('禁言'))
   log('禁言生效', !!muteNotice, `A收到=${muteNotice ? JSON.parse(muteNotice.data).content : '无'}`)
   await adminApi('/user/unban', adminToken, { userId: A.userId, type: 1 })
+  // 先等 4s 让链路中在途的旧 5566 通知落袋（MQ/IM 链路延迟可达数秒），避免串窗误判
+  await sleep(4000)
   a.received.length = 0
+  const bChatBeforeUnmute = bChats().length
   sendChat(a.ws, A.userId, roomId, '解禁后又能说话了')
-  await sleep(2500)
-  log('解禁恢复', aNotices().length === 0, `5566条数=${aNotices().length}`)
+  await sleep(3000)
+  const unmuteMsg = bChats().slice(bChatBeforeUnmute).find(m => JSON.parse(m.data).content === '解禁后又能说话了')
+  const stray = aNotices().filter(m => JSON.parse(m.data).content.includes('禁言'))
+  log('解禁恢复', !!unmuteMsg && stray.length === 0,
+    `B收到解禁弹幕=${!!unmuteMsg}, 5566条数=${stray.length}`)
 
   // 8. 频率风控（5s 窗口最多 10 条；先等窗口清零）
   await sleep(5300)

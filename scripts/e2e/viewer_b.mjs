@@ -1,6 +1,6 @@
 // 观众B：连接指定房间的 IM，把收到的帧写入文件（GUI 测试的接收端探针）
 const roomId = process.argv[2] || '29'
-const out = 'D:/桌面/project/qiyu-live-app/gui-test-screenshots/viewer_b_received.log'
+const out = (await import('node:url')).fileURLToPath(new URL('../gui-test-screenshots/viewer_b_received.log', import.meta.url))
 const GATEWAY = 'http://localhost:38080/live/api'
 async function api(p, q = {}, b = null) {
   const r = await fetch(GATEWAY + p, { method: 'POST', headers: { token: '651b9b92-1737-49a6-a7e5-1d3e37bf9f38' }, body: b ? JSON.stringify(b) : null })

@@ -3,7 +3,7 @@
  * 1 非主播发起被拒  2 时长不合法被拒  3 发起扣奖池（B 余额 -10）+ 观众收 5574
  * 4 弹幕命中口令参与（SADD 去重，2 人）  5 延迟 MQ 到点结算（30s 档）→ 5575 中奖名单 + 中奖者到账 10
  * 6 无人参与的抽奖全额退回主播（+6）
- * 用法: node scripts/lottery_test.mjs
+ * 用法: node scripts/e2e/lottery_test.mjs
  */
 const GATEWAY = 'http://localhost:38080/live/api'
 const MAGIC = 19231

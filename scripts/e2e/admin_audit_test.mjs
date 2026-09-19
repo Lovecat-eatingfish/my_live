@@ -1,7 +1,7 @@
 /**
  * 批次五 E2E：仪表盘 + 视频审核流 + 截帧审阅（真实推流）+ 敏感词页后端
  * 1 仪表盘四指标  2 审核流(发布→队列→通过上线/驳回)  3 截帧(ffmpeg 推真实流→30s 截帧→处置警告/强关)
- * 用法: node scripts/admin_audit_test.mjs
+ * 用法: node scripts/e2e/admin_audit_test.mjs
  */
 const GATEWAY = 'http://localhost:38080/live/api'
 const ADMIN = 'http://localhost:38100/live/admin'
@@ -122,10 +122,13 @@ const run = async () => {
     log('处置:警告(5566发给主播)', warn.code === 200)
   }
 
-  // 强制下播（处置动作复用关播链路）：等下一轮 30s 截帧生成新待审记录
-  await sleep(35000)
-  const snap2 = await adminApi('/snapshot/list', adminToken, { status: 0, page: 1, pageSize: 50 })
-  const snap2hit = (snap2.data?.list || []).find(s => Number(s.room_id) === Number(roomId))
+  // 强制下播（处置动作复用关播链路）：轮询等下一轮 30s 截帧生成新待审记录（最多 75s，消除单次 sleep 的时序竞态）
+  let snap2hit = null
+  for (let i = 0; i < 15 && !snap2hit; i++) {
+    await sleep(5000)
+    const sl = await adminApi('/snapshot/list', adminToken, { status: 0, page: 1, pageSize: 50 })
+    snap2hit = (sl.data?.list || []).find(s => Number(s.room_id) === Number(roomId))
+  }
   if (snap2hit) {
     const close = await adminApi('/snapshot/handle', adminToken, { id: snap2hit.id, action: 'close' })
     await sleep(1000)
@@ -134,7 +137,7 @@ const run = async () => {
       `myLivingRoom=${my.data}`)
   } else {
     await api('/living/closeLiving', B.token, { query: { roomId } })
-    log('处置:强制下播', false, '无第二张截帧可用，跳过（截帧未落库）')
+    log('处置:强制下播', false, '无第二张截帧可用，跳过（75s 内未生成）')
   }
   try { ff.kill() } catch { }
 

@@ -2,7 +2,7 @@
  * 批次八 E2E：付费直播间门票
  * 1 开票房间(100金币)  2 未购票进房被拒(10114)  3 买票(扣款+主播入账+幂等)
  * 4 购票后进房 OK      5 免费房间不受影响
- * 用法: node scripts/pay_ticket_test.mjs
+ * 用法: node scripts/e2e/pay_ticket_test.mjs
  */
 const GATEWAY = 'http://localhost:38080/live/api'
 

@@ -2,7 +2,7 @@
  * 批次七 E2E：连麦信令状态机
  * 1 非主播邀请被拒  2 主播邀请→观众收5572 invite  3 重复邀请拒绝
  * 4 接受→观众收accepted(含liveg_推流参数)+房间广播start  5 guest streamKey 推流可注册(SRS)  6 挂断→广播stop
- * 用法: node scripts/linkmic_test.mjs
+ * 用法: node scripts/e2e/linkmic_test.mjs
  */
 const GATEWAY = 'http://localhost:38080/live/api'
 const MAGIC = 19231

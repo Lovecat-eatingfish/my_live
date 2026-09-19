@@ -3,7 +3,7 @@
  * 1 会话列表初始为空  2 A→B 上行 5568 双方收 5569（B 收到 + A 回显）
  * 3 会话/未读数正确（B unread=1, A unread=0）  4 历史消息可查
  * 5 B markRead 后未读清零  6 B 离线时 A 再发 → 不推但未读累计  7 再上线可继续收
- * 用法: node scripts/dm_test.mjs
+ * 用法: node scripts/e2e/dm_test.mjs
  */
 const GATEWAY = 'http://localhost:38080/live/api'
 const MAGIC = 19231
@@ -79,6 +79,8 @@ const run = async () => {
   const A = await login('13876543210')
   const B = await login('13876543211')
   log('login', true, `A=${A.userId} B=${B.userId}`)
+  // 幂等化：清掉历史运行在 A→B 会话上累积的未读，保证 unread=1 断言只反映本次消息
+  await api('/dm/markRead', B.token, { query: { peerUid: A.userId }, method: 'POST' })
 
   // ---- 1. 会话列表初始为空 ----
   let vo = await api('/dm/conversations', A.token)

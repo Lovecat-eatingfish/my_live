@@ -2,7 +2,7 @@
  * 批次六 E2E：运营配置 + 点睛
  * 1 礼物配置(改价→前台列表同步)  2 充值档位(改价/上下架→前台同步)
  * 3 进场欢迎消息(系统弹幕广播)   4 主播看板数据(在线人数+贡献榜)
- * 用法: node scripts/ops_config_test.mjs
+ * 用法: node scripts/e2e/ops_config_test.mjs
  */
 const GATEWAY = 'http://localhost:38080/live/api'
 const ADMIN = 'http://localhost:38100/live/admin'

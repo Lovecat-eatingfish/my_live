@@ -5,7 +5,7 @@
  * 3 倒计时结算：发延迟消息（测试用短延迟直接结算验证逻辑：手动结算入口不存在——
  *   用 10 分钟延迟太久，改为验证 settle 消费者启动 + 直发一条 settle 消息用 MQ 管理台？
  *   简化：结算逻辑以"提前打满"路径验证（送礼把进度推到 100 → isOver 置位 → 胜负已定）
- * 用法: node scripts/pk_share_test.mjs
+ * 用法: node scripts/e2e/pk_share_test.mjs
  */
 const GATEWAY = 'http://localhost:38080/live/api'
 const MAGIC = 19231

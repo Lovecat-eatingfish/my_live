@@ -2,7 +2,7 @@
  * 批次十四 E2E：直播间治理（公告 + 房间管理员 + 房间禁言）
  * 1 非主播设公告被拒  2 主播设公告→anchorConfig 可见  3 任命管理员（仅主播）
  * 4 管理员禁言观众→观众弹幕被拦(5566)  5 主播不能被禁言  6 解禁恢复  7 移除管理员后失去禁言权
- * 用法: node scripts/room_governance_test.mjs
+ * 用法: node scripts/e2e/room_governance_test.mjs
  */
 const GATEWAY = 'http://localhost:38080/live/api'
 const MAGIC = 19231

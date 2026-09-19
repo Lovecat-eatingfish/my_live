@@ -5,7 +5,7 @@
 # 注意 Windows 上 Git Bash 需要能访问 docker 命令（Docker Desktop 运行中）
 set -e
 TAG="${1:-dev}"
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 TMP="$ROOT/docker/build"
 mkdir -p "$TMP"
 

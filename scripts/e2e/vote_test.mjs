@@ -2,7 +2,7 @@
  * 批次十六 E2E：直播间投票
  * 1 非主播发起被拒  2 主播发起 → 观众收 5576（标题+选项）  3 观众投票一人一票
  * 4 延迟 MQ 结算 → 5577 结果（票数正确）  5 结算后无法再投
- * 用法: node scripts/vote_test.mjs
+ * 用法: node scripts/e2e/vote_test.mjs
  */
 const GATEWAY = 'http://localhost:38080/live/api'
 const MAGIC = 19231

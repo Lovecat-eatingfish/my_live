@@ -3,7 +3,7 @@
  * 1 人气榜（进房 ZINCRBY）        2 本场贡献榜（送礼）  3 主播收礼日榜/周榜
  * 4 搜索三分栏（直播/视频/用户）  5 通知：关注产生"新的粉丝"
  * 6 通知：点赞产生"收到新的点赞" 7 未读数/已读/全部已读
- * 用法: node scripts/rank_search_notify_test.mjs
+ * 用法: node scripts/e2e/rank_search_notify_test.mjs
  */
 const GATEWAY = 'http://localhost:38080/live/api'
 

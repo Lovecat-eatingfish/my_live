@@ -14,7 +14,7 @@ Env:
   $env:STARTUP_WAIT
 #>
 $SCRIPT_DIR = $PSScriptRoot
-$PROJECT_ROOT = Split-Path $SCRIPT_DIR -Parent
+$PROJECT_ROOT = Split-Path (Split-Path $SCRIPT_DIR -Parent) -Parent
 $LOG_DIR = Join-Path $PROJECT_ROOT "logs"
 if (-not (Test-Path $LOG_DIR)) { New-Item -ItemType Directory -Path $LOG_DIR | Out-Null }
 Set-Location $PROJECT_ROOT

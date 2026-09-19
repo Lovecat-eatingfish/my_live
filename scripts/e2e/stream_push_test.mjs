@@ -1,7 +1,7 @@
 /**
  * 推流链路端到端验证：登录 → 开播 → 取推流地址 → FFmpeg 推流 →
  * 验证 SRS 收流 / on_publish 回调 / FLV+HLS 播放 → 关播踢流清理
- * 用法: node scripts/stream_push_test.mjs
+ * 用法: node scripts/e2e/stream_push_test.mjs
  * 依赖: Node 22+、本机 ffmpeg、网关 38080、stream-provider 38090、SRS 1935/1985/8080
  */
 import { spawn } from 'node:child_process'
