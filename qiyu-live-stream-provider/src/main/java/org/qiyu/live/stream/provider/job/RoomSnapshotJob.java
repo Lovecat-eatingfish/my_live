@@ -41,6 +41,8 @@ public class RoomSnapshotJob {
     private SrsConfig srsConfig;
     @Resource
     private MinioConfig minioConfig;
+    @Resource
+    private SrsStreamClient srsStreamClient;
     @Autowired
     private DataSource dataSource;
 
@@ -56,49 +58,19 @@ public class RoomSnapshotJob {
         }
         // 以 SRS 实际在线流为准：跳过 stream_status=1 但流已不存在的僵尸房间，
         // 否则每个死流房间都要空等 ffmpeg 超时（10-20s），单轮循环被拖垮，巡查截帧失准
-        java.util.Set<String> liveNames = querySrsLiveStreamNames();
+        java.util.Set<String> liveNames = srsStreamClient.queryLiveStreamNames();
         for (LivingRoomPO room : rooms) {
             if (room.getStreamKey() == null || room.getStreamKey().isEmpty()) {
                 continue;
             }
-            if (liveNames != null) {
-                String tail = room.getStreamKey().contains("/")
-                        ? room.getStreamKey().substring(room.getStreamKey().lastIndexOf('/') + 1)
-                        : room.getStreamKey();
-                if (!liveNames.contains(tail)) {
-                    continue;
-                }
+            if (liveNames != null && !liveNames.contains(SrsStreamClient.tailStreamName(room.getStreamKey()))) {
+                continue;
             }
             try {
                 captureAndSave(room);
             } catch (Exception e) {
                 LOGGER.warn("[snapshot] room {} failed: {}", room.getId(), e.getMessage());
             }
-        }
-    }
-
-    /** 查询 SRS 当前在线流名集合；查询失败返回 null（退回按 stream_status 处理的旧行为） */
-    private java.util.Set<String> querySrsLiveStreamNames() {
-        try {
-            java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
-                    .uri(java.net.URI.create("http://" + srsConfig.getHost() + ":" + srsConfig.getApiPort()
-                            + "/api/v1/streams/"))
-                    .timeout(java.time.Duration.ofSeconds(3))
-                    .GET().build();
-            java.net.http.HttpResponse<String> resp = java.net.http.HttpClient.newHttpClient()
-                    .send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
-            com.alibaba.fastjson.JSONObject json = com.alibaba.fastjson.JSON.parseObject(resp.body());
-            com.alibaba.fastjson.JSONArray streams = json.getJSONObject("data").getJSONArray("streams");
-            java.util.Set<String> names = new java.util.HashSet<>();
-            if (streams != null) {
-                for (int i = 0; i < streams.size(); i++) {
-                    names.add(streams.getJSONObject(i).getString("name"));
-                }
-            }
-            return names;
-        } catch (Exception e) {
-            LOGGER.warn("[snapshot] query SRS streams failed: {}", e.getMessage());
-            return null;
         }
     }
 

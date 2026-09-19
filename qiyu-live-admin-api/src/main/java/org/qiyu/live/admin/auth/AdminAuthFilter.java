@@ -38,8 +38,10 @@ public class AdminAuthFilter implements Filter {
             throws IOException, ServletException {
         HttpServletRequest req = (HttpServletRequest) request;
         String uri = req.getRequestURI();
-        // 登录接口与静态资源放行
-        if (uri.endsWith("/auth/login") || uri.endsWith("/auth/check")) {
+        // 登录接口与静态资源放行；Swagger 文档放行
+        if (uri.endsWith("/auth/login") || uri.endsWith("/auth/check")
+                || uri.contains("/swagger-ui") || uri.contains("/api-docs")
+                || uri.contains("/swagger-resources")) {
             chain.doFilter(request, response);
             return;
         }

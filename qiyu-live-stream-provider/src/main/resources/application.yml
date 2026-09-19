@@ -7,8 +7,8 @@ spring:
       maximum-pool-size: 200
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://127.0.0.1:3306/qiyu_live_living?useUnicode=true&characterEncoding=utf8
-    username: root
-    password: 123456
+    username: ${QIYU_MYSQL_USERNAME:root}
+    password: ${QIYU_MYSQL_PASSWORD:123456}
   data:
     redis:
       port: 6379
@@ -25,7 +25,7 @@ qiyu:
     api-port: 1985
     rtc-udp-port: 8000   # WebRTC UDP 端口（与容器同名映射）
     hls-port: 8080
-    secret: your_secret_key_here
+    secret: ${QIYU_SRS_SECRET:your_secret_key_here}
     callback-secret: ''  # 留空则跳过回调校验；SRS 默认不带 X-Srs-Secret 头
     # DVR 路径映射：on_dvr 回调的 file 字段前缀 → 本地目录
     # 本机原生 srs.exe（docker/srs-native.conf 的 dvr_path=./objs/dvr/[stream]/...，cwd=项目根）
@@ -34,8 +34,8 @@ qiyu:
     # 容器化部署时改回：/data/dvr → ./docker-data/srs/dvr
   minio:
     endpoint: http://127.0.0.1:9000
-    access-key: minioadmin
-    secret-key: minioadmin
+    access-key: ${QIYU_MINIO_ACCESS_KEY:minioadmin}
+    secret-key: ${QIYU_MINIO_SECRET_KEY:minioadmin}
     bucket: qiyu-live-records
     # 局域网内其他设备访问封面/回放使用的地址；留空则用 endpoint(127.0.0.1，仅本机可见)
     # 走 vite(3000) 的 /minio 代理：Windows 防火墙拦 9000 直连；生产环境用 nginx/gateway 同理
@@ -48,7 +48,7 @@ dubbo:
   application:
     name: ${spring.application.name}
   registry:
-    address: nacos://127.0.0.1:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=nacos&&password=nacos
+    address: nacos://127.0.0.1:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=${NACOS_USERNAME:nacos}&&password=${NACOS_PASSWORD:nacos}
   protocol:
     name: dubbo
     port: 30065

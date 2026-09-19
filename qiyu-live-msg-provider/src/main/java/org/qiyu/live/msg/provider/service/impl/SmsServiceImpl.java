@@ -51,6 +51,11 @@ public class SmsServiceImpl implements ISmsService {
     private ApplicationProperties applicationProperties;
     @Value("${spring.cloud.nacos.config.namespace}")
     private String namespace;
+    /** 测试模式开关：开启时验证码固定为 mock-code，不真实发送短信；生产必须置 false */
+    @Value("${qiyu.sms.mock-code-enabled:true}")
+    private boolean mockCodeEnabled;
+    @Value("${qiyu.sms.mock-code:123456}")
+    private Integer mockCode;
 
     @Override
     public MsgSendResultEnum sendLoginCode(String phone) {
@@ -63,12 +68,20 @@ public class SmsServiceImpl implements ISmsService {
             logger.warn("该手机号短信发送过于频繁，phone is {}", phone);
             return MsgSendResultEnum.SEND_FAIL;
         }
-        //测试阶段验证码固定为123456，不真实发送短信，避免产生短信费用
-        int code = 123456;
+        int code;
+        if (mockCodeEnabled) {
+            //测试模式：验证码固定，不真实发送短信，避免产生短信费用
+            code = mockCode;
+            logger.info("[测试模式] 未真实发送短信，手机号 {} 的固定验证码为 {}", phone, code);
+        } else {
+            code = (int) (100000 + Math.random() * 900000);
+        }
         redisTemplate.opsForValue().set(codeCacheKey, code, 60, TimeUnit.SECONDS);
-        logger.info("[测试模式] 未真实发送短信，手机号 {} 的固定验证码为 {}", phone, code);
         ThreadPoolManager.commonAsyncPool.execute(() -> {
             insertOne(phone, code);
+            if (!mockCodeEnabled) {
+                sendSmsToCCP(phone, code);
+            }
         });
         //插入验证码发送记录
         return MsgSendResultEnum.SEND_SUCCESS;
@@ -146,16 +159,13 @@ public class SmsServiceImpl implements ISmsService {
                     Object object = data.get(key);
                     logger.info("key is {},object is {}", key, object);
                 }
-            } else {
-                //异常返回输出错误码和错误信息
-                logger.error("错误码:{},错误信息:{}", result.get("statusCode"), result.get("statusMsg"));
-                return false;
+                return true;
             }
-            return true;
+            //异常返回输出错误码和错误信息
+            logger.error("错误码:{},错误信息:{}", result.get("statusCode"), result.get("statusMsg"));
+            return false;
         } catch (Exception e) {
             logger.error("[sendSmsToCCP] error is ", e);
-            throw new RuntimeException(e);
-        } finally {
             return false;
         }
     }

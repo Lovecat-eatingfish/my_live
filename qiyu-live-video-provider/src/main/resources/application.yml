@@ -7,8 +7,8 @@ spring:
       maximum-pool-size: 50
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://127.0.0.1:3306/qiyu_live_video?useUnicode=true&characterEncoding=utf8
-    username: root
-    password: 123456
+    username: ${QIYU_MYSQL_USERNAME:root}
+    password: ${QIYU_MYSQL_PASSWORD:123456}
   main:
     web-application-type: none
   data:
@@ -25,8 +25,8 @@ mybatis-plus:
 qiyu:
   minio:
     endpoint: http://127.0.0.1:9000
-    access-key: minioadmin
-    secret-key: minioadmin
+    access-key: ${QIYU_MINIO_ACCESS_KEY:minioadmin}
+    secret-key: ${QIYU_MINIO_SECRET_KEY:minioadmin}
     video-bucket: qiyu-live-videos
     public-endpoint: http://192.168.31.252:3000/minio
   rmq:
@@ -42,7 +42,7 @@ dubbo:
   application:
     name: ${spring.application.name}
   registry:
-    address: nacos://127.0.0.1:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=nacos&&password=nacos
+    address: nacos://127.0.0.1:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=${NACOS_USERNAME:nacos}&&password=${NACOS_PASSWORD:nacos}
   protocol:
     name: dubbo
     port: 30060

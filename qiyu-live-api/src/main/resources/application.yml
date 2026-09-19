@@ -22,7 +22,7 @@ dubbo:
     name: qiyu-live-api
     qos-enable: false
   registry:
-    address: nacos://127.0.0.1:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=nacos&&password=nacos
+    address: nacos://127.0.0.1:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=${NACOS_USERNAME:nacos}&&password=${NACOS_PASSWORD:nacos}
 
 server:
   port: 38085
@@ -37,8 +37,8 @@ server:
 qiyu:
   minio:
     endpoint: http://127.0.0.1:9000
-    access-key: minioadmin
-    secret-key: minioadmin
+    access-key: ${QIYU_MINIO_ACCESS_KEY:minioadmin}
+    secret-key: ${QIYU_MINIO_SECRET_KEY:minioadmin}
     video-bucket: qiyu-live-videos
     # dev 走 vite /minio 代理；生产为 nginx/gateway 地址
     public-endpoint: http://192.168.31.252:3000/minio

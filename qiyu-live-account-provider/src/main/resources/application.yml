@@ -17,7 +17,7 @@ dubbo:
   application:
     name: ${spring.application.name}
   registry:
-    address: nacos://127.0.0.1:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=nacos&&password=nacos
+    address: nacos://127.0.0.1:8848?namespace=ef63e53e-94c8-4b1c-865e-6824177b2893&&username=${NACOS_USERNAME:nacos}&&password=${NACOS_PASSWORD:nacos}
   protocol:
     name: dubbo
     port: 30015
